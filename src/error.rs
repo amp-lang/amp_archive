@@ -94,7 +94,7 @@ impl Error {
                 diagnostic.labels.push(span.primary());
             }
             Self::UnterminatedString(span) => {
-                diagnostic.message = "String never closes".to_owned();
+                diagnostic.message = "Unterminated string".to_owned();
                 diagnostic.labels.push(span.primary());
             }
             Self::NumberPrefix(span) => {

@@ -285,13 +285,20 @@ impl<'a> Scanner<'a> {
     /// Scans a string.
     #[inline(always)]
     fn scan_string(&mut self) -> Result<(), Error> {
+        let mut ended = false;
+
         while let Some(c) = self.next_char() {
             if c == '"' {
+                ended = true;
                 break;
             } else if c == '\\' {
                 self.next_char()
                     .ok_or(Error::UnterminatedString(self.current_span))?;
             }
+        }
+
+        if ended == false {
+            return Err(Error::UnterminatedString(self.current_span));
         }
 
         Ok(())
