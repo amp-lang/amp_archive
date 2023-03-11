@@ -34,12 +34,13 @@ impl NumberRadix {
 /// An error that occurred during scanning.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 #[non_exhaustive]
+#[repr(u32)]
 pub enum Error {
     /// An invalid character was found in the lexer.
-    InvalidToken(Span),
+    InvalidToken(Span) = 0,
 
     /// A string was started but never terminated with a closing quote.
-    UnterminatedString(Span),
+    UnterminatedString(Span) = 1,
 
     /// An invalid character was found in a number literal.
     ///
@@ -47,7 +48,7 @@ pub enum Error {
     /// 0b0123_u32
     ///        ^^^ Prefix
     /// ```
-    NumberPrefix(Span),
+    NumberPrefix(Span) = 2,
 
     /// An invalid digit was found for a number literal.
     ///
@@ -64,7 +65,7 @@ pub enum Error {
 
         /// The radix of the number.
         radix: NumberRadix,
-    },
+    } = 3,
 
     /// An exponent was found that started with an underscore.
     ///
@@ -72,19 +73,14 @@ pub enum Error {
     /// 42e_
     ///    ^
     /// ```
-    InvalidExponent(Span),
+    InvalidExponent(Span) = 4,
 }
 
 impl Error {
     /// Returns the error code for this error.
+    #[inline]
     pub fn error_code(&self) -> u32 {
-        match self {
-            Self::InvalidToken(_) => 1,
-            Self::UnterminatedString(_) => 2,
-            Self::NumberPrefix(_) => 3,
-            Self::InvalidDigits { .. } => 4,
-            Self::InvalidExponent(_) => 5,
-        }
+        unsafe { *(self as *const Self as *const u32) }
     }
 
     /// Returns a [Diagnostic] for this error.
