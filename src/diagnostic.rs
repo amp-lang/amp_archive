@@ -3,45 +3,21 @@ use codespan_reporting::term::{
     Chars, Config, DisplayStyle, Styles,
 };
 
-// pub const RED: ColorSpec = {
-//     let red = ColorSpec::new();
-//     red
-// };
-
-// // pub const CONFIG: Config = Config {
-// //     display_style: DisplayStyle::Rich,
-// //     tab_width: 4,
-// //     styles: Styles {
-
-// //     }
-// // };
-// // }
-
+/// Returns the configuration that is used for displaying diagnostics.
 pub fn config() -> Config {
-    let mut red = ColorSpec::new();
+    let mut intense = ColorSpec::new();
+    intense.set_bold(true);
+    intense.set_intense(true);
+    let mut red = intense.clone();
     red.set_fg(Some(Color::Red));
-    red.set_bold(true);
-    red.set_intense(true);
-
-    let mut yellow = ColorSpec::new();
+    let mut yellow = intense.clone();
     yellow.set_fg(Some(Color::Yellow));
-    yellow.set_bold(true);
-    yellow.set_intense(true);
-
-    let mut green = ColorSpec::new();
+    let mut green = intense.clone();
     green.set_fg(Some(Color::Green));
-    green.set_bold(true);
-    green.set_intense(true);
-
-    let mut cyan = ColorSpec::new();
+    let mut cyan = intense.clone();
     cyan.set_fg(Some(Color::Cyan));
-    cyan.set_bold(true);
-    cyan.set_intense(true);
-
-    let mut white = ColorSpec::new();
+    let mut white = intense.clone();
     white.set_fg(Some(Color::White));
-    white.set_bold(true);
-    white.set_intense(true);
 
     Config {
         display_style: DisplayStyle::Rich,
