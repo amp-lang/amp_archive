@@ -1,0 +1,6 @@
+func printf(str: ~const i32);
+
+func main() -> i32 {
+    printf("Hello, world!");
+    return 0;
+}
