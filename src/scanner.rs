@@ -315,6 +315,12 @@ impl<'a> Scanner<'a> {
                     self.current_span.end,
                 )));
             }
+        } else {
+            return Err(Error::InvalidExponent(Span::new(
+                self.current_span.file_id,
+                self.current_span.end,
+                self.current_span.end + 1,
+            )));
         }
 
         self.scan_digits_radix(10, false)?;

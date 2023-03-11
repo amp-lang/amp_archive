@@ -8,6 +8,7 @@ pub fn config() -> Config {
     let mut intense = ColorSpec::new();
     intense.set_bold(true);
     intense.set_intense(true);
+
     let mut red = intense.clone();
     red.set_fg(Some(Color::Red));
     let mut yellow = intense.clone();
