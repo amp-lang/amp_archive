@@ -13,7 +13,7 @@ impl FileId {
 }
 
 /// The source location of an expression.
-#[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Span {
     /// The ID of the file that the [Span] originated in.
     pub file_id: FileId,
@@ -43,6 +43,7 @@ impl Span {
         )
     }
 
+    /// Creates a secondary label from this span.
     pub fn secondary(&self) -> Label<usize> {
         Label::secondary(
             self.file_id.0 as usize,

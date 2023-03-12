@@ -37,10 +37,10 @@ impl NumberRadix {
 #[repr(u32)]
 pub enum Error {
     /// An invalid character was found in the lexer.
-    InvalidToken(Span) = 0,
+    InvalidToken(Span) = 1,
 
     /// A string was started but never terminated with a closing quote.
-    UnterminatedString(Span) = 1,
+    UnterminatedString(Span) = 2,
 
     /// An invalid character was found in a number literal.
     ///
@@ -48,7 +48,7 @@ pub enum Error {
     /// 0b0123_u32
     ///        ^^^ Prefix
     /// ```
-    NumberPrefix(Span) = 2,
+    NumberPrefix(Span) = 3,
 
     /// An invalid digit was found for a number literal.
     ///
@@ -65,7 +65,7 @@ pub enum Error {
 
         /// The radix of the number.
         radix: NumberRadix,
-    } = 3,
+    } = 4,
 
     /// An exponent was found that started with an underscore.
     ///
@@ -73,7 +73,69 @@ pub enum Error {
     /// 42e_
     ///    ^
     /// ```
-    InvalidExponent(Span) = 4,
+    InvalidExponent(Span) = 5,
+
+    /// The name of a function was missing.
+    MissingFunctionName {
+        /// The location of the function keyword
+        func_keyword: Span,
+
+        /// The span of the offending token.
+        offending: Span,
+    } = 6,
+
+    /// An argument wasn't closed before the end of the file.
+    UnclosedArgumentList {
+        /// The location of the opening parenthesis.
+        opening_paren: Span,
+
+        /// The span of the offending token.
+        offending: Span,
+    } = 7,
+
+    /// Expected the argument list to close.
+    ExpectedArgumentListClose {
+        /// The location of the opening parenthesis.
+        opening_paren: Span,
+
+        /// The span of the offending token.
+        offending: Span,
+    } = 12,
+
+    /// A function was missing an argument list.
+    MissingArgumentList {
+        /// The location of the function keyword.
+        func_keyword: Span,
+
+        /// The span of the offending token.
+        offending: Span,
+    } = 8,
+
+    /// A pointer type (`~const T` or `~mut T`) was missing the `const` or `mut` declaration.
+    MissingPointerMutability {
+        /// The location of the `~` in the pointer expression.
+        tilde: Span,
+
+        /// The span of the offending token.
+        offending: Span,
+    } = 9,
+
+    /// The type of a pointer was missing.
+    MissingPointerType {
+        /// The location of the `~` in the pointer expression.
+        tilde: Span,
+
+        /// The span of the offending token.
+        offending: Span,
+    } = 10,
+
+    MissingArgumentTypeAnnotation {
+        /// The location of the argument name.
+        name: Span,
+
+        /// The span of the offending token.
+        offending: Span,
+    } = 11,
 }
 
 impl Error {
@@ -118,6 +180,110 @@ impl Error {
             Self::InvalidExponent(span) => {
                 diagnostic.message = "An exponent must start with a digit".to_owned();
                 diagnostic.labels.push(span.primary());
+            }
+            Self::MissingFunctionName {
+                func_keyword,
+                offending,
+            } => {
+                diagnostic.message = "Function name missing".to_owned();
+                diagnostic.labels.push(
+                    func_keyword
+                        .secondary()
+                        .with_message("Function keyword here"),
+                );
+
+                diagnostic.labels.push(
+                    offending
+                        .primary()
+                        .with_message("Expected a function name here"),
+                );
+            }
+            Self::UnclosedArgumentList {
+                opening_paren,
+                offending,
+            } => {
+                diagnostic.message = "Unclosed argument list".to_owned();
+                diagnostic.labels.push(
+                    opening_paren
+                        .secondary()
+                        .with_message("Opening parenthesis here"),
+                );
+
+                diagnostic.labels.push(
+                    offending
+                        .primary()
+                        .with_message("Expected a closing parenthesis here"),
+                );
+            }
+            Self::ExpectedArgumentListClose {
+                opening_paren,
+                offending,
+            } => {
+                diagnostic.message = "Expected argument list to close".to_owned();
+                diagnostic.labels.push(
+                    opening_paren
+                        .secondary()
+                        .with_message("Opening parenthesis here"),
+                );
+
+                diagnostic.labels.push(
+                    offending
+                        .primary()
+                        .with_message("Expected a closing parenthesis here"),
+                );
+            }
+            Self::MissingArgumentList {
+                func_keyword,
+                offending,
+            } => {
+                diagnostic.message = "Missing argument list".to_owned();
+                diagnostic.labels.push(
+                    func_keyword
+                        .secondary()
+                        .with_message("Function declaration started here"),
+                );
+
+                diagnostic.labels.push(
+                    offending
+                        .primary()
+                        .with_message("Expected an argument list here"),
+                );
+            }
+            Self::MissingPointerMutability { tilde, offending } => {
+                diagnostic.message = "Missing pointer mutability".to_owned();
+                diagnostic
+                    .labels
+                    .push(tilde.secondary().with_message("Pointer type started here"));
+
+                diagnostic.labels.push(
+                    offending
+                        .primary()
+                        .with_message("Expected either `mut` or `const` here"),
+                );
+            }
+            Self::MissingPointerType { tilde, offending } => {
+                diagnostic.message = "Missing pointer type".to_owned();
+                diagnostic
+                    .labels
+                    .push(tilde.secondary().with_message("Pointer type started here"));
+
+                diagnostic.labels.push(
+                    offending
+                        .primary()
+                        .with_message("Expected a type for the pointer here"),
+                );
+            }
+            Self::MissingArgumentTypeAnnotation { name, offending } => {
+                diagnostic.message = "Missing type annotation for function argument".to_owned();
+                diagnostic
+                    .labels
+                    .push(name.secondary().with_message("Argument started here"));
+
+                diagnostic.labels.push(
+                    offending
+                        .primary()
+                        .with_message("Expected a type annotation here (ex: `arg: i32`)"),
+                );
             }
         }
 

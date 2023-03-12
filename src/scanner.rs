@@ -85,6 +85,9 @@ pub enum Token {
     /// `:`
     Colon,
 
+    /// `,`
+    Comma,
+
     /// `;`
     Semi,
 
@@ -118,6 +121,20 @@ pub enum Token {
     /// func Main() {}
     /// ```
     KFunc,
+
+    /// A `const` keywor.d
+    ///
+    /// ```amp
+    /// ~const u8
+    /// ```
+    KConst,
+
+    /// A `mut` keyword
+    ///
+    /// ```amp
+    /// ~mut u8
+    /// ```
+    KMut,
 
     /// The `return` keyword.
     ///
@@ -178,7 +195,7 @@ pub enum Token {
 }
 
 /// The state of the lexical scanner.
-#[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct Scanner<'a> {
     src: &'a [u8],
 
@@ -193,6 +210,12 @@ impl<'a> Scanner<'a> {
             src: src.as_bytes(),
             current_span: Span::new(file_id, 0u32, 0u32),
         }
+    }
+
+    /// Returns the ID of the file being scanned.
+    #[inline]
+    pub fn file_id(&self) -> FileId {
+        self.current_span.file_id
     }
 
     /// Returns the current span of the [Scanner].
@@ -434,6 +457,14 @@ impl<'a> Scanner<'a> {
 
         Ok(ty)
     }
+
+    /// Peeks the next token in the scanner.
+    pub fn peek(&mut self) -> Option<Result<Token, Error>> {
+        let span = self.current_span;
+        let token = self.next();
+        self.current_span = span;
+        token
+    }
 }
 
 impl<'a> Iterator for Scanner<'a> {
@@ -447,6 +478,8 @@ impl<'a> Iterator for Scanner<'a> {
         if Self::is_iden_start(first_char) {
             self.scan_identifier();
             return Some(Ok(match self.slice() {
+                "const" => Token::KConst,
+                "mut" => Token::KMut,
                 "func" => Token::KFunc,
                 "return" => Token::KReturn,
                 _ => Token::Identifier,
@@ -465,6 +498,7 @@ impl<'a> Iterator for Scanner<'a> {
 
         Some(Ok(match first_char {
             ':' => Token::Colon,
+            ',' => Token::Comma,
             ';' => Token::Semi,
             '~' => Token::Tilde,
             '-' => {
