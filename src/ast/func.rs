@@ -81,6 +81,7 @@ pub struct Func {
     pub span: Span,
     pub name: Iden,
     pub args: ArgList<FuncArg>,
+    pub returns: Option<Type>,
 }
 
 impl Parse for Func {
@@ -126,6 +127,37 @@ impl Parse for Func {
             }));
         };
 
+        let returns = if let Some(value) = parser.scanner_mut().peek() {
+            match value {
+                Ok(token) => {
+                    if token == Token::Arrow {
+                        parser.scanner_mut().next();
+                        let arrow = parser.scanner().span();
+
+                        let ty = if let Some(ty) = parser.parse::<Type>() {
+                            match ty {
+                                Ok(ty) => ty,
+                                Err(err) => return Some(Err(err)),
+                            }
+                        } else {
+                            parser.scanner_mut().next();
+                            return Some(Err(Error::MissingReturnTypeAnnotation {
+                                arrow,
+                                offending: parser.scanner().span(),
+                            }));
+                        };
+
+                        Some(ty)
+                    } else {
+                        None
+                    }
+                }
+                Err(err) => return Some(Err(err)),
+            }
+        } else {
+            None
+        };
+
         Some(Ok(Self {
             span: Span::new(
                 parser.scanner().file_id(),
@@ -134,6 +166,7 @@ impl Parse for Func {
             ),
             name,
             args,
+            returns,
         }))
     }
 }
