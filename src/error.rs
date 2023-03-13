@@ -153,6 +153,9 @@ pub enum Error {
         /// The span of the offending token.
         offending: Span,
     } = 14,
+
+    /// A semicolon was expected after an expression.
+    ExpectedSemicolon(Span) = 15,
 }
 
 impl Error {
@@ -330,6 +333,10 @@ impl Error {
                         .primary()
                         .with_message("Expected a function definition or `;` here"),
                 );
+            }
+            Self::ExpectedSemicolon(span) => {
+                diagnostic.message = "Expected a semicolon".to_owned();
+                diagnostic.labels.push(span.primary().with_message("here"));
             }
         }
 

@@ -194,6 +194,29 @@ pub enum Token {
     Float,
 }
 
+// TODO: implement other operators.
+impl Token {
+    /// Returns `true` if this token is an operator.
+    ///
+    /// # Notes
+    /// Also returns `true` for the function call operation (`()`).
+    pub fn is_operator(&self) -> bool {
+        match self {
+            // The left parenthesis is a special operator.
+            Token::LParen => true,
+            _ => false,
+        }
+    }
+
+    /// Returns the binding power of the token.
+    pub fn binding_power(&self) -> (u8, u8) {
+        match self {
+            Token::LParen => (8, 7),
+            _ => unreachable!("Invalid operator."),
+        }
+    }
+}
+
 /// The state of the lexical scanner.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct Scanner<'a> {
@@ -361,7 +384,7 @@ impl<'a> Scanner<'a> {
     /// Scans the digits for a number.
     fn scan_digits_radix(&mut self, radix: u32, exponent_possible: bool) -> Result<Token, Error> {
         while let Some(char) = self.peek_char() {
-            if (char == 'e' || char == 'E') && radix == 10 && exponent_possible {
+            if (char == 'e' || char == 'E') && exponent_possible {
                 self.next_char();
                 self.scan_exponent()?;
                 return Ok(Token::Float);
@@ -425,16 +448,13 @@ impl<'a> Scanner<'a> {
             if let Some(c) = self.peek_char() {
                 if c == 'x' || c == 'X' {
                     self.next_char();
-                    self.scan_digits_radix(16, false)?;
-                    return Ok(Token::Hex);
+                    return self.scan_digits_radix(16, false);
                 } else if c == 'b' || c == 'B' {
                     self.next_char();
-                    self.scan_digits_radix(2, false)?;
-                    return Ok(Token::Binary);
+                    return self.scan_digits_radix(2, false);
                 } else if c == 'o' || c == 'O' {
                     self.next_char();
-                    self.scan_digits_radix(8, false)?;
-                    return Ok(Token::Octal);
+                    return self.scan_digits_radix(8, false);
                 }
             }
         }
@@ -473,10 +493,12 @@ impl<'a> Iterator for Scanner<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.skip();
         self.next_span();
+
         let first_char = self.peek_char()?;
 
         if Self::is_iden_start(first_char) {
             self.scan_identifier();
+
             return Some(Ok(match self.slice() {
                 "const" => Token::KConst,
                 "mut" => Token::KMut,

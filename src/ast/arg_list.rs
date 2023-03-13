@@ -36,28 +36,23 @@ impl<T: Parse> Parse for ArgList<T> {
             Err(err) => return Some(Err(err)),
         };
 
-        match parser.scanner_mut().peek() {
-            Some(res) => match res {
+        if let Some(res) = parser.scanner_mut().next() {
+            match res {
                 Ok(token) => {
                     if token != Token::RParen {
-                        parser.scanner_mut().next();
                         return Some(Err(Error::ExpectedArgumentListClose {
                             opening_paren,
                             offending: parser.scanner().span(),
                         }));
                     }
-
-                    parser.scanner_mut().next();
                 }
                 Err(err) => return Some(Err(err)),
-            },
-            None => {
-                parser.scanner_mut().next();
-                return Some(Err(Error::UnclosedArgumentList {
-                    opening_paren,
-                    offending: parser.scanner().span(),
-                }));
             }
+        } else {
+            return Some(Err(Error::UnclosedArgumentList {
+                opening_paren,
+                offending: parser.scanner().span(),
+            }));
         }
 
         Some(Ok(Self {
