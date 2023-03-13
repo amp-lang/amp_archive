@@ -71,7 +71,7 @@ impl Parse for PointerType {
             }
         } else {
             parser.scanner_mut().next();
-            return Some(Err(Error::MissingPointerMutability {
+            return Some(Err(Error::ExpectedPointerMutability {
                 tilde,
                 offending: parser.scanner().span(),
             }));
@@ -84,7 +84,7 @@ impl Parse for PointerType {
             }
         } else {
             parser.scanner_mut().next();
-            return Some(Err(Error::MissingPointerType {
+            return Some(Err(Error::ExpectedPointerType {
                 tilde,
                 offending: parser.scanner().span(),
             }));

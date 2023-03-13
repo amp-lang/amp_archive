@@ -112,7 +112,7 @@ pub enum Error {
     } = 9,
 
     /// A pointer type (`~const T` or `~mut T`) was missing the `const` or `mut` declaration.
-    MissingPointerMutability {
+    ExpectedPointerMutability {
         /// The location of the `~` in the pointer expression.
         tilde: Span,
 
@@ -121,7 +121,7 @@ pub enum Error {
     } = 10,
 
     /// The type of a pointer was missing.
-    MissingPointerType {
+    ExpectedPointerType {
         /// The location of the `~` in the pointer expression.
         tilde: Span,
 
@@ -257,8 +257,8 @@ impl Error {
                         .with_message("Expected an argument list here"),
                 );
             }
-            Self::MissingPointerMutability { tilde, offending } => {
-                diagnostic.message = "Missing pointer mutability".to_owned();
+            Self::ExpectedPointerMutability { tilde, offending } => {
+                diagnostic.message = "Expected pointer mutability".to_owned();
                 diagnostic
                     .labels
                     .push(tilde.secondary().with_message("Pointer type started here"));
@@ -269,17 +269,15 @@ impl Error {
                         .with_message("Expected either `mut` or `const` here"),
                 );
             }
-            Self::MissingPointerType { tilde, offending } => {
-                diagnostic.message = "Missing pointer type".to_owned();
+            Self::ExpectedPointerType { tilde, offending } => {
+                diagnostic.message = "Expected pointer type".to_owned();
                 diagnostic
                     .labels
                     .push(tilde.secondary().with_message("Pointer type started here"));
 
-                diagnostic.labels.push(
-                    offending
-                        .primary()
-                        .with_message("Expected a type for the pointer here"),
-                );
+                diagnostic
+                    .labels
+                    .push(offending.primary().with_message("Expected a type here"));
             }
             Self::MissingArgumentTypeAnnotation { name, offending } => {
                 diagnostic.message = "Missing type annotation for function argument".to_owned();

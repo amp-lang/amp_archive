@@ -1,1 +1,1 @@
-func test() -> i32
+func printf(str: ~const u8) -> i32;
