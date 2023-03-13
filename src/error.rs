@@ -137,7 +137,7 @@ pub enum Error {
         offending: Span,
     } = 12,
 
-    MissingReturnTypeAnnotation {
+    ExpectedReturnType {
         /// The location of the `->` arrow operator.
         arrow: Span,
 
@@ -300,16 +300,18 @@ impl Error {
                         .with_message("Expected a type annotation here (ex: `arg: i32`)"),
                 );
             }
-            Self::MissingReturnTypeAnnotation { arrow, offending } => {
-                diagnostic.message = "Missing type annotation for function return".to_owned();
-                diagnostic
-                    .labels
-                    .push(arrow.secondary().with_message("Return type started here"));
+            Self::ExpectedReturnType { arrow, offending } => {
+                diagnostic.message = "Expected return type".to_owned();
+                diagnostic.labels.push(
+                    arrow
+                        .secondary()
+                        .with_message("`->` declares the type that the function returns"),
+                );
 
                 diagnostic.labels.push(
                     offending
                         .primary()
-                        .with_message("Expected a type annotation here (ex: `-> i32`)"),
+                        .with_message("Expected a type here (ex: `-> i32`)"),
                 );
             }
             Self::ExpectedFunctionDefinition {

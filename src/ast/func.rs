@@ -106,7 +106,7 @@ impl Func {
                             }
                         } else {
                             parser.scanner_mut().next();
-                            return Some(Err(Error::MissingReturnTypeAnnotation {
+                            return Some(Err(Error::ExpectedReturnType {
                                 arrow,
                                 offending: parser.scanner().span(),
                             }));
