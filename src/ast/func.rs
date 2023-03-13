@@ -143,18 +143,17 @@ impl Parse for Func {
         let func_keyword = parser.scanner().span();
 
         // Parse the name of the function
-        let name = match parser.parse::<Iden>() {
-            Some(res) => match res {
+        let name = if let Some(res) = parser.parse::<Iden>() {
+            match res {
                 Ok(name) => name,
                 Err(err) => return Some(Err(err)),
-            },
-            None => {
-                parser.scanner_mut().next();
-                return Some(Err(Error::ExpectedFunctionName {
-                    func_keyword,
-                    offending: parser.scanner().span(),
-                }));
             }
+        } else {
+            parser.scanner_mut().next();
+            return Some(Err(Error::ExpectedFunctionName {
+                func_keyword,
+                offending: parser.scanner().span(),
+            }));
         };
 
         let args = if let Some(arg_list) = parser.parse::<ArgList<FuncArg>>() {
@@ -178,6 +177,23 @@ impl Parse for Func {
             },
             None => None,
         };
+
+        // Check for semicolon
+        // TODO: parse code block
+        if let Some(res) = parser.scanner_mut().next() {
+            match res {
+                Ok(value) => {
+                    if value != Token::Semi {
+                        return Some(Err(Error::ExpectedFunctionDefinition {
+                            func_keyword,
+                            offending: parser.scanner().span(),
+                        }));
+                    }
+                }
+                Err(err) => return Some(Err(err)),
+            }
+        } else {
+        }
 
         Some(Ok(Self {
             span: Span::new(

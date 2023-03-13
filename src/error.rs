@@ -144,6 +144,15 @@ pub enum Error {
         /// The span of the offending token.
         offending: Span,
     } = 13,
+
+    /// Expected a function definition (a code block) or a semicolon.
+    ExpectedFunctionDefinition {
+        /// The location of the function keyword.
+        func_keyword: Span,
+
+        /// The span of the offending token.
+        offending: Span,
+    } = 14,
 }
 
 impl Error {
@@ -301,6 +310,23 @@ impl Error {
                     offending
                         .primary()
                         .with_message("Expected a type annotation here (ex: `-> i32`)"),
+                );
+            }
+            Self::ExpectedFunctionDefinition {
+                func_keyword,
+                offending,
+            } => {
+                diagnostic.message = "Expected a function definition or `;`".to_owned();
+                diagnostic.labels.push(
+                    func_keyword
+                        .secondary()
+                        .with_message("Function declaration started here"),
+                );
+
+                diagnostic.labels.push(
+                    offending
+                        .primary()
+                        .with_message("Expected a function definition or `;` here"),
                 );
             }
         }
