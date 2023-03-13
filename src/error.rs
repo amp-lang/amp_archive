@@ -75,23 +75,14 @@ pub enum Error {
     /// ```
     InvalidExponent(Span) = 5,
 
-    /// The name of a function was missing.
-    MissingFunctionName {
+    /// Expected the name of a function.
+    ExpectedFunctionName {
         /// The location of the function keyword
         func_keyword: Span,
 
-        /// The span of the end of the file.
+        /// The offending location.
         offending: Span,
     } = 6,
-
-    /// The name of a function was invalid.
-    InvalidFunctionName {
-        /// The location of the function keyword
-        func_keyword: Span,
-
-        /// The span of the offending token.
-        offending: Span,
-    } = 14,
 
     /// An argument wasn't closed before the end of the file.
     UnclosedArgumentList {
@@ -109,25 +100,16 @@ pub enum Error {
 
         /// The span of the offending token.
         offending: Span,
-    } = 12,
+    } = 8,
 
-    /// A function was missing an argument list.
-    MissingArgumentList {
+    /// The parser expected an argument list.
+    ExpectedArgumentList {
         /// The location of the function keyword.
         func_keyword: Span,
 
         /// The span of the end of the file.
         offending: Span,
-    } = 8,
-
-    /// The argument list for a function was invalid.
-    InvalidArgumentList {
-        /// The span of the function keyword.
-        func_keyword: Span,
-
-        /// The span of the offending token.
-        offending: Span,
-    } = 15,
+    } = 9,
 
     /// A pointer type (`~const T` or `~mut T`) was missing the `const` or `mut` declaration.
     MissingPointerMutability {
@@ -136,7 +118,7 @@ pub enum Error {
 
         /// The span of the offending token.
         offending: Span,
-    } = 9,
+    } = 10,
 
     /// The type of a pointer was missing.
     MissingPointerType {
@@ -145,7 +127,7 @@ pub enum Error {
 
         /// The span of the offending token.
         offending: Span,
-    } = 10,
+    } = 11,
 
     MissingArgumentTypeAnnotation {
         /// The location of the argument name.
@@ -153,7 +135,7 @@ pub enum Error {
 
         /// The span of the offending token.
         offending: Span,
-    } = 11,
+    } = 12,
 
     MissingReturnTypeAnnotation {
         /// The location of the `->` arrow operator.
@@ -207,11 +189,11 @@ impl Error {
                 diagnostic.message = "An exponent must start with a digit".to_owned();
                 diagnostic.labels.push(span.primary());
             }
-            Self::MissingFunctionName {
+            Self::ExpectedFunctionName {
                 func_keyword,
                 offending,
             } => {
-                diagnostic.message = "Function name missing".to_owned();
+                diagnostic.message = "Expected a function name".to_owned();
                 diagnostic.labels.push(
                     func_keyword
                         .secondary()
@@ -223,21 +205,6 @@ impl Error {
                         .primary()
                         .with_message("Expected a function name here"),
                 );
-            }
-            Self::InvalidFunctionName {
-                func_keyword,
-                offending,
-            } => {
-                diagnostic.message = "Invalid function name".to_owned();
-                diagnostic.labels.push(
-                    func_keyword
-                        .secondary()
-                        .with_message("Function keyword here"),
-                );
-
-                diagnostic
-                    .labels
-                    .push(offending.primary().with_message("Expected an identifier"));
             }
             Self::UnclosedArgumentList {
                 opening_paren,
@@ -273,24 +240,7 @@ impl Error {
                         .with_message("Expected a closing parenthesis here"),
                 );
             }
-            Self::MissingArgumentList {
-                func_keyword,
-                offending,
-            } => {
-                diagnostic.message = "Missing argument list".to_owned();
-                diagnostic.labels.push(
-                    func_keyword
-                        .secondary()
-                        .with_message("Function declaration started here"),
-                );
-
-                diagnostic.labels.push(
-                    offending
-                        .primary()
-                        .with_message("Expected an argument list here"),
-                );
-            }
-            Self::InvalidArgumentList {
+            Self::ExpectedArgumentList {
                 func_keyword,
                 offending,
             } => {

@@ -127,10 +127,10 @@ impl Func {
 
 impl Parse for Func {
     fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
-        let next = parser.scanner_mut().peek()?;
         let start_pos = parser.scanner().span().start;
 
-        match next {
+        // Check for the function keyword.
+        match parser.scanner_mut().peek()? {
             Ok(token) => {
                 if token != Token::KFunc {
                     return None;
@@ -142,14 +142,7 @@ impl Parse for Func {
         }
         let func_keyword = parser.scanner().span();
 
-        if let None = parser.scanner_mut().peek() {
-            parser.scanner_mut().next();
-            return Some(Err(Error::MissingFunctionName {
-                func_keyword,
-                offending: parser.scanner().span(),
-            }));
-        }
-
+        // Parse the name of the function
         let name = match parser.parse::<Iden>() {
             Some(res) => match res {
                 Ok(name) => name,
@@ -157,20 +150,12 @@ impl Parse for Func {
             },
             None => {
                 parser.scanner_mut().next();
-                return Some(Err(Error::InvalidFunctionName {
+                return Some(Err(Error::ExpectedFunctionName {
                     func_keyword,
                     offending: parser.scanner().span(),
                 }));
             }
         };
-
-        if let None = parser.scanner_mut().peek() {
-            parser.scanner_mut().next();
-            return Some(Err(Error::MissingArgumentList {
-                func_keyword,
-                offending: parser.scanner().span(),
-            }));
-        }
 
         let args = if let Some(arg_list) = parser.parse::<ArgList<FuncArg>>() {
             match arg_list {
@@ -179,7 +164,7 @@ impl Parse for Func {
             }
         } else {
             parser.scanner_mut().next();
-            return Some(Err(Error::InvalidArgumentList {
+            return Some(Err(Error::ExpectedArgumentList {
                 func_keyword,
                 offending: parser.scanner().span(),
             }));
