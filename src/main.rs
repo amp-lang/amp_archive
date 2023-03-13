@@ -1,6 +1,6 @@
 use std::process::ExitCode;
 
-use ast::Func;
+use ast::Decl;
 use codespan_reporting::{
     files::SimpleFiles,
     term::{self, termcolor::StandardStream},
@@ -28,8 +28,8 @@ fn main() -> ExitCode {
     let scanner = Scanner::new(file_id, files.get(file_id.0 as usize).unwrap().source());
     let mut parser = Parser::new(scanner);
 
-    match parser.parse::<Func>() {
-        Some(res) => match res {
+    while let Some(res) = parser.parse::<Decl>() {
+        match res {
             Ok(value) => println!("{:#?}", value),
             Err(value) => {
                 exit_code = ExitCode::FAILURE;
@@ -38,8 +38,7 @@ fn main() -> ExitCode {
                 let mut stdout = StandardStream::stderr(term::termcolor::ColorChoice::Auto);
                 term::emit(&mut stdout, &config, &files, &value.as_diagnostic()).unwrap()
             }
-        },
-        None => {}
+        }
     }
 
     // while let Some(next_char) = scanner.next() {
