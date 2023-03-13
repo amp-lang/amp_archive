@@ -84,6 +84,47 @@ pub struct Func {
     pub returns: Option<Type>,
 }
 
+impl Func {
+    /// Parses the return type in a function declaration.
+    ///
+    /// ```amp
+    /// func Test() -> int;
+    /// //             ^^^
+    /// ```
+    fn parse_return_type(parser: &mut Parser) -> Option<Result<Type, Error>> {
+        if let Some(value) = parser.scanner_mut().peek() {
+            match value {
+                Ok(token) => {
+                    if token == Token::Arrow {
+                        parser.scanner_mut().next();
+                        let arrow = parser.scanner().span();
+
+                        let ty = if let Some(ty) = parser.parse::<Type>() {
+                            match ty {
+                                Ok(ty) => ty,
+                                Err(err) => return Some(Err(err)),
+                            }
+                        } else {
+                            parser.scanner_mut().next();
+                            return Some(Err(Error::MissingReturnTypeAnnotation {
+                                arrow,
+                                offending: parser.scanner().span(),
+                            }));
+                        };
+
+                        Some(Ok(ty))
+                    } else {
+                        None
+                    }
+                }
+                Err(err) => return Some(Err(err)),
+            }
+        } else {
+            None
+        }
+    }
+}
+
 impl Parse for Func {
     fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
         let next = parser.scanner_mut().peek()?;
@@ -109,10 +150,27 @@ impl Parse for Func {
             }));
         }
 
-        let name = match parser.parse::<Iden>()? {
-            Ok(name) => name,
-            Err(err) => return Some(Err(err)),
+        let name = match parser.parse::<Iden>() {
+            Some(res) => match res {
+                Ok(name) => name,
+                Err(err) => return Some(Err(err)),
+            },
+            None => {
+                parser.scanner_mut().next();
+                return Some(Err(Error::InvalidFunctionName {
+                    func_keyword,
+                    offending: parser.scanner().span(),
+                }));
+            }
         };
+
+        if let None = parser.scanner_mut().peek() {
+            parser.scanner_mut().next();
+            return Some(Err(Error::MissingArgumentList {
+                func_keyword,
+                offending: parser.scanner().span(),
+            }));
+        }
 
         let args = if let Some(arg_list) = parser.parse::<ArgList<FuncArg>>() {
             match arg_list {
@@ -121,41 +179,19 @@ impl Parse for Func {
             }
         } else {
             parser.scanner_mut().next();
-            return Some(Err(Error::MissingArgumentList {
+            return Some(Err(Error::InvalidArgumentList {
                 func_keyword,
                 offending: parser.scanner().span(),
             }));
         };
 
-        let returns = if let Some(value) = parser.scanner_mut().peek() {
-            match value {
-                Ok(token) => {
-                    if token == Token::Arrow {
-                        parser.scanner_mut().next();
-                        let arrow = parser.scanner().span();
-
-                        let ty = if let Some(ty) = parser.parse::<Type>() {
-                            match ty {
-                                Ok(ty) => ty,
-                                Err(err) => return Some(Err(err)),
-                            }
-                        } else {
-                            parser.scanner_mut().next();
-                            return Some(Err(Error::MissingReturnTypeAnnotation {
-                                arrow,
-                                offending: parser.scanner().span(),
-                            }));
-                        };
-
-                        Some(ty)
-                    } else {
-                        None
-                    }
-                }
+        // Parse the optional return type.
+        let returns = match Func::parse_return_type(parser) {
+            Some(res) => match res {
+                Ok(returns) => Some(returns),
                 Err(err) => return Some(Err(err)),
-            }
-        } else {
-            None
+            },
+            None => None,
         };
 
         Some(Ok(Self {

@@ -1,3 +1,5 @@
+use std::fmt;
+
 use codespan_reporting::diagnostic::Label;
 
 /// A value that opaquely represents a file.
@@ -13,7 +15,7 @@ impl FileId {
 }
 
 /// The source location of an expression.
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Span {
     /// The ID of the file that the [Span] originated in.
     pub file_id: FileId,
@@ -49,5 +51,11 @@ impl Span {
             self.file_id.0 as usize,
             self.start as usize..self.end as usize,
         )
+    }
+}
+
+impl fmt::Debug for Span {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Span({:?}:{}..{})", self.file_id.0, self.start, self.end)
     }
 }

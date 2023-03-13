@@ -1,1 +1,1 @@
-func printf(str: ~const u8) -> i32
+func name(42)

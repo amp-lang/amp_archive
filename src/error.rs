@@ -80,9 +80,18 @@ pub enum Error {
         /// The location of the function keyword
         func_keyword: Span,
 
-        /// The span of the offending token.
+        /// The span of the end of the file.
         offending: Span,
     } = 6,
+
+    /// The name of a function was invalid.
+    InvalidFunctionName {
+        /// The location of the function keyword
+        func_keyword: Span,
+
+        /// The span of the offending token.
+        offending: Span,
+    } = 14,
 
     /// An argument wasn't closed before the end of the file.
     UnclosedArgumentList {
@@ -107,9 +116,18 @@ pub enum Error {
         /// The location of the function keyword.
         func_keyword: Span,
 
-        /// The span of the offending token.
+        /// The span of the end of the file.
         offending: Span,
     } = 8,
+
+    /// The argument list for a function was invalid.
+    InvalidArgumentList {
+        /// The span of the function keyword.
+        func_keyword: Span,
+
+        /// The span of the offending token.
+        offending: Span,
+    } = 15,
 
     /// A pointer type (`~const T` or `~mut T`) was missing the `const` or `mut` declaration.
     MissingPointerMutability {
@@ -206,6 +224,21 @@ impl Error {
                         .with_message("Expected a function name here"),
                 );
             }
+            Self::InvalidFunctionName {
+                func_keyword,
+                offending,
+            } => {
+                diagnostic.message = "Invalid function name".to_owned();
+                diagnostic.labels.push(
+                    func_keyword
+                        .secondary()
+                        .with_message("Function keyword here"),
+                );
+
+                diagnostic
+                    .labels
+                    .push(offending.primary().with_message("Expected an identifier"));
+            }
             Self::UnclosedArgumentList {
                 opening_paren,
                 offending,
@@ -245,6 +278,23 @@ impl Error {
                 offending,
             } => {
                 diagnostic.message = "Missing argument list".to_owned();
+                diagnostic.labels.push(
+                    func_keyword
+                        .secondary()
+                        .with_message("Function declaration started here"),
+                );
+
+                diagnostic.labels.push(
+                    offending
+                        .primary()
+                        .with_message("Expected an argument list here"),
+                );
+            }
+            Self::InvalidArgumentList {
+                func_keyword,
+                offending,
+            } => {
+                diagnostic.message = "Expected an argument list".to_owned();
                 diagnostic.labels.push(
                     func_keyword
                         .secondary()
