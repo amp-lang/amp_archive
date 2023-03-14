@@ -120,6 +120,16 @@ pub enum Type {
     Pointer(PointerType),
 }
 
+impl Type {
+    /// Returns the span of a type.
+    pub fn span(&self) -> Span {
+        match self {
+            Self::Named(ty) => ty.span,
+            Self::Pointer(ty) => ty.span,
+        }
+    }
+}
+
 impl Parse for Type {
     fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
         if let Some(ty) = parser.parse::<PointerType>() {

@@ -1,6 +1,6 @@
 use std::process::ExitCode;
 
-use ast::Decl;
+use ast::Source;
 use codespan_reporting::{
     files::SimpleFiles,
     term::{self, termcolor::StandardStream},
@@ -8,6 +8,7 @@ use codespan_reporting::{
 use parser::Parser;
 use scanner::Scanner;
 use span::FileId;
+use typechecker::Typechecker;
 
 pub mod ast;
 pub mod diagnostic;
@@ -15,9 +16,9 @@ pub mod error;
 pub mod parser;
 pub mod scanner;
 pub mod span;
+pub mod typechecker;
 
 fn main() -> ExitCode {
-    let mut exit_code = ExitCode::SUCCESS;
     let mut files = SimpleFiles::new();
 
     // Load the source file
@@ -28,18 +29,32 @@ fn main() -> ExitCode {
     let scanner = Scanner::new(file_id, files.get(file_id.0 as usize).unwrap().source());
     let mut parser = Parser::new(scanner);
 
-    while let Some(res) = parser.parse::<Decl>() {
+    let res = if let Some(res) = parser.parse::<Source>() {
         match res {
-            Ok(value) => println!("{:#?}", value),
+            Ok(value) => value,
             Err(value) => {
-                exit_code = ExitCode::FAILURE;
-
                 let config = diagnostic::config();
                 let mut stdout = StandardStream::stderr(term::termcolor::ColorChoice::Auto);
-                term::emit(&mut stdout, &config, &files, &value.as_diagnostic()).unwrap()
+                term::emit(&mut stdout, &config, &files, &value.as_diagnostic()).unwrap();
+                return ExitCode::FAILURE;
             }
         }
+    } else {
+        // TODO: handle empty source
+        return ExitCode::SUCCESS;
+    };
+
+    let mut checker = Typechecker::new();
+    match checker.check(&res) {
+        Ok(_) => {}
+        Err(value) => {
+            let config = diagnostic::config();
+            let mut stdout = StandardStream::stderr(term::termcolor::ColorChoice::Auto);
+            term::emit(&mut stdout, &config, &files, &value.as_diagnostic()).unwrap();
+            return ExitCode::FAILURE;
+        }
     }
+    dbg!(checker);
 
     // while let Some(next_char) = scanner.next() {
     //     match next_char {
@@ -54,5 +69,5 @@ fn main() -> ExitCode {
     //     }
     // }
 
-    exit_code
+    ExitCode::SUCCESS
 }

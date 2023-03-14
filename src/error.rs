@@ -1,6 +1,9 @@
 use codespan_reporting::diagnostic::{Diagnostic, Severity};
 
-use crate::span::Span;
+use crate::{
+    ast,
+    span::{Span, Spanned},
+};
 
 /// The radix of a number, for diagnostics.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -32,7 +35,7 @@ impl NumberRadix {
 }
 
 /// An error that occurred during scanning.
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 #[non_exhaustive]
 #[repr(u32)]
 pub enum Error {
@@ -165,6 +168,42 @@ pub enum Error {
         /// The span of the offending token.
         offending: Span,
     } = 16,
+
+    /// A type name was found that was not known by the compiler.
+    UnknownNamedType(ast::Iden) = 17,
+
+    /// Duplicate symbol declaration.
+    DuplicateSymbol {
+        /// The originally declared symbol.
+        original: Span,
+
+        /// The name of the offending function.
+        name: Spanned<String>,
+    } = 18,
+
+    /// Expected a valid statement.
+    InvalidStatement(Span) = 19,
+
+    /// A function name was undeclared.
+    UndeclaredFunction(Spanned<String>) = 20,
+
+    /// A function call had an invalid callee.
+    InvalidFunctionName(Span) = 21,
+
+    /// An invalid value was found.
+    InvalidValue(Span) = 22,
+
+    /// An invalid argument count was found.
+    InvalidArgumentCount {
+        /// The location of the original declaration.
+        decl: Span,
+
+        /// The visualized type of the function signature.
+        decl_type: String,
+
+        /// The offending location.
+        offending: Span,
+    } = 23,
 }
 
 impl Error {
@@ -360,6 +399,59 @@ impl Error {
                         .primary()
                         .with_message("Expected a closing brace here"),
                 );
+            }
+            Self::UnknownNamedType(name) => {
+                diagnostic.message = format!("Unknown type '{}'", name.value);
+                diagnostic.labels.push(
+                    name.span
+                        .primary()
+                        .with_message("Type not declared in this scope"),
+                );
+            }
+            Self::DuplicateSymbol { original, name } => {
+                diagnostic.message = "Duplicate symbol".to_owned();
+                diagnostic.labels.push(
+                    original
+                        .secondary()
+                        .with_message("Previous declaration of this symbol"),
+                );
+
+                diagnostic.labels.push(
+                    name.span
+                        .primary()
+                        .with_message("Duplicate declaration of this symbol"),
+                );
+            }
+            Self::InvalidStatement(span) => {
+                diagnostic.message = "Expected a valid statement".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::UndeclaredFunction(name) => {
+                diagnostic.message = format!("Undeclared function '{}'", name.value);
+                diagnostic.labels.push(name.span.primary());
+            }
+            Self::InvalidFunctionName(span) => {
+                diagnostic.message = "Invalid function name".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::InvalidValue(span) => {
+                diagnostic.message = "Invalid value".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::InvalidArgumentCount {
+                decl,
+                decl_type,
+                offending,
+            } => {
+                diagnostic.message = "Invalid argument count".to_owned();
+                diagnostic
+                    .labels
+                    .push(decl.secondary().with_message("Declared here"));
+                diagnostic.labels.push(
+                    decl.secondary()
+                        .with_message(format!("Expected '{}'", decl_type)),
+                );
+                diagnostic.labels.push(offending.primary());
             }
         }
 

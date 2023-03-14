@@ -144,6 +144,7 @@ impl Parse for Func {
         let func_keyword = parser.scanner().span();
 
         // Parse the name of the function
+        // TODO: parse optional namespace path
         let name = if let Some(res) = parser.parse::<Iden>() {
             match res {
                 Ok(name) => name,

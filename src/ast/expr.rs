@@ -24,6 +24,15 @@ pub enum Expr {
 }
 
 impl Expr {
+    /// Returns the span of the expression.
+    pub fn span(&self) -> Span {
+        match self {
+            Expr::Iden(iden) => iden.span,
+            Expr::Str(str) => str.span,
+            Expr::Call(call) => call.span,
+        }
+    }
+
     /// Parses an expression.
     fn parse_atom(parser: &mut Parser) -> Option<Result<Self, Error>> {
         if let Some(res) = parser.parse::<Iden>() {
@@ -43,7 +52,6 @@ impl Expr {
 
     /// Parses a basic value expression, such as `1 + 1`.
     fn parse_expr(parser: &mut Parser, min_power: u8) -> Option<Result<Self, Error>> {
-        let start = parser.scanner().span().start;
         let mut left = match Self::parse_atom(parser)? {
             Ok(left) => left,
             Err(err) => return Some(Err(err)),
@@ -81,7 +89,7 @@ impl Expr {
                 };
 
                 left = Expr::Call(Call {
-                    span: Span::new(parser.scanner().file_id(), start, args.span.end),
+                    span: Span::new(parser.scanner().file_id(), left.span().start, args.span.end),
                     callee: Box::new(left),
                     args,
                 });

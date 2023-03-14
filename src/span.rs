@@ -59,3 +59,29 @@ impl fmt::Debug for Span {
         write!(f, "Span({:?}:{}..{})", self.file_id.0, self.start, self.end)
     }
 }
+
+/// A spanned value.
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Spanned<T> {
+    pub span: Span,
+    pub value: T,
+}
+
+impl<T> Spanned<T> {
+    /// Creates a new [Spanned] value.
+    pub fn new(span: Span, value: T) -> Self {
+        Self { span, value }
+    }
+}
+
+impl<T> AsRef<T> for Spanned<T> {
+    fn as_ref(&self) -> &T {
+        &self.value
+    }
+}
+
+impl<T> AsMut<T> for Spanned<T> {
+    fn as_mut(&mut self) -> &mut T {
+        &mut self.value
+    }
+}
