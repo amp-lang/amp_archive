@@ -9,5 +9,8 @@
 ### Compiler
 - feat: Basic stopwatch benchmark for Amp compile times.
 
+### Internals
+- refactor: Make `GenericValue` abstraction to clean up code a bit.
+
 ## v0.1.0-alpha
 *The starting point for the changelog.*
