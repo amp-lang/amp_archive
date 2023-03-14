@@ -204,6 +204,15 @@ pub enum Error {
         /// The offending location.
         offending: Span,
     } = 23,
+
+    /// An invalid escape code was found.
+    InvalidEscape(Span) = 24,
+
+    /// Invalid unicode escape syntax was found.
+    InvalidUnicodeEscape(Span) = 25,
+
+    /// An unclosed unicode escape was found.
+    UnclosedUnicodeEscape(Span) = 26,
 }
 
 impl Error {
@@ -452,6 +461,18 @@ impl Error {
                         .with_message(format!("Expected '{}'", decl_type)),
                 );
                 diagnostic.labels.push(offending.primary());
+            }
+            Self::InvalidEscape(span) => {
+                diagnostic.message = "Invalid escape sequence".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::InvalidUnicodeEscape(span) => {
+                diagnostic.message = "Invalid unicode escape sequence".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::UnclosedUnicodeEscape(span) => {
+                diagnostic.message = "Unclosed unicode escape sequence".to_owned();
+                diagnostic.labels.push(span.primary());
             }
         }
 

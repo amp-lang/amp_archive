@@ -1,5 +1,5 @@
 func printf(format: ~const u8) -> i32;
 
 func main() {
-    printf("Hello, world!");
+    printf("\x{48}ello world!\n");
 }

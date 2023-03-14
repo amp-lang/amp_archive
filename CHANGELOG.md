@@ -1,6 +1,11 @@
 # Changelog
 
 ## v0.2.0-alpha
+
+### Language
+- [feat (#3): [syntax/parser] implement string escapes](https://github.com/amp-lang/amp/issues/3)
+
+### Compiler
 - feat: Basic stopwatch benchmark for Amp compile times.
 
 ## v0.1.0-alpha

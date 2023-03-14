@@ -56,10 +56,10 @@ pub fn compile_func(
 
     let entry_block = builder.create_block();
     builder.switch_to_block(entry_block);
-    builder.seal_block(entry_block);
 
     stmnt::compile_block(codegen, &mut builder, &def.block);
 
+    builder.seal_all_blocks();
     builder.finalize();
 
     codegen
