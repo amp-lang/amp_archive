@@ -5,7 +5,7 @@ use crate::{
     span::Span,
 };
 
-use super::{ArgList, Iden};
+use super::{ArgList, Iden, Str};
 
 /// A function call expression.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -19,15 +19,25 @@ pub struct Call {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Expr {
     Iden(Iden),
+    Str(Str),
     Call(Call),
 }
 
 impl Expr {
     /// Parses an expression.
     fn parse_atom(parser: &mut Parser) -> Option<Result<Self, Error>> {
-        match parser.parse::<Iden>()? {
-            Ok(iden) => Some(Ok(Expr::Iden(iden))),
-            Err(err) => Some(Err(err)),
+        if let Some(res) = parser.parse::<Iden>() {
+            match res {
+                Ok(iden) => Some(Ok(Expr::Iden(iden))),
+                Err(err) => Some(Err(err)),
+            }
+        } else if let Some(res) = parser.parse::<Str>() {
+            match res {
+                Ok(str) => Some(Ok(Expr::Str(str))),
+                Err(err) => Some(Err(err)),
+            }
+        } else {
+            None
         }
     }
 

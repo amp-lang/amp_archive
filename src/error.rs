@@ -156,6 +156,15 @@ pub enum Error {
 
     /// A semicolon was expected after an expression.
     ExpectedSemicolon(Span) = 15,
+
+    /// A closing brace was expected.
+    ExpectedClosingBrace {
+        /// The location where the brace starts.
+        starts: Span,
+
+        /// The span of the offending token.
+        offending: Span,
+    } = 16,
 }
 
 impl Error {
@@ -337,6 +346,20 @@ impl Error {
             Self::ExpectedSemicolon(span) => {
                 diagnostic.message = "Expected a semicolon".to_owned();
                 diagnostic.labels.push(span.primary().with_message("here"));
+            }
+            Self::ExpectedClosingBrace { starts, offending } => {
+                diagnostic.message = "Expected a closing brace".to_owned();
+                diagnostic.labels.push(
+                    starts
+                        .secondary()
+                        .with_message("Opening brace started here"),
+                );
+
+                diagnostic.labels.push(
+                    offending
+                        .primary()
+                        .with_message("Expected a closing brace here"),
+                );
             }
         }
 

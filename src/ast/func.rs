@@ -5,7 +5,7 @@ use crate::{
     span::Span,
 };
 
-use super::{ArgList, Iden, Type};
+use super::{ArgList, Block, Iden, Type};
 
 /// An argument in a function declaration.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -82,6 +82,7 @@ pub struct Func {
     pub name: Iden,
     pub args: ArgList<FuncArg>,
     pub returns: Option<Type>,
+    pub block: Option<Block>,
 }
 
 impl Func {
@@ -180,19 +181,31 @@ impl Parse for Func {
 
         // Check for semicolon
         // TODO: parse code block
-        if let Some(res) = parser.scanner_mut().next() {
+
+        let block = if let Some(res) = parser.parse::<Block>() {
             match res {
-                Ok(value) => {
-                    if value != Token::Semi {
-                        return Some(Err(Error::ExpectedFunctionDefinition {
-                            func_keyword,
-                            offending: parser.scanner().span(),
-                        }));
-                    }
-                }
+                Ok(block) => Some(block),
                 Err(err) => return Some(Err(err)),
             }
         } else {
+            None
+        };
+
+        if block == None {
+            if let Some(res) = parser.scanner_mut().peek() {
+                match res {
+                    Ok(value) => {
+                        if value != Token::Semi {
+                            return Some(Err(Error::ExpectedFunctionDefinition {
+                                func_keyword,
+                                offending: parser.scanner().span(),
+                            }));
+                        }
+                        parser.scanner_mut().next();
+                    }
+                    Err(err) => return Some(Err(err)),
+                }
+            }
         }
 
         Some(Ok(Self {
@@ -204,6 +217,7 @@ impl Parse for Func {
             name,
             args,
             returns,
+            block,
         }))
     }
 }

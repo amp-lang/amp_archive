@@ -1,6 +1,6 @@
 use std::process::ExitCode;
 
-use ast::{Decl, Expr};
+use ast::Decl;
 use codespan_reporting::{
     files::SimpleFiles,
     term::{self, termcolor::StandardStream},
@@ -28,7 +28,7 @@ fn main() -> ExitCode {
     let scanner = Scanner::new(file_id, files.get(file_id.0 as usize).unwrap().source());
     let mut parser = Parser::new(scanner);
 
-    while let Some(res) = parser.parse::<Expr>() {
+    while let Some(res) = parser.parse::<Decl>() {
         match res {
             Ok(value) => println!("{:#?}", value),
             Err(value) => {
