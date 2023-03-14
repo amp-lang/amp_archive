@@ -1,7 +1,11 @@
 [package]
-name = "amp"
+name = "ampc"
 version = "0.1.0-alpha"
 edition = "2021"
+
+[[bin]]
+name = "amp"
+path = "src/main.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -14,3 +18,19 @@ cranelift-native = "0.93.1"
 cranelift-object = "0.93.1"
 target-lexicon = "0.12.6"
 unicode-xid = "0.2.4"
+
+# The profile that 'cargo dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
+
+# Config for 'cargo dist'
+[workspace.metadata.dist]
+# The preferred cargo-dist version to use in CI (Cargo.toml SemVer syntax)
+cargo-dist-version = "0.0.4"
+# The preferred Rust toolchain to use in CI (rustup toolchain syntax)
+rust-toolchain-version = "1.67.1"
+# CI backends to support (see 'cargo dist generate-ci')
+ci = ["github"]
+# Target platforms to build apps for (Rust target-triple syntax)
+targets = ["x86_64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-pc-windows-msvc", "aarch64-apple-darwin"]
