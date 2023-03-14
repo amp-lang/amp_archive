@@ -15,6 +15,7 @@ pub struct FuncCall {
 }
 
 impl FuncCall {
+    /// Checks the type signature of the provided function call.
     pub fn check(
         checker: &mut Typechecker,
         module: &mut Module,
@@ -53,12 +54,49 @@ impl FuncCall {
         let mut args = Vec::new();
 
         for (idx, arg) in call.args.args.iter().enumerate() {
-            let value = Value::check_expected(module, arg, &decl.signature.args[idx].ty)
-                .ok_or(Error::InvalidValue(arg.span()))?;
+            let value = GenericValue::check(module, arg)
+                .ok_or(Error::InvalidValue(arg.span()))?
+                .coerce(&decl.signature.args[idx].ty)
+                .ok_or(Error::ExpectedArgumentOfType {
+                    decl: decl.decl_span,
+                    name: decl.signature.args[idx].ty.name(),
+                    offending: arg.span(),
+                })?;
             args.push(value);
         }
 
         Ok(Self { callee, args })
+    }
+}
+
+/// A `{value}` literal value before it is coerced to a specific type.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum GenericValue {
+    Int(i64),
+    Str(String),
+}
+
+impl GenericValue {
+    /// Converts an ast value into a generic value, if it is a value.
+    pub fn check(_module: &mut Module, expr: &ast::Expr) -> Option<Self> {
+        match expr {
+            ast::Expr::Int(int) => Some(GenericValue::Int(int.value)),
+            ast::Expr::Str(str) => Some(GenericValue::Str(str.value.clone())),
+            _ => None,
+        }
+    }
+
+    /// Attempts to coerce this generic value into a value of the specified type.
+    pub fn coerce(self, ty: &Type) -> Option<Value> {
+        match (self, ty) {
+            (GenericValue::Int(int), Type::I32) => Some(Value::I32(int as i32)),
+            (GenericValue::Int(int), Type::U8) => Some(Value::U8(int as u8)),
+            (GenericValue::Str(str), Type::Ptr(ptr)) => match &*ptr.ty {
+                Type::U8 => Some(Value::CStr(str)),
+                _ => None,
+            },
+            _ => None,
+        }
     }
 }
 
@@ -73,43 +111,4 @@ pub enum Value {
 
     /// A 32-bit integer.
     I32(i32),
-}
-
-impl Value {
-    /// Checks if the value matches the expected type.
-    pub fn check_expected(_module: &mut Module, expr: &ast::Expr, expected: &Type) -> Option<Self> {
-        // TODO: check for things other than strings.
-        match expr {
-            ast::Expr::Int(int) => match expected {
-                Type::I32 => {
-                    if int.value < i32::MIN as i64 || int.value > i32::MAX as i64 {
-                        return None;
-                    }
-
-                    Some(Value::I32(int.value as i32))
-                }
-                Type::U8 => {
-                    if int.value.is_negative() || int.value > u8::MAX as i64 {
-                        return None;
-                    }
-
-                    Some(Value::U8(int.value as u8))
-                }
-                _ => None,
-            },
-            ast::Expr::Str(str) => {
-                match expected {
-                    // TODO: check for slice type
-                    Type::Ptr(pointee) => match &*pointee.ty {
-                        Type::U8 => {}
-                        _ => return None,
-                    },
-                    _ => return None,
-                }
-
-                Some(Value::CStr(str.value.clone()))
-            }
-            _ => None,
-        }
-    }
 }

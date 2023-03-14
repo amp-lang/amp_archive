@@ -216,6 +216,18 @@ pub enum Error {
 
     /// An integer literal was too large.
     IntegerTooLarge(Span) = 27,
+
+    /// Expected an argument of the given type.
+    ExpectedArgumentOfType {
+        /// The original declaration.
+        decl: Span,
+
+        /// The rendered name of the type.
+        name: String,
+
+        /// The offending argument location.
+        offending: Span,
+    } = 28,
 }
 
 impl Error {
@@ -480,6 +492,17 @@ impl Error {
             Self::IntegerTooLarge(span) => {
                 diagnostic.message = "Integer is too large".to_owned();
                 diagnostic.labels.push(span.primary());
+            }
+            Self::ExpectedArgumentOfType {
+                decl,
+                name,
+                offending,
+            } => {
+                diagnostic.message = format!("Expected argument of type '{}'", name);
+                diagnostic
+                    .labels
+                    .push(decl.secondary().with_message("Declared here"));
+                diagnostic.labels.push(offending.primary());
             }
         }
 
