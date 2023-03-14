@@ -5,7 +5,7 @@ use crate::{
     span::Span,
 };
 
-use super::{ArgList, Iden, Str};
+use super::{ArgList, Iden, Int, Str};
 
 /// A function call expression.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -19,6 +19,7 @@ pub struct Call {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Expr {
     Iden(Iden),
+    Int(Int),
     Str(Str),
     Call(Call),
 }
@@ -28,6 +29,7 @@ impl Expr {
     pub fn span(&self) -> Span {
         match self {
             Expr::Iden(iden) => iden.span,
+            Expr::Int(int) => int.span,
             Expr::Str(str) => str.span,
             Expr::Call(call) => call.span,
         }
@@ -43,6 +45,11 @@ impl Expr {
         } else if let Some(res) = parser.parse::<Str>() {
             match res {
                 Ok(str) => Some(Ok(Expr::Str(str))),
+                Err(err) => Some(Err(err)),
+            }
+        } else if let Some(res) = parser.parse::<Int>() {
+            match res {
+                Ok(int) => Some(Ok(Expr::Int(int))),
                 Err(err) => Some(Err(err)),
             }
         } else {

@@ -213,6 +213,9 @@ pub enum Error {
 
     /// An unclosed unicode escape was found.
     UnclosedUnicodeEscape(Span) = 26,
+
+    /// An integer literal was too large.
+    IntegerTooLarge(Span) = 27,
 }
 
 impl Error {
@@ -472,6 +475,10 @@ impl Error {
             }
             Self::UnclosedUnicodeEscape(span) => {
                 diagnostic.message = "Unclosed unicode escape sequence".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::IntegerTooLarge(span) => {
+                diagnostic.message = "Integer is too large".to_owned();
                 diagnostic.labels.push(span.primary());
             }
         }

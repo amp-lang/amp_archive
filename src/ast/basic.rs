@@ -151,3 +151,34 @@ impl Parse for Str {
         }))
     }
 }
+
+/// An integer literal.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Int {
+    pub span: Span,
+    pub value: i64,
+}
+
+impl Parse for Int {
+    fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
+        match parser.scanner_mut().peek()? {
+            Ok(token) => {
+                if token == Token::Decimal {
+                    parser.scanner_mut().next();
+                    return Some(Ok(Self {
+                        span: parser.scanner().span(),
+                        value: match parser.scanner().slice().parse() {
+                            Ok(value) => value,
+                            Err(_) => {
+                                return Some(Err(Error::IntegerTooLarge(parser.scanner().span())))
+                            }
+                        },
+                    }));
+                }
+
+                return None;
+            }
+            Err(err) => return Some(Err(err)),
+        }
+    }
+}

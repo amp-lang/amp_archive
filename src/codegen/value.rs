@@ -12,6 +12,12 @@ pub fn compile_value(
     value: &Value,
 ) -> cranelift::prelude::Value {
     match value {
+        Value::U8(value) => builder
+            .ins()
+            .iconst(cranelift::prelude::types::I8, *value as i64),
+        Value::I32(value) => builder
+            .ins()
+            .iconst(cranelift::prelude::types::I32, *value as i64),
         Value::CStr(value) => {
             let mut cx = DataContext::new();
             let mut data = value.as_bytes().to_vec();

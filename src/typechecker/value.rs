@@ -67,6 +67,12 @@ impl FuncCall {
 pub enum Value {
     /// A null terminated string.
     CStr(String),
+
+    /// An 8-bit unsigned integer.
+    U8(u8),
+
+    /// A 32-bit integer.
+    I32(i32),
 }
 
 impl Value {
@@ -74,6 +80,23 @@ impl Value {
     pub fn check_expected(_module: &mut Module, expr: &ast::Expr, expected: &Type) -> Option<Self> {
         // TODO: check for things other than strings.
         match expr {
+            ast::Expr::Int(int) => match expected {
+                Type::I32 => {
+                    if int.value < i32::MIN as i64 || int.value > i32::MAX as i64 {
+                        return None;
+                    }
+
+                    Some(Value::I32(int.value as i32))
+                }
+                Type::U8 => {
+                    if int.value.is_negative() || int.value > u8::MAX as i64 {
+                        return None;
+                    }
+
+                    Some(Value::U8(int.value as u8))
+                }
+                _ => None,
+            },
             ast::Expr::Str(str) => {
                 match expected {
                     // TODO: check for slice type
