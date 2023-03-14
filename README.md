@@ -17,3 +17,25 @@ export func Main() {
     Std.Println("Hello, world!");
 }
 ```
+
+### Contributing
+Amp is mostly a one man project for now, but if you'd like to help with anything, feel free to browse through the [open issues](https://github.com/amp-lang/amp/issues?q=is%3Aissue+is%3Aopen) (I use them to keep track of what I need to do).  Anything marked as a "proposal" is a language design decision open for conversation until I decide what to do with it.  Otherwise, feel free to ask about an issue if you have any questions.
+
+### License
+Amp is licensed under the MIT license.
+
+## Getting Started
+You can install Amp from a [prebuilt binary for your system](https://github.com/amp-lang/amp/releases) or you can use Cargo to install it:
+
+```sh
+cargo install ampc
+amp -V
+```
+
+Running an Amp application currently requires an external linker, we'll use GCC in this example.
+
+```sh
+amp test.amp -o test.o
+gcc test.o -o test
+./test # => Hello, world!
+```
