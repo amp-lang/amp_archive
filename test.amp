@@ -1,6 +1,5 @@
 func printf(format: ~const u8) -> i32;
 
-
-func main() -> i32 {
-    printf();
+func main() {
+    printf("Hello, world!");
 }

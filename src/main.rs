@@ -10,7 +10,10 @@ use scanner::Scanner;
 use span::FileId;
 use typechecker::Typechecker;
 
+use crate::codegen::Codegen;
+
 pub mod ast;
+pub mod codegen;
 pub mod diagnostic;
 pub mod error;
 pub mod parser;
@@ -54,20 +57,11 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     }
-    dbg!(checker);
+    // dbg!(checker);
 
-    // while let Some(next_char) = scanner.next() {
-    //     match next_char {
-    // Ok(value) => println!("{:?} \"{}\"", value, scanner.slice()),
-    // Err(value) => {
-    //     exit_code = ExitCode::FAILURE;
-
-    //     let config = diagnostic::config();
-    //     let mut stdout = StandardStream::stderr(term::termcolor::ColorChoice::Auto);
-    //     term::emit(&mut stdout, &config, &files, &value.as_diagnostic()).unwrap()
-    // }
-    //     }
-    // }
+    let mut codegen = Codegen::new();
+    codegen.compile(checker);
+    std::fs::write("test.o", codegen.finish()).unwrap();
 
     ExitCode::SUCCESS
 }

@@ -1,3 +1,7 @@
 # Cargo build files
 Cargo.lock
 target
+
+# Object files
+*.o
+*.exe
