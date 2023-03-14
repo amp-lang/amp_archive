@@ -1,4 +1,4 @@
-use std::process::ExitCode;
+use std::{process::ExitCode, time::Instant};
 
 use args::Cli;
 use ast::Source;
@@ -31,8 +31,10 @@ fn main() -> ExitCode {
     // Load the source file
     // TODO: read from command line arguments
     let src = std::fs::read_to_string(&args.input_path).unwrap();
-    let file_id = FileId::new(files.add(args.input_path, src));
 
+    let start_time = Instant::now();
+
+    let file_id = FileId::new(files.add(args.input_path, src));
     let scanner = Scanner::new(file_id, files.get(file_id.0 as usize).unwrap().source());
     let mut parser = parser::Parser::new(scanner);
 
@@ -61,11 +63,16 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     }
-    // dbg!(checker);
 
     let mut codegen = Codegen::new();
     codegen.compile(checker);
-    std::fs::write(args.output_path, codegen.finish()).unwrap();
+    let binary = codegen.finish();
+
+    std::fs::write(args.output_path, binary).unwrap();
+
+    let compile_time = start_time.elapsed().as_nanos() as f64 / 1_000_000.0;
+
+    println!("Binary written in {}ms", compile_time);
 
     ExitCode::SUCCESS
 }
