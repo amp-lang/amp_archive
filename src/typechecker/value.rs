@@ -84,6 +84,10 @@ impl GenericValue {
                 Type::U8 => Some(Value::CStr(str)),
                 _ => None,
             },
+            (GenericValue::Str(str), Type::Slice(ptr)) => match &*ptr.ty {
+                Type::U8 => Some(Value::Str(str)),
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -94,6 +98,9 @@ impl GenericValue {
 pub enum Value {
     /// A null terminated string.
     CStr(String),
+
+    /// A `[]const u8` or `[]mut u8` value.
+    Str(String),
 
     /// An 8-bit unsigned integer.
     U8(u8),

@@ -17,4 +17,8 @@ pub struct Build {
     /// The path to output to.
     #[clap(short)]
     pub output_path: String,
+
+    /// Links the provided file to the executable.
+    #[clap(short)]
+    pub link: Vec<String>,
 }

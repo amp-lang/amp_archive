@@ -252,6 +252,15 @@ pub enum Error {
         /// The offending area.
         offending: Span,
     } = 30,
+
+    /// Expected the type of an array.
+    ExpectedArrayType(Span) = 31,
+
+    /// An array type was unclosed.
+    UnclosedArrayType { started: Span, offending: Span } = 32,
+
+    /// Expected the length of an array or a slice mutability.
+    ExpectedSliceMutability { started: Span, offending: Span } = 33,
 }
 
 impl Error {
@@ -549,6 +558,34 @@ impl Error {
                     .labels
                     .push(decl.secondary().with_message("Declared here"));
                 diagnostic.labels.push(offending.primary());
+            }
+            Self::ExpectedArrayType(span) => {
+                diagnostic.message = "Expected type for array".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::UnclosedArrayType { started, offending } => {
+                diagnostic.message = "Unclosed array type".to_owned();
+                diagnostic
+                    .labels
+                    .push(started.secondary().with_message("Array type started here"));
+
+                diagnostic.labels.push(
+                    offending
+                        .primary()
+                        .with_message("Expected a closing bracket here"),
+                );
+            }
+            Self::ExpectedSliceMutability { started, offending } => {
+                diagnostic.message = "Expected either `mut` or `const`".to_owned();
+                diagnostic
+                    .labels
+                    .push(started.secondary().with_message("Slice type started here"));
+
+                diagnostic.labels.push(
+                    offending
+                        .primary()
+                        .with_message("Expected `mut`/`const` here"),
+                );
             }
         }
 

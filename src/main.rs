@@ -26,7 +26,7 @@ pub mod span;
 pub mod typechecker;
 
 fn main() -> ExitCode {
-    let Cli::Build(args) = Cli::parse();
+    let Cli::Build(mut args) = Cli::parse();
 
     let mut files = SimpleFiles::new();
 
@@ -72,10 +72,8 @@ fn main() -> ExitCode {
 
     let file = NamedTempFile::new().unwrap();
     std::fs::write(&file, binary).unwrap();
-    linker::link(
-        &[file.path().to_str().unwrap().to_owned()],
-        args.output_path,
-    );
+    args.link.push(file.path().to_str().unwrap().to_owned());
+    linker::link(&args.link, args.output_path);
 
     let compile_time = start_time.elapsed().as_nanos() as f64 / 1_000_000.0;
 

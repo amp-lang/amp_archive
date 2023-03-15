@@ -106,6 +106,12 @@ pub enum Token {
     /// `}`
     RBrace,
 
+    /// `[`
+    LBrack,
+
+    /// `]`
+    RBrack,
+
     /// A Unicode XID identifier.
     ///
     /// ```amp
@@ -535,6 +541,8 @@ impl<'a> Iterator for Scanner<'a> {
             ')' => Token::RParen,
             '{' => Token::LBrace,
             '}' => Token::RBrace,
+            '[' => Token::LBrack,
+            ']' => Token::RBrack,
             _ => return Some(Err(Error::InvalidToken(self.current_span))),
         }))
     }

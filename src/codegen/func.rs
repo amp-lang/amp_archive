@@ -1,5 +1,8 @@
 use cranelift::{
-    codegen::{ir::Function, Context},
+    codegen::{
+        ir::{ArgumentPurpose, Function},
+        Context,
+    },
     prelude::{AbiParam, FunctionBuilder, FunctionBuilderContext, Signature},
 };
 use cranelift_module::{Linkage, Module};
@@ -26,12 +29,24 @@ pub fn declare_func(codegen: &mut Codegen, decl: &Func) -> CraneliftFunc {
     let mut signature = codegen.module.make_signature();
 
     for arg in &decl.signature.args {
-        let ty = types::compile_type(codegen, &arg.ty);
-        signature.params.push(AbiParam::new(ty));
+        if arg.ty.is_big() {
+            signature.params.push(AbiParam::special(
+                codegen.pointer_type,
+                ArgumentPurpose::StructArgument(
+                    arg.ty
+                        .size(codegen.module.target_config().pointer_width.bytes() as usize)
+                        as u32,
+                ),
+            ));
+        } else {
+            let ty = types::compile_type(codegen, &arg.ty);
+            signature.params.push(AbiParam::new(ty));
+        }
     }
 
     // compile return types
     for ret in &decl.signature.returns {
+        // TODO: support big types
         let ty = types::compile_type(codegen, &ret);
         signature.returns.push(AbiParam::new(ty));
     }

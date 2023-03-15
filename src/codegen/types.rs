@@ -8,5 +8,6 @@ pub fn compile_type(codegen: &mut Codegen, ty: &Type) -> cranelift::prelude::Typ
         Type::I32 => cranelift::prelude::types::I32,
         Type::U8 => cranelift::prelude::types::I8,
         Type::Ptr(_) => codegen.pointer_type,
+        _ => unreachable!("compile_type: {:?}", ty),
     }
 }

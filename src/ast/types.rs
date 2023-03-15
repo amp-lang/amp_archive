@@ -5,7 +5,7 @@ use crate::{
     span::Span,
 };
 
-use super::Iden;
+use super::{Iden, Int};
 
 /// The mutability of a pointer.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -102,6 +102,139 @@ impl Parse for PointerType {
     }
 }
 
+/// The length of an array type.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum ArrayLength {
+    Static(Int),
+    Slice(PointerMutability),
+}
+
+impl Parse for ArrayLength {
+    fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
+        match parser.scanner_mut().peek()? {
+            Ok(token) => {
+                if token == Token::KConst {
+                    parser.scanner_mut().next();
+                    Some(Ok(ArrayLength::Slice(PointerMutability::Const(
+                        parser.scanner().span(),
+                    ))))
+                } else if token == Token::KMut {
+                    parser.scanner_mut().next();
+                    Some(Ok(ArrayLength::Slice(PointerMutability::Mut(
+                        parser.scanner().span(),
+                    ))))
+                } else if let Some(int) = parser.parse::<Int>() {
+                    match int {
+                        Ok(value) => Some(Ok(ArrayLength::Static(value))),
+                        Err(err) => return Some(Err(err)),
+                    }
+                } else {
+                    return None;
+                }
+            }
+            Err(err) => Some(Err(err)),
+        }
+    }
+}
+
+/// An array or slice type.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct ArrayType {
+    pub span: Span,
+    pub ty: Box<Type>,
+    pub length: ArrayLength,
+}
+
+impl Parse for ArrayType {
+    fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
+        // [N]T
+        // []const T
+        // []mut T
+
+        match parser.scanner_mut().peek()? {
+            Ok(token) => {
+                if token != Token::LBrack {
+                    return None;
+                }
+
+                parser.scanner_mut().next();
+            }
+            Err(err) => return Some(Err(err)),
+        }
+        let started = parser.scanner().span();
+
+        let static_length = if let Some(length) = parser.parse::<Int>() {
+            match length {
+                Ok(value) => Some(value),
+                Err(err) => return Some(Err(err)),
+            }
+        } else {
+            None
+        };
+
+        if let Some(token) = parser.scanner_mut().peek() {
+            match token {
+                Ok(token) => {
+                    if token != Token::RBrack {
+                        parser.scanner_mut().next();
+                        return Some(Err(Error::UnclosedArrayType {
+                            started,
+                            offending: parser.scanner().span(),
+                        }));
+                    }
+
+                    parser.scanner_mut().next();
+                }
+                Err(err) => return Some(Err(err)),
+            }
+        } else {
+            parser.scanner_mut().next();
+            return Some(Err(Error::UnclosedArrayType {
+                started,
+                offending: parser.scanner().span(),
+            }));
+        }
+
+        let length = match static_length {
+            None => {
+                if let Some(mutability) = parser.parse::<PointerMutability>() {
+                    match mutability {
+                        Ok(value) => ArrayLength::Slice(value),
+                        Err(err) => return Some(Err(err)),
+                    }
+                } else {
+                    parser.scanner_mut().next();
+                    return Some(Err(Error::ExpectedSliceMutability {
+                        started,
+                        offending: parser.scanner().span(),
+                    }));
+                }
+            }
+            Some(static_length) => ArrayLength::Static(static_length),
+        };
+
+        let ty = if let Some(ty) = parser.parse::<Type>() {
+            match ty {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            }
+        } else {
+            parser.scanner_mut().next();
+            return Some(Err(Error::ExpectedArrayType(parser.scanner().span())));
+        };
+
+        return Some(Ok(Self {
+            span: Span::new(
+                parser.scanner().file_id(),
+                started.start,
+                parser.scanner().span().end,
+            ),
+            ty: Box::new(ty),
+            length,
+        }));
+    }
+}
+
 /// A type expression.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Type {
@@ -118,6 +251,9 @@ pub enum Type {
     /// ~mut i32
     /// ```
     Pointer(PointerType),
+
+    /// An array type.
+    Array(ArrayType),
 }
 
 impl Type {
@@ -126,6 +262,7 @@ impl Type {
         match self {
             Self::Named(ty) => ty.span,
             Self::Pointer(ty) => ty.span,
+            Self::Array(ty) => ty.span,
         }
     }
 }
@@ -134,6 +271,11 @@ impl Parse for Type {
     fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
         if let Some(ty) = parser.parse::<PointerType>() {
             Some(Ok(Self::Pointer(match ty {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            })))
+        } else if let Some(ty) = parser.parse::<ArrayType>() {
+            Some(Ok(Self::Array(match ty {
                 Ok(value) => value,
                 Err(err) => return Some(Err(err)),
             })))
