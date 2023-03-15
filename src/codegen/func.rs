@@ -30,6 +30,12 @@ pub fn declare_func(codegen: &mut Codegen, decl: &FuncDecl) -> CraneliftFunc {
         signature.params.push(AbiParam::new(ty));
     }
 
+    // compile return types
+    for ret in &decl.signature.returns {
+        let ty = types::compile_type(codegen, &ret);
+        signature.returns.push(AbiParam::new(ty));
+    }
+
     let cranelift_id = codegen
         .module
         .declare_function(&decl.name.value, Linkage::Export, &signature)

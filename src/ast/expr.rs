@@ -15,6 +15,47 @@ pub struct Call {
     pub args: ArgList<Expr>,
 }
 
+/// A return statement.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Return {
+    pub span: Span,
+    pub value: Option<Box<Expr>>,
+}
+
+impl Parse for Return {
+    fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
+        match parser.scanner_mut().peek()? {
+            Ok(token) => {
+                if token != Token::KReturn {
+                    return None;
+                }
+
+                parser.scanner_mut().next();
+            }
+            Err(err) => return Some(Err(err)),
+        }
+        let start_pos = parser.scanner().span().start;
+
+        let value = if let Some(res) = parser.parse::<Expr>() {
+            match res {
+                Ok(expr) => Some(Box::new(expr)),
+                Err(err) => return Some(Err(err)),
+            }
+        } else {
+            None
+        };
+
+        Some(Ok(Self {
+            span: Span::new(
+                parser.scanner().file_id(),
+                start_pos,
+                parser.scanner().span().end,
+            ),
+            value,
+        }))
+    }
+}
+
 /// An expression in Amp code.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Expr {
@@ -22,6 +63,7 @@ pub enum Expr {
     Int(Int),
     Str(Str),
     Call(Call),
+    Return(Return),
 }
 
 impl Expr {
@@ -32,6 +74,7 @@ impl Expr {
             Expr::Int(int) => int.span,
             Expr::Str(str) => str.span,
             Expr::Call(call) => call.span,
+            Expr::Return(return_) => return_.span,
         }
     }
 
@@ -113,27 +156,13 @@ impl Expr {
 
 impl Parse for Expr {
     fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
-        let value = match Self::parse_expr(parser, 0)? {
-            Ok(value) => value,
-            Err(err) => return Some(Err(err)),
-        };
-
-        // // parse semicolon
-        // match parser.scanner_mut().next() {
-        //     Some(res) => match res {
-        //         Ok(token) => {
-        //             dbg!(token);
-        //             if token != Token::Semi {
-        //                 return Some(Err(Error::ExpectedSemicolon(parser.scanner().span())));
-        //             };
-        //         }
-        //         Err(err) => return Some(Err(err)),
-        //     },
-        //     None => {
-        //         return Some(Err(Error::ExpectedSemicolon(parser.scanner().span())));
-        //     }
-        // }
-
-        Some(Ok(value))
+        if let Some(res) = parser.parse::<Return>() {
+            match res {
+                Ok(return_) => Some(Ok(Expr::Return(return_))),
+                Err(err) => Some(Err(err)),
+            }
+        } else {
+            Self::parse_expr(parser, 0)
+        }
     }
 }

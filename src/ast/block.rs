@@ -45,6 +45,7 @@ impl Parse for Block {
             };
 
             // Parse semicolon
+            // TODO: check if semicolon is required
             if let Some(res) = parser.scanner_mut().next() {
                 match res {
                     Ok(token) => {

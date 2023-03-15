@@ -228,6 +228,18 @@ pub enum Error {
         /// The offending argument location.
         offending: Span,
     } = 28,
+
+    /// Expected a return type of the given type.
+    InvalidReturnValue {
+        /// The original declaration.
+        decl: Span,
+
+        /// The name of the expected type.
+        name: String,
+
+        /// The offending area.
+        offending: Span,
+    } = 29,
 }
 
 impl Error {
@@ -499,6 +511,17 @@ impl Error {
                 offending,
             } => {
                 diagnostic.message = format!("Expected argument of type '{}'", name);
+                diagnostic
+                    .labels
+                    .push(decl.secondary().with_message("Declared here"));
+                diagnostic.labels.push(offending.primary());
+            }
+            Self::InvalidReturnValue {
+                decl,
+                name,
+                offending,
+            } => {
+                diagnostic.message = format!("Expected '{}'", name);
                 diagnostic
                     .labels
                     .push(decl.secondary().with_message("Declared here"));

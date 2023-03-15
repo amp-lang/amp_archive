@@ -33,6 +33,5 @@ pub fn compile_value(
 
             builder.ins().global_value(codegen.pointer_type, data_ref)
         }
-        _ => todo!(),
     }
 }

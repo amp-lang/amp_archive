@@ -116,16 +116,16 @@ pub fn check_func_def(
     def: &ast::Func,
 ) -> Result<(), Error> {
     if let Some(block) = &def.block {
-        let block = Block::check(checker, module, block)?;
-
         let item = module
             .resolve_symbol(&def.name.value)
             .expect("Typechecker confirms this function exists");
 
         let func = match &checker.symbols[item.0 as usize] {
-            Symbol::FuncDecl(func) => func,
+            Symbol::FuncDecl(func) => func.clone(),
             _ => unreachable!(),
         };
+
+        let block = Block::check(checker, module, &func, block)?;
 
         checker.symbols[item.0 as usize] = Symbol::FuncDef(FuncDef {
             decl: func.clone(),
