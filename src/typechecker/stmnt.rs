@@ -45,6 +45,19 @@ impl Return {
 
             Some(value)
         } else {
+            if func.signature.returns != None {
+                return Err(Error::InvalidReturnValue {
+                    decl: func.span,
+                    name: func
+                        .signature
+                        .returns
+                        .clone()
+                        .map(|value| value.name())
+                        .unwrap(),
+                    offending: return_.span,
+                });
+            }
+
             None
         };
 

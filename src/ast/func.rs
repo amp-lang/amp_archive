@@ -128,8 +128,6 @@ impl Func {
 
 impl Parse for Func {
     fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
-        let start_pos = parser.scanner().span().start;
-
         // Check for the function keyword.
         match parser.scanner_mut().peek()? {
             Ok(token) => {
@@ -141,6 +139,7 @@ impl Parse for Func {
             }
             Err(err) => return Some(Err(err)),
         }
+        let start_pos = parser.scanner().span().start;
         let func_keyword = parser.scanner().span();
 
         // Parse the name of the function

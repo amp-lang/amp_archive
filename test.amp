@@ -1,3 +1,7 @@
 func test() -> ~const u8 {
     return "Hello, world!\n";
 }
+
+func main() -> i32 {
+    
+}

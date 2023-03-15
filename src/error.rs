@@ -240,6 +240,18 @@ pub enum Error {
         /// The offending area.
         offending: Span,
     } = 29,
+
+    /// A function that was expected to return a value did not.
+    MissingReturn {
+        /// The original declaration.
+        decl: Span,
+
+        /// The name of the expected type.
+        name: String,
+
+        /// The offending area.
+        offending: Span,
+    } = 30,
 }
 
 impl Error {
@@ -517,6 +529,17 @@ impl Error {
                 diagnostic.labels.push(offending.primary());
             }
             Self::InvalidReturnValue {
+                decl,
+                name,
+                offending,
+            } => {
+                diagnostic.message = format!("Expected '{}'", name);
+                diagnostic
+                    .labels
+                    .push(decl.secondary().with_message("Declared here"));
+                diagnostic.labels.push(offending.primary());
+            }
+            Self::MissingReturn {
                 decl,
                 name,
                 offending,

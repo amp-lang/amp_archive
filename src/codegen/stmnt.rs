@@ -52,11 +52,14 @@ pub fn compile_statement(
 }
 
 pub fn compile_block(codegen: &mut Codegen, builder: &mut FunctionBuilder, block: &Block) {
+    let mut returns = false;
     for stmnt in &block.value {
-        compile_statement(codegen, builder, stmnt);
+        returns = compile_statement(codegen, builder, stmnt) || returns;
     }
 
     // TODO: check if returned
 
-    // builder.ins().return_(&[]);
+    if !returns {
+        builder.ins().return_(&[]);
+    }
 }

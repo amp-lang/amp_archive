@@ -10,10 +10,7 @@ use cranelift_module::{default_libcall_names, Module};
 use cranelift_object::{ObjectBuilder, ObjectModule};
 use target_lexicon::Triple;
 
-use crate::typechecker::{
-    func::{Func, FuncId},
-    Typechecker,
-};
+use crate::typechecker::{func::FuncId, Typechecker};
 
 use self::func::CraneliftFunc;
 

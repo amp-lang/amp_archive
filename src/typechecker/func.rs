@@ -4,7 +4,12 @@ use crate::{
     span::{Span, Spanned},
 };
 
-use super::{scope::Scope, stmnt::Block, types::Type, Typechecker};
+use super::{
+    scope::Scope,
+    stmnt::{Block, Stmnt},
+    types::Type,
+    Typechecker,
+};
 
 /// A unique identifier representing a function.
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -115,16 +120,32 @@ pub fn check_func_def(
     scope: &mut Scope,
     ast: &ast::Func,
 ) -> Result<(), Error> {
-    if let Some(block) = &ast.block {
+    if let Some(ast_block) = &ast.block {
         let item = scope
             .resolve_func(&ast.name.value)
             .expect("Typechecker confirms this function exists");
-        checker.funcs[item.0 as usize].block = Some(Block::check(
-            checker,
-            scope,
-            &checker.funcs[item.0 as usize],
-            block,
-        )?);
+        let func = &checker.funcs[item.0 as usize];
+        let block = Block::check(checker, scope, func, ast_block)?;
+
+        // check for return statement
+        if let Some(value) = &func.signature.returns {
+            if !block.value.iter().any(|stmnt| match stmnt {
+                Stmnt::Return(_) => true,
+                _ => false,
+            }) {
+                return Err(Error::MissingReturn {
+                    decl: func.span,
+                    name: value.name(),
+                    offending: Span::new(
+                        ast_block.span.file_id,
+                        ast_block.span.end - 1,
+                        ast_block.span.end,
+                    ),
+                });
+            }
+        }
+
+        checker.funcs[item.0 as usize].block = Some(block);
     }
 
     Ok(())
