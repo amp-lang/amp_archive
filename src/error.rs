@@ -544,7 +544,7 @@ impl Error {
                 name,
                 offending,
             } => {
-                diagnostic.message = format!("Expected '{}'", name);
+                diagnostic.message = format!("Expected '{}', never returned a value", name);
                 diagnostic
                     .labels
                     .push(decl.secondary().with_message("Declared here"));

@@ -32,10 +32,9 @@ cargo install ampc
 amp -V
 ```
 
-Running an Amp application currently requires an external linker, we'll use GCC in this example.
+Building an executable with Amp requires an external linker (as of right now, it's hardcoded as GCC, meaning GCC is required to build an executable):
 
 ```sh
-amp test.amp -o test.o
-gcc test.o -o test
+amp test.amp -o test
 ./test # => Hello, world!
 ```

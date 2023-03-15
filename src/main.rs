@@ -9,6 +9,7 @@ use codespan_reporting::{
 };
 use scanner::Scanner;
 use span::FileId;
+use tempfile::NamedTempFile;
 use typechecker::Typechecker;
 
 use crate::codegen::Codegen;
@@ -18,6 +19,7 @@ pub mod ast;
 pub mod codegen;
 pub mod diagnostic;
 pub mod error;
+pub mod linker;
 pub mod parser;
 pub mod scanner;
 pub mod span;
@@ -68,7 +70,12 @@ fn main() -> ExitCode {
     codegen.compile(checker);
     let binary = codegen.finish();
 
-    std::fs::write(args.output_path, binary).unwrap();
+    let file = NamedTempFile::new().unwrap();
+    std::fs::write(&file, binary).unwrap();
+    linker::link(
+        &[file.path().to_str().unwrap().to_owned()],
+        args.output_path,
+    );
 
     let compile_time = start_time.elapsed().as_nanos() as f64 / 1_000_000.0;
 

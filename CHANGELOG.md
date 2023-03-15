@@ -9,6 +9,7 @@
 
 ### Compiler
 - feat: Basic stopwatch benchmark for Amp compile times.
+- feat: Wrap linker in `build` subcommand
 
 ### Internals
 - refactor: Make `GenericValue` abstraction to clean up code a bit.
