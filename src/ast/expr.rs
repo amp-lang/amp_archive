@@ -5,7 +5,7 @@ use crate::{
     span::Span,
 };
 
-use super::{ArgList, Iden, Int, Str};
+use super::{ArgList, Iden, Int, Str, Type};
 
 /// A function call expression.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -56,6 +56,96 @@ impl Parse for Return {
     }
 }
 
+/// A variable declaration.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Var {
+    pub span: Span,
+    pub name: Iden,
+    pub ty: Option<Type>,
+    pub value: Option<Box<Expr>>,
+}
+
+impl Parse for Var {
+    fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
+        match parser.scanner_mut().peek()? {
+            Ok(token) => {
+                if token != Token::KVar {
+                    return None;
+                }
+
+                parser.scanner_mut().next();
+            }
+            Err(err) => return Some(Err(err)),
+        }
+
+        let started = parser.scanner().span();
+
+        let name = if let Some(res) = parser.parse::<Iden>() {
+            match res {
+                Ok(iden) => iden,
+                Err(err) => return Some(Err(err)),
+            }
+        } else {
+            parser.scanner_mut().next();
+            return Some(Err(Error::ExpectedVariableName {
+                started,
+                offending: parser.scanner().span(),
+            }));
+        };
+
+        let ty = if let Some(Ok(Token::Colon)) = parser.scanner_mut().peek() {
+            parser.scanner_mut().next();
+            let type_start = parser.scanner().span();
+
+            if let Some(res) = parser.parse::<Type>() {
+                match res {
+                    Ok(ty) => Some(ty),
+                    Err(err) => return Some(Err(err)),
+                }
+            } else {
+                parser.scanner_mut().next();
+                return Some(Err(Error::ExpectedVariableType {
+                    started: type_start,
+                    offending: parser.scanner().span(),
+                }));
+            }
+        } else {
+            None
+        };
+
+        let value = if let Some(Ok(Token::Eq)) = parser.scanner_mut().peek() {
+            parser.scanner_mut().next();
+            let value_start = parser.scanner().span();
+
+            if let Some(res) = parser.parse::<Expr>() {
+                match res {
+                    Ok(expr) => Some(Box::new(expr)),
+                    Err(err) => return Some(Err(err)),
+                }
+            } else {
+                parser.scanner_mut().next();
+                return Some(Err(Error::ExpectedVariableValue {
+                    started: value_start,
+                    offending: parser.scanner().span(),
+                }));
+            }
+        } else {
+            None
+        };
+
+        Some(Ok(Self {
+            span: Span::new(
+                parser.scanner().file_id(),
+                started.start,
+                parser.scanner().span().end,
+            ),
+            name,
+            ty,
+            value,
+        }))
+    }
+}
+
 /// An expression in Amp code.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Expr {
@@ -64,6 +154,7 @@ pub enum Expr {
     Str(Str),
     Call(Call),
     Return(Return),
+    Var(Var),
 }
 
 impl Expr {
@@ -75,6 +166,7 @@ impl Expr {
             Expr::Str(str) => str.span,
             Expr::Call(call) => call.span,
             Expr::Return(return_) => return_.span,
+            Expr::Var(var) => var.span,
         }
     }
 
@@ -159,6 +251,11 @@ impl Parse for Expr {
         if let Some(res) = parser.parse::<Return>() {
             match res {
                 Ok(return_) => Some(Ok(Expr::Return(return_))),
+                Err(err) => Some(Err(err)),
+            }
+        } else if let Some(res) = parser.parse::<Var>() {
+            match res {
+                Ok(var) => Some(Ok(Expr::Var(var))),
                 Err(err) => Some(Err(err)),
             }
         } else {

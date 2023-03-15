@@ -1,6 +1,8 @@
 func Print(str: []const u8);
 
 func Main() {
-    Print("Hello, world!\n\0 test");
-
+    var my_string: []const u8 = "Hello, world!\n";
+    var my_string2: []const u8 = my_string;
+    Print(my_string);
+    Print(my_string2);
 }

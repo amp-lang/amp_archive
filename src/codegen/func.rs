@@ -1,15 +1,19 @@
+use std::collections::HashMap;
+
 use cranelift::{
     codegen::{
         ir::{ArgumentPurpose, Function},
         Context,
     },
-    prelude::{AbiParam, FunctionBuilder, FunctionBuilderContext, Signature},
+    prelude::{
+        AbiParam, FunctionBuilder, FunctionBuilderContext, Signature, StackSlotData, StackSlotKind,
+    },
 };
 use cranelift_module::{Linkage, Module};
 
 use crate::typechecker::{
-    func::{Func, FuncId},
-    stmnt::Block,
+    func::{Func, FuncId, FuncImpl},
+    var::VarId,
 };
 
 use super::{stmnt, types, Codegen};
@@ -67,7 +71,7 @@ pub fn compile_func(
     context: &mut Context,
     func_context: &mut FunctionBuilderContext,
     id: FuncId,
-    block: &Block,
+    data: &FuncImpl,
 ) {
     let mut function = Function::new();
     function.signature = codegen.funcs[&id].signature.clone();
@@ -75,10 +79,23 @@ pub fn compile_func(
     context.func = function;
     let mut builder = FunctionBuilder::new(&mut context.func, func_context);
 
+    let mut vars = HashMap::new();
+
     let entry_block = builder.create_block();
     builder.switch_to_block(entry_block);
 
-    stmnt::compile_block(codegen, &mut builder, &block);
+    for (idx, var) in data.vars.vars.iter().enumerate() {
+        let slot = StackSlotData::new(
+            StackSlotKind::ExplicitSlot,
+            var.ty
+                .size(codegen.module.target_config().pointer_width.bytes() as usize)
+                as u32,
+        );
+        let slot = builder.create_sized_stack_slot(slot);
+        vars.insert(VarId(idx), slot);
+    }
+
+    stmnt::compile_block(codegen, &mut builder, &vars, data);
 
     builder.seal_all_blocks();
     builder.finalize();

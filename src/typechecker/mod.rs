@@ -10,6 +10,7 @@ pub mod scope;
 pub mod stmnt;
 pub mod types;
 pub mod value;
+pub mod var;
 
 /// The state of the typechecker.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -67,7 +68,8 @@ impl Typechecker {
         for item in &module_ast.decls {
             match item {
                 ast::Decl::Func(func) => {
-                    func::check_func_def(self, &mut global_scope, func)?;
+                    let mut scope = Scope::new(Some(&global_scope));
+                    func::check_func_def(self, &mut scope, func)?;
                 }
             }
         }

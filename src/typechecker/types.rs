@@ -16,11 +16,51 @@ pub struct Ptr {
     pub ty: Box<Type>,
 }
 
+impl Ptr {
+    /// Creates a new pointer type.
+    pub fn new(mutability: Mutability, ty: Type) -> Self {
+        Self {
+            mutability,
+            ty: Box::new(ty),
+        }
+    }
+
+    /// Returns the visualized name of the pointer type.
+    pub fn name(&self) -> String {
+        let mutability = match self.mutability {
+            Mutability::Const => "const",
+            Mutability::Mut => "mut",
+        };
+
+        format!("~{} {}", mutability, self.ty.name())
+    }
+}
+
 /// A slice type.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Slice {
     pub mutability: Mutability,
     pub ty: Box<Type>,
+}
+
+impl Slice {
+    /// Creates a new pointer type.
+    pub fn new(mutability: Mutability, ty: Type) -> Self {
+        Self {
+            mutability,
+            ty: Box::new(ty),
+        }
+    }
+
+    /// Returns the visualized name of the pointer type.
+    pub fn name(&self) -> String {
+        let mutability = match self.mutability {
+            Mutability::Const => "const",
+            Mutability::Mut => "mut",
+        };
+
+        format!("[]{} {}", mutability, self.ty.name())
+    }
 }
 
 /// A type expression.
@@ -38,22 +78,8 @@ impl Type {
         match self {
             Type::I32 => "i32".to_string(),
             Type::U8 => "u8".to_string(),
-            Type::Ptr(ptr) => {
-                let mutability = match ptr.mutability {
-                    Mutability::Const => "const",
-                    Mutability::Mut => "mut",
-                };
-
-                format!("~{} {}", mutability, ptr.ty.name())
-            }
-            Type::Slice(slice) => {
-                let mutability = match slice.mutability {
-                    Mutability::Const => "const",
-                    Mutability::Mut => "mut",
-                };
-
-                format!("[{}; {}]", mutability, slice.ty.name())
-            }
+            Type::Ptr(ptr) => ptr.name(),
+            Type::Slice(slice) => slice.name(),
         }
     }
 
@@ -71,7 +97,7 @@ impl Type {
             Type::I32 => 4,
             Type::U8 => 1,
             Type::Ptr(_) => ptr_size,
-            Type::Slice(slice) => ptr_size * 2,
+            Type::Slice(_) => ptr_size * 2,
         }
     }
 
@@ -108,7 +134,6 @@ impl Type {
                     ty: Box::new(Type::check(module, &array.ty)?),
                 }))
             }
-            _ => todo!("check slice types"),
         }
     }
 }

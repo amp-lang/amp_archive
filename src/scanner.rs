@@ -88,6 +88,9 @@ pub enum Token {
     /// `,`
     Comma,
 
+    /// `=`
+    Eq,
+
     /// `;`
     Semi,
 
@@ -128,7 +131,14 @@ pub enum Token {
     /// ```
     KFunc,
 
-    /// A `const` keywor.d
+    /// The `var` keyword
+    ///
+    /// ```
+    /// var my_variable = 42;
+    /// ```
+    KVar,
+
+    /// A `const` keyword.
     ///
     /// ```amp
     /// ~const u8
@@ -506,9 +516,10 @@ impl<'a> Iterator for Scanner<'a> {
             self.scan_identifier();
 
             return Some(Ok(match self.slice() {
+                "func" => Token::KFunc,
+                "var" => Token::KVar,
                 "const" => Token::KConst,
                 "mut" => Token::KMut,
-                "func" => Token::KFunc,
                 "return" => Token::KReturn,
                 _ => Token::Identifier,
             }));
@@ -527,6 +538,7 @@ impl<'a> Iterator for Scanner<'a> {
         Some(Ok(match first_char {
             ':' => Token::Colon,
             ',' => Token::Comma,
+            '=' => Token::Eq,
             ';' => Token::Semi,
             '~' => Token::Tilde,
             '-' => {

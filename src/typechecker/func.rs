@@ -8,6 +8,7 @@ use super::{
     scope::Scope,
     stmnt::{Block, Stmnt},
     types::Type,
+    var::Vars,
     Typechecker,
 };
 
@@ -70,7 +71,7 @@ impl Signature {
 }
 
 /// A function declaration in Amp.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Func {
     /// The type signature of the function.
     pub signature: Signature,
@@ -84,7 +85,14 @@ pub struct Func {
     pub span: Span,
 
     /// The definition of the [Func].
-    pub block: Option<Block>,
+    pub func_impl: Option<FuncImpl>,
+}
+
+/// The implementation of a function.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FuncImpl {
+    pub block: Block,
+    pub vars: Vars,
 }
 
 /// Declares the name of a function.
@@ -106,7 +114,7 @@ pub fn check_func_decl(
                 .as_ref()
                 .map_or(decl.args.span.end, |ty| ty.span().end),
         ),
-        block: None,
+        func_impl: None,
     };
 
     checker.declare_func(decl, scope)?;
@@ -125,7 +133,8 @@ pub fn check_func_def(
             .resolve_func(&ast.name.value)
             .expect("Typechecker confirms this function exists");
         let func = &checker.funcs[item.0 as usize];
-        let block = Block::check(checker, scope, func, ast_block)?;
+        let mut vars = Vars::new();
+        let block = Block::check(checker, scope, &mut vars, func, ast_block)?;
 
         // check for return statement
         if let Some(value) = &func.signature.returns {
@@ -145,7 +154,7 @@ pub fn check_func_def(
             }
         }
 
-        checker.funcs[item.0 as usize].block = Some(block);
+        checker.funcs[item.0 as usize].func_impl = Some(FuncImpl { block, vars });
     }
 
     Ok(())

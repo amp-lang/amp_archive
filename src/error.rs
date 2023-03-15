@@ -261,6 +261,21 @@ pub enum Error {
 
     /// Expected the length of an array or a slice mutability.
     ExpectedSliceMutability { started: Span, offending: Span } = 33,
+
+    /// Expected the name of a variable.
+    ExpectedVariableName { started: Span, offending: Span } = 34,
+
+    /// Expected a value for a variable.
+    ExpectedVariableValue { started: Span, offending: Span } = 35,
+
+    /// Expected the type for a variable.
+    ExpectedVariableType { started: Span, offending: Span } = 36,
+
+    /// The compiler could not infer the type of a variable.
+    CannotInferVarType(Span) = 37,
+
+    /// Could not find a variable with the given name.
+    UndeclaredVariable(Spanned<String>) = 38,
 }
 
 impl Error {
@@ -586,6 +601,56 @@ impl Error {
                         .primary()
                         .with_message("Expected `mut`/`const` here"),
                 );
+            }
+            Self::ExpectedVariableName { started, offending } => {
+                diagnostic.message = "Expected a variable name".to_owned();
+                diagnostic.labels.push(
+                    started
+                        .secondary()
+                        .with_message("Variable declaration started here"),
+                );
+
+                diagnostic.labels.push(
+                    offending
+                        .primary()
+                        .with_message("Expected a variable name here"),
+                );
+            }
+            Self::ExpectedVariableValue { started, offending } => {
+                diagnostic.message = "Expected a variable value".to_owned();
+                diagnostic.labels.push(
+                    started
+                        .secondary()
+                        .with_message("Variable declaration started here"),
+                );
+
+                diagnostic.labels.push(
+                    offending
+                        .primary()
+                        .with_message("Expected a variable value here"),
+                );
+            }
+            Self::ExpectedVariableType { started, offending } => {
+                diagnostic.message = "Expected a variable type".to_owned();
+                diagnostic.labels.push(
+                    started
+                        .secondary()
+                        .with_message("Variable declaration started here"),
+                );
+
+                diagnostic.labels.push(
+                    offending
+                        .primary()
+                        .with_message("Expected a variable type here"),
+                );
+            }
+            Self::CannotInferVarType(span) => {
+                diagnostic.message = "Cannot infer type of variable".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::UndeclaredVariable(name) => {
+                diagnostic.message = format!("Undeclared variable '{}'", name.value);
+                diagnostic.labels.push(name.span.primary());
             }
         }
 

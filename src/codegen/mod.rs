@@ -71,8 +71,8 @@ impl Codegen {
         // Define functions
         for (idx, func) in checker.funcs.iter().enumerate() {
             let id = FuncId(idx);
-            if let Some(block) = &func.block {
-                func::compile_func(self, &mut context, &mut func_context, id, block);
+            if let Some(data) = &func.func_impl {
+                func::compile_func(self, &mut context, &mut func_context, id, data);
             }
             self.module.clear_context(&mut context);
         }
