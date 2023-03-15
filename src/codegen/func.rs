@@ -2,11 +2,11 @@ use cranelift::{
     codegen::{ir::Function, Context},
     prelude::{AbiParam, FunctionBuilder, FunctionBuilderContext, Signature},
 };
-use cranelift_module::{FuncId, Linkage, Module};
+use cranelift_module::{Linkage, Module};
 
 use crate::typechecker::{
-    func::{FuncDecl, FuncDef},
-    symbol::SymbolId,
+    func::{Func, FuncId},
+    stmnt::Block,
 };
 
 use super::{stmnt, types, Codegen};
@@ -15,14 +15,14 @@ use super::{stmnt, types, Codegen};
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct CraneliftFunc {
     /// The ID Cranelift assigned this function to.
-    pub cranelift_id: FuncId,
+    pub cranelift_id: cranelift_module::FuncId,
 
     /// The signature of this function.
     pub signature: Signature,
 }
 
 /// Declares a function in the Cranelift context.
-pub fn declare_func(codegen: &mut Codegen, decl: &FuncDecl) -> CraneliftFunc {
+pub fn declare_func(codegen: &mut Codegen, decl: &Func) -> CraneliftFunc {
     let mut signature = codegen.module.make_signature();
 
     for arg in &decl.signature.args {
@@ -51,8 +51,8 @@ pub fn compile_func(
     codegen: &mut Codegen,
     context: &mut Context,
     func_context: &mut FunctionBuilderContext,
-    id: SymbolId,
-    def: &FuncDef,
+    id: FuncId,
+    block: &Block,
 ) {
     let mut function = Function::new();
     function.signature = codegen.funcs[&id].signature.clone();
@@ -63,7 +63,7 @@ pub fn compile_func(
     let entry_block = builder.create_block();
     builder.switch_to_block(entry_block);
 
-    stmnt::compile_block(codegen, &mut builder, &def.block);
+    stmnt::compile_block(codegen, &mut builder, &block);
 
     builder.seal_all_blocks();
     builder.finalize();

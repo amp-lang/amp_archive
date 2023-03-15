@@ -1,52 +1,41 @@
 use crate::{ast, error::Error, span::Spanned};
 
-use super::{
-    module::Module,
-    symbol::{Symbol, SymbolId},
-    types::Type,
-    Typechecker,
-};
+use super::{func::FuncId, scope::Scope, types::Type, Typechecker};
 
 /// A function call value.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct FuncCall {
-    pub callee: SymbolId,
+    pub callee: FuncId,
     pub args: Vec<Value>,
 }
 
 impl FuncCall {
     /// Checks the type signature of the provided function call.
     pub fn check(
-        checker: &mut Typechecker,
-        module: &mut Module,
+        checker: &Typechecker,
+        scope: &mut Scope,
         call: &ast::Call,
     ) -> Result<Self, Error> {
+        // TODO: make this code simpler somehow
         let callee = match &*call.callee {
             ast::Expr::Iden(iden) => {
-                let callee =
-                    module
-                        .resolve_symbol(&iden.value)
-                        .ok_or(Error::UndeclaredFunction(Spanned::new(
-                            iden.span,
-                            iden.value.clone(),
-                        )))?;
+                let callee = scope
+                    .resolve_func(&iden.value)
+                    .ok_or(Error::UndeclaredFunction(Spanned::new(
+                        iden.span,
+                        iden.value.clone(),
+                    )))?;
                 callee
             }
             _ => return Err(Error::InvalidFunctionName(call.callee.span())),
         };
 
-        let func = &checker.symbols[callee.0 as usize];
+        let func = &checker.funcs[callee.0 as usize];
 
-        let decl = match func {
-            Symbol::FuncDecl(func) => &func,
-            Symbol::FuncDef(func) => &func.decl,
-            // TODO: error if the symbol is not a function
-        };
-
-        if decl.signature.args.len() != call.args.args.len() {
+        if func.signature.args.len() != call.args.args.len() {
             return Err(Error::InvalidArgumentCount {
-                decl: decl.decl_span,
-                decl_type: decl.signature.name(),
+                decl: func.span,
+                decl_type: func.signature.name(),
                 offending: call.span,
             });
         }
@@ -54,12 +43,12 @@ impl FuncCall {
         let mut args = Vec::new();
 
         for (idx, arg) in call.args.args.iter().enumerate() {
-            let value = GenericValue::check(module, arg)
+            let value = GenericValue::check(scope, arg)
                 .ok_or(Error::InvalidValue(arg.span()))?
-                .coerce(&decl.signature.args[idx].ty)
+                .coerce(&func.signature.args[idx].ty)
                 .ok_or(Error::ExpectedArgumentOfType {
-                    decl: decl.decl_span,
-                    name: decl.signature.args[idx].ty.name(),
+                    decl: func.span,
+                    name: func.signature.args[idx].ty.name(),
                     offending: arg.span(),
                 })?;
             args.push(value);
@@ -78,7 +67,7 @@ pub enum GenericValue {
 
 impl GenericValue {
     /// Converts an ast value into a generic value, if it is a value.
-    pub fn check(_module: &mut Module, expr: &ast::Expr) -> Option<Self> {
+    pub fn check(_module: &mut Scope, expr: &ast::Expr) -> Option<Self> {
         match expr {
             ast::Expr::Int(int) => Some(GenericValue::Int(int.value)),
             ast::Expr::Str(str) => Some(GenericValue::Str(str.value.clone())),

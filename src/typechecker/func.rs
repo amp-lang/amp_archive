@@ -4,7 +4,11 @@ use crate::{
     span::{Span, Spanned},
 };
 
-use super::{module::Module, stmnt::Block, symbol::Symbol, types::Type, Typechecker};
+use super::{scope::Scope, stmnt::Block, types::Type, Typechecker};
+
+/// A unique identifier representing a function.
+#[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct FuncId(pub usize);
 
 /// An argument in a function declaration.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -15,7 +19,7 @@ pub struct FuncArg {
 
 /// The signature of a function declaration in Amp.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct FuncSignature {
+pub struct Signature {
     /// The arguments of the function.
     pub args: Vec<FuncArg>,
 
@@ -23,7 +27,7 @@ pub struct FuncSignature {
     pub returns: Option<Type>,
 }
 
-impl FuncSignature {
+impl Signature {
     pub fn name(&self) -> String {
         format!(
             "func({}){}",
@@ -40,11 +44,11 @@ impl FuncSignature {
     }
 
     /// Checks the type signature of a function declaration.
-    pub fn check(module: &mut Module, decl: &ast::Func) -> Result<Self, Error> {
+    pub fn check(scope: &mut Scope, decl: &ast::Func) -> Result<Self, Error> {
         let mut args = Vec::new();
 
         for arg in &decl.args.args {
-            let ty = Type::check(module, &arg.ty)?;
+            let ty = Type::check(scope, &arg.ty)?;
             args.push(FuncArg {
                 name: arg.name.value.clone(),
                 ty,
@@ -52,7 +56,7 @@ impl FuncSignature {
         }
 
         let returns = match &decl.returns {
-            Some(ty) => Some(Type::check(module, ty)?),
+            Some(ty) => Some(Type::check(scope, ty)?),
             None => None,
         };
 
@@ -62,9 +66,9 @@ impl FuncSignature {
 
 /// A function declaration in Amp.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct FuncDecl {
+pub struct Func {
     /// The type signature of the function.
-    pub signature: FuncSignature,
+    pub signature: Signature,
 
     /// The name of the function.
     ///
@@ -72,39 +76,35 @@ pub struct FuncDecl {
     pub name: Spanned<String>,
 
     /// The span of the declaration, from the `fn` keyword to the end of the return type, if any.
-    pub decl_span: Span,
-}
+    pub span: Span,
 
-/// The definition of a function in Amp.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct FuncDef {
-    pub decl: FuncDecl,
-    pub block: Block,
-    // TODO: implement function block
+    /// The definition of the [Func].
+    pub block: Option<Block>,
 }
 
 /// Declares the name of a function.
 pub fn check_func_decl(
     checker: &mut Typechecker,
-    module: &mut Module,
+    scope: &mut Scope,
     decl: &ast::Func,
 ) -> Result<(), Error> {
-    let signature = FuncSignature::check(module, decl)?;
+    let signature = Signature::check(scope, decl)?;
     // TODO: implement function block
 
-    let decl = FuncDecl {
+    let decl = Func {
         signature,
         name: Spanned::new(decl.name.span, decl.name.value.clone()),
-        decl_span: Span::new(
+        span: Span::new(
             decl.span.file_id,
             decl.span.start,
             decl.returns
                 .as_ref()
                 .map_or(decl.args.span.end, |ty| ty.span().end),
         ),
+        block: None,
     };
 
-    checker.declare_func(decl, module)?;
+    checker.declare_func(decl, scope)?;
 
     Ok(())
 }
@@ -112,28 +112,19 @@ pub fn check_func_decl(
 /// Checks a function declaration.
 pub fn check_func_def(
     checker: &mut Typechecker,
-    module: &mut Module,
-    def: &ast::Func,
+    scope: &mut Scope,
+    ast: &ast::Func,
 ) -> Result<(), Error> {
-    if let Some(block) = &def.block {
-        let item = module
-            .resolve_symbol(&def.name.value)
+    if let Some(block) = &ast.block {
+        let item = scope
+            .resolve_func(&ast.name.value)
             .expect("Typechecker confirms this function exists");
-
-        let func = match &checker.symbols[item.0 as usize] {
-            Symbol::FuncDecl(func) => func.clone(),
-            _ => unreachable!(),
-        };
-
-        let block = Block::check(checker, module, &func, block)?;
-
-        checker.symbols[item.0 as usize] = Symbol::FuncDef(FuncDef {
-            decl: func.clone(),
+        checker.funcs[item.0 as usize].block = Some(Block::check(
+            checker,
+            scope,
+            &checker.funcs[item.0 as usize],
             block,
-        });
-
-        // let mut typechecker = Typechecker::new(module);
-        // typechecker.check_block(block)?;
+        )?);
     }
 
     Ok(())

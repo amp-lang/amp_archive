@@ -10,7 +10,10 @@ use cranelift_module::{default_libcall_names, Module};
 use cranelift_object::{ObjectBuilder, ObjectModule};
 use target_lexicon::Triple;
 
-use crate::typechecker::{symbol::SymbolId, Typechecker};
+use crate::typechecker::{
+    func::{Func, FuncId},
+    Typechecker,
+};
 
 use self::func::CraneliftFunc;
 
@@ -21,7 +24,7 @@ pub mod value;
 
 pub struct Codegen {
     /// Functions declared in the Cranelift context
-    pub funcs: HashMap<SymbolId, CraneliftFunc>,
+    pub funcs: HashMap<FuncId, CraneliftFunc>,
     pub pointer_type: cranelift::prelude::Type,
 
     /// The module used for code generation.
@@ -60,34 +63,21 @@ impl Codegen {
     /// Compiles the given [Typechecker] context.
     pub fn compile(&mut self, checker: Typechecker) {
         // Declare functions
-        for (idx, item) in checker.symbols.iter().enumerate() {
-            match item {
-                crate::typechecker::symbol::Symbol::FuncDecl(func) => {
-                    let cranelift_func = func::declare_func(self, &func);
-                    self.funcs.insert(SymbolId(idx as u32), cranelift_func);
-                }
-                crate::typechecker::symbol::Symbol::FuncDef(func) => {
-                    let cranelift_func = func::declare_func(self, &func.decl);
-                    self.funcs.insert(SymbolId(idx as u32), cranelift_func);
-                }
-            }
+        for (idx, item) in checker.funcs.iter().enumerate() {
+            let cranelift_func = func::declare_func(self, &item);
+            self.funcs.insert(FuncId(idx), cranelift_func);
         }
 
         let mut context = self.module.make_context();
         let mut func_context = cranelift::prelude::FunctionBuilderContext::new();
 
         // Define functions
-        for (idx, item) in checker.symbols.iter().enumerate() {
-            match item {
-                crate::typechecker::symbol::Symbol::FuncDef(func) => {
-                    let id = SymbolId(idx as u32);
-                    func::compile_func(self, &mut context, &mut func_context, id, &func);
-                    self.module.clear_context(&mut context);
-                    // let cranelift_func = self.funcs.get_mut(&SymbolId(idx as u32)).unwrap();
-                    // func::define_func(self, cranelift_func, &func.body);
-                }
-                _ => {}
+        for (idx, func) in checker.funcs.iter().enumerate() {
+            let id = FuncId(idx);
+            if let Some(block) = &func.block {
+                func::compile_func(self, &mut context, &mut func_context, id, block);
             }
+            self.module.clear_context(&mut context);
         }
     }
 

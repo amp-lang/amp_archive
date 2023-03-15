@@ -1,56 +1,42 @@
-use std::collections::HashMap;
-
 use crate::{ast, error::Error};
 
 use self::{
-    func::FuncDecl,
-    module::Module,
-    symbol::{Symbol, SymbolId},
+    func::{Func, FuncId},
+    scope::Scope,
 };
 
 pub mod func;
-pub mod module;
+pub mod scope;
 pub mod stmnt;
-pub mod symbol;
 pub mod types;
 pub mod value;
 
 /// The state of the typechecker.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Typechecker {
-    /// The modules declared in this context.
-    pub modules: Vec<Module>,
-
-    /// The symbols declared globally.
-    pub symbols: Vec<Symbol>,
-
-    pub symbol_names: HashMap<String, SymbolId>,
+    /// The functions declared by all modules.
+    pub funcs: Vec<Func>,
 }
 
 impl Typechecker {
     /// Creates a new [Typechecker] context.
     pub fn new() -> Self {
-        Self {
-            modules: Vec::new(),
-            symbols: Vec::new(),
-            symbol_names: HashMap::new(),
-        }
+        Self { funcs: Vec::new() }
     }
 
-    pub fn declare_func(&mut self, func: FuncDecl, module: &mut Module) -> Result<SymbolId, Error> {
-        if let Some(id) = self.symbol_names.get(&func.name.value) {
+    /// Declares a function in this [Typechecker] context.
+    pub fn declare_func(&mut self, func: Func, scope: &mut Scope) -> Result<FuncId, Error> {
+        if let Some(id) = scope.resolve_func(&func.name.value) {
             return Err(Error::DuplicateSymbol {
-                original: self.symbols[id.0 as usize].decl_span(),
+                original: self.funcs[id.0 as usize].span,
                 name: func.name.clone(),
             });
         }
 
-        let id = SymbolId(self.symbols.len() as u32);
-        let name = func.name.value.clone();
+        let id = FuncId(self.funcs.len());
 
-        self.symbols.push(Symbol::FuncDecl(func));
-        self.symbol_names.insert(name.clone(), SymbolId(id.0));
-        module.symbols.insert(name, id);
+        scope.define_func(func.name.value.clone(), id);
+        self.funcs.push(func);
 
         Ok(id)
     }
@@ -66,13 +52,13 @@ impl Typechecker {
         // - check function declarations
         // - check function definitions
 
-        let mut module = Module::new();
+        let mut global_scope = Scope::new(None);
 
         // Check function declarations
         for item in &module_ast.decls {
             match item {
                 ast::Decl::Func(func) => {
-                    func::check_func_decl(self, &mut module, &func)?;
+                    func::check_func_decl(self, &mut global_scope, &func)?;
                 }
             }
         }
@@ -81,7 +67,7 @@ impl Typechecker {
         for item in &module_ast.decls {
             match item {
                 ast::Decl::Func(func) => {
-                    func::check_func_def(self, &mut module, &func)?;
+                    func::check_func_def(self, &mut global_scope, func)?;
                 }
             }
         }

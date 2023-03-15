@@ -1,6 +1,6 @@
 use crate::{ast, error::Error};
 
-use super::module::Module;
+use super::scope::Scope;
 
 /// The mutability of a type.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -44,7 +44,7 @@ impl Type {
     /// Checks for a type in the given module.
     ///
     /// TODO: check imports and declared types
-    pub fn check(module: &mut Module, ty: &ast::Type) -> Result<Self, Error> {
+    pub fn check(module: &mut Scope, ty: &ast::Type) -> Result<Self, Error> {
         match ty {
             ast::Type::Named(name) => match name.value.as_str() {
                 "i32" => Ok(Type::I32),

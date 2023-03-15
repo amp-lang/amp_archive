@@ -1,8 +1,8 @@
 use crate::{ast, error::Error};
 
 use super::{
-    func::FuncDecl,
-    module::Module,
+    func::Func,
+    scope::Scope,
     value::{FuncCall, GenericValue, Value},
     Typechecker,
 };
@@ -16,16 +16,16 @@ pub struct Return {
 
 impl Return {
     pub fn check(
-        checker: &mut Typechecker,
-        module: &mut Module,
-        decl: &FuncDecl,
+        checker: &Typechecker,
+        scope: &mut Scope,
+        func: &Func,
         return_: &ast::Return,
     ) -> Result<Self, Error> {
         let value = if let Some(value) = &return_.value {
-            if decl.signature.returns == None {
+            if func.signature.returns == None {
                 return Err(Error::InvalidReturnValue {
-                    decl: decl.decl_span,
-                    name: decl
+                    decl: func.span,
+                    name: func
                         .signature
                         .returns
                         .clone()
@@ -34,12 +34,12 @@ impl Return {
                 });
             }
 
-            let value = GenericValue::check(module, value)
+            let value = GenericValue::check(scope, value)
                 .ok_or(Error::InvalidValue(value.span()))?
-                .coerce(&decl.signature.returns.clone().unwrap())
+                .coerce(&func.signature.returns.clone().unwrap())
                 .ok_or(Error::InvalidReturnValue {
-                    decl: decl.decl_span,
-                    name: decl.signature.returns.clone().unwrap().name(),
+                    decl: func.span,
+                    name: func.signature.returns.clone().unwrap().name(),
                     offending: value.span(),
                 })?;
 
@@ -62,19 +62,19 @@ pub enum Stmnt {
 impl Stmnt {
     /// Checks if a statement is value.
     pub fn check(
-        checker: &mut Typechecker,
-        module: &mut Module,
-        func: &FuncDecl,
+        checker: &Typechecker,
+        scope: &mut Scope,
+        func: &Func,
         stmnt: &ast::Expr,
     ) -> Result<Self, Error> {
         match stmnt {
             ast::Expr::Call(call) => {
-                let func_call = FuncCall::check(checker, module, call)?;
+                let func_call = FuncCall::check(checker, scope, call)?;
 
                 Ok(Stmnt::FuncCall(func_call))
             }
             ast::Expr::Return(return_) => {
-                let return_ = Return::check(checker, module, func, return_)?;
+                let return_ = Return::check(checker, scope, func, return_)?;
 
                 Ok(Stmnt::Return(return_))
             }
@@ -92,15 +92,15 @@ pub struct Block {
 impl Block {
     /// Checks an entire block for validity.
     pub fn check(
-        checker: &mut Typechecker,
-        module: &mut Module,
-        func: &FuncDecl,
+        checker: &Typechecker,
+        scope: &mut Scope,
+        func: &Func,
         block: &ast::Block,
     ) -> Result<Self, Error> {
         let mut value = Vec::new();
 
         for stmnt in &block.value {
-            let stmnt = Stmnt::check(checker, module, func, stmnt)?;
+            let stmnt = Stmnt::check(checker, scope, func, stmnt)?;
             value.push(stmnt);
         }
 
