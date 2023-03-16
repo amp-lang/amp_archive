@@ -351,6 +351,19 @@ impl<'a> Scanner<'a> {
         while let Some(c) = self.peek_char() {
             if c.is_whitespace() {
                 self.next_char();
+            } else if c == '/' {
+                let reset_span = self.current_span;
+                self.next_char();
+
+                if let Some('/') = self.peek_char() {
+                    while let Some(c) = self.next_char() {
+                        if c == '\n' {
+                            break;
+                        }
+                    }
+                } else {
+                    self.current_span = reset_span;
+                }
             } else {
                 break;
             }
