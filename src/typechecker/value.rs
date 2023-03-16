@@ -157,8 +157,32 @@ pub enum Value {
     /// An 8-bit unsigned integer.
     U8(u8),
 
-    /// A 32-bit integer.
+    /// A 16-bit unsigned integer.
+    U16(u16),
+
+    /// A 32-bit unsigned integer.
+    U32(u32),
+
+    /// A 64-bit unsigned integer.
+    U64(u64),
+
+    /// A pointer sized integer.
+    Uint(u64),
+
+    /// An 8-bit unsigned integer.
+    I8(i8),
+
+    /// A 16-bit unsigned integer.
+    I16(i16),
+
+    /// A 32-bit unsigned integer.
     I32(i32),
+
+    /// A 64-bit unsigned integer.
+    I64(i64),
+
+    /// A pointer sized integer.
+    Int(i64),
 
     /// Reads the value of a variable.
     Var(VarId),
@@ -174,7 +198,15 @@ impl Value {
             Value::CStr(mut_, _) => Type::Ptr(Ptr::new(*mut_, Type::U8)),
             Value::Str(mut_, _) => Type::Slice(Slice::new(*mut_, Type::U8)),
             Value::U8(_) => Type::U8,
+            Value::U16(_) => Type::U16,
+            Value::U32(_) => Type::U32,
+            Value::U64(_) => Type::U64,
+            Value::Uint(_) => Type::Uint,
+            Value::I8(_) => Type::I8,
+            Value::I16(_) => Type::I16,
             Value::I32(_) => Type::I32,
+            Value::I64(_) => Type::I64,
+            Value::Int(_) => Type::Int,
             Value::Var(var) => vars.vars[var.0].ty.clone(),
             Value::FuncCall(call) => checker.funcs[call.callee.0 as usize]
                 .signature

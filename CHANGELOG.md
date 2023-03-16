@@ -11,6 +11,7 @@
 - [feat (#11): [typechecker, codegen] implement function arguments](https://github.com/amp-lang/amp/issues/11)
 - [feat (#12): [typechecker, codegen] implement returning big values](https://github.com/amp-lang/amp/issues/12)
 - [feat (#13): [typechecker, codegen] implement function calls as values](https://github.com/amp-lang/amp/issues/13)
+- [feat (#14): [typechecker, codegen] implement other integer types](https://github.com/amp-lang/amp/issues/14)
 
 ### Compiler
 - feat: Basic stopwatch benchmark for Amp compile times.

@@ -1,4 +1,6 @@
-func Print(s: []const u8);
+func Print(str: []const u8) -> i32;
+func PrintInt(int: uint) -> i32;
+func Len(slice: []const u8) -> uint;
 
 func GetStr() -> []const u8 {
     return "Hello, world!\n";
@@ -7,4 +9,6 @@ func GetStr() -> []const u8 {
 func Main() {
     var my_str = GetStr();
     Print(my_str);
+    PrintInt(Len(my_str));
+    Print("\n");
 }

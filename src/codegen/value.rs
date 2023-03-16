@@ -139,9 +139,29 @@ pub fn compile_value(
         Value::U8(value) => builder
             .ins()
             .iconst(cranelift::prelude::types::I8, *value as i64),
+        Value::U16(value) => builder
+            .ins()
+            .iconst(cranelift::prelude::types::I16, *value as i64),
+        Value::U32(value) => builder
+            .ins()
+            .iconst(cranelift::prelude::types::I32, *value as i64),
+        Value::U64(value) => builder
+            .ins()
+            .iconst(cranelift::prelude::types::I64, *value as i64),
+        Value::Uint(value) => builder.ins().iconst(codegen.pointer_type, *value as i64),
+        Value::I8(value) => builder
+            .ins()
+            .iconst(cranelift::prelude::types::I8, *value as i64),
+        Value::I16(value) => builder
+            .ins()
+            .iconst(cranelift::prelude::types::I16, *value as i64),
         Value::I32(value) => builder
             .ins()
             .iconst(cranelift::prelude::types::I32, *value as i64),
+        Value::I64(value) => builder
+            .ins()
+            .iconst(cranelift::prelude::types::I64, *value as i64),
+        Value::Int(value) => builder.ins().iconst(codegen.pointer_type, *value as i64),
         Value::CStr(_, value) => {
             let data_id = compile_string(codegen, value, true);
 
