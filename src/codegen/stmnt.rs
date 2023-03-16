@@ -102,10 +102,14 @@ pub fn compile_assign(
     data: &FuncImpl,
     assign: &Assign,
 ) {
-    let dest = match assign.dest {
+    let dest = match &assign.dest {
         AssignDest::Var(var) => {
             let slot = vars[&var];
             builder.ins().stack_addr(codegen.pointer_type, slot, 0)
+        }
+        AssignDest::Deref(deref) => {
+            super::value::compile_value(checker, codegen, builder, &deref, vars, data, None)
+                .expect("no `to` provided")
         }
     };
 

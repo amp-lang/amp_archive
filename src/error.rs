@@ -300,6 +300,9 @@ pub enum Error {
 
     /// Cannot dereference a non-pointer type.
     InvalidDeref(Span) = 43,
+
+    /// Cannot change an immutable pointer/slice.
+    CannotChangeImmutable(Span) = 44,
 }
 
 impl Error {
@@ -701,6 +704,10 @@ impl Error {
             }
             Self::InvalidDeref(span) => {
                 diagnostic.message = "Cannot dereference a non-pointer type".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::CannotChangeImmutable(span) => {
+                diagnostic.message = "Cannot change an immutable value".to_owned();
                 diagnostic.labels.push(span.primary());
             }
         }

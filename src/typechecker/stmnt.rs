@@ -3,7 +3,7 @@ use crate::{ast, error::Error, span::Spanned, typechecker::var::Var};
 use super::{
     func::Func,
     scope::Scope,
-    types::Type,
+    types::{Mutability, Type},
     value::{FuncCall, GenericValue, Value},
     var::{VarId, Vars},
     Typechecker,
@@ -122,6 +122,7 @@ impl VarDecl {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum AssignDest {
     Var(VarId),
+    Deref(Value),
 }
 
 impl AssignDest {
@@ -144,6 +145,23 @@ impl AssignDest {
 
                 Ok(Self::Var(var))
             }
+            ast::Expr::Unary(unary) => match unary.op {
+                ast::UnaryOp::Deref => {
+                    let value = GenericValue::check(checker, scope, vars, &unary.expr)?;
+
+                    match value.default_type(checker, vars) {
+                        Type::Ptr(ptr) => {
+                            if ptr.mutability != Mutability::Mut {
+                                return Err(Error::CannotChangeImmutable(unary.span));
+                            }
+                        }
+                        _ => return Err(Error::InvalidDeref(unary.span)),
+                    }
+
+                    Ok(Self::Deref(value.coerce_default()))
+                }
+                _ => Err(Error::InvalidAssignment(dest.span())),
+            },
             _ => Err(Error::InvalidAssignment(dest.span())),
         }
     }
@@ -167,13 +185,26 @@ impl Assign {
     ) -> Result<Self, Error> {
         let dest = AssignDest::check(checker, scope, vars, func, &assign.left)?;
 
-        match dest {
+        match &dest {
             AssignDest::Var(var) => {
                 let value = GenericValue::check(checker, scope, vars, &assign.right)?
                     .coerce(checker, vars, &vars.vars[var.0].ty)
                     .ok_or(Error::CannotAssignType {
                         decl: vars.vars[var.0].span,
                         expected: vars.vars[var.0].ty.name(),
+                        offending: assign.right.span(),
+                    })?;
+
+                Ok(Self { dest, value })
+            }
+            AssignDest::Deref(deref) => {
+                let Type::Ptr(ptr) = deref.ty(checker, vars) else { unreachable!() };
+
+                let value = GenericValue::check(checker, scope, vars, &assign.right)?
+                    .coerce(checker, vars, &ptr.ty)
+                    .ok_or(Error::CannotAssignType {
+                        decl: assign.right.span(),
+                        expected: ptr.ty.name(),
                         offending: assign.right.span(),
                     })?;
 
