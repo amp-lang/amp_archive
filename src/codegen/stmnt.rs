@@ -8,7 +8,7 @@ use cranelift_module::Module;
 
 use crate::typechecker::{
     func::{FuncImpl, Signature},
-    stmnt::{Return, Stmnt, VarDecl},
+    stmnt::{Assign, AssignDest, Return, Stmnt, VarDecl},
     value::FuncCall,
     var::VarId,
     Typechecker,
@@ -94,6 +94,32 @@ pub fn compile_var_decl(
     }
 }
 
+pub fn compile_assign(
+    checker: &Typechecker,
+    codegen: &mut Codegen,
+    builder: &mut FunctionBuilder,
+    vars: &HashMap<VarId, StackSlot>,
+    data: &FuncImpl,
+    assign: &Assign,
+) {
+    let dest = match assign.dest {
+        AssignDest::Var(var) => {
+            let slot = vars[&var];
+            builder.ins().stack_addr(codegen.pointer_type, slot, 0)
+        }
+    };
+
+    super::value::compile_value(
+        checker,
+        codegen,
+        builder,
+        &assign.value,
+        vars,
+        data,
+        Some(dest),
+    );
+}
+
 /// Returns true if the statement returns.
 pub fn compile_statement(
     checker: &Typechecker,
@@ -115,6 +141,7 @@ pub fn compile_statement(
         Stmnt::VarDecl(decl) => {
             compile_var_decl(checker, codegen, builder, vars, data, decl);
         }
+        Stmnt::Assign(assign) => compile_assign(checker, codegen, builder, vars, data, assign),
     }
 
     false

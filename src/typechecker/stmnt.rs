@@ -1,4 +1,4 @@
-use crate::{ast, error::Error, typechecker::var::Var};
+use crate::{ast, error::Error, span::Spanned, typechecker::var::Var};
 
 use super::{
     func::Func,
@@ -118,12 +118,76 @@ impl VarDecl {
     }
 }
 
+/// The destination of an assignment.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum AssignDest {
+    Var(VarId),
+}
+
+impl AssignDest {
+    pub fn check(
+        checker: &Typechecker,
+        scope: &mut Scope,
+        vars: &mut Vars,
+        func: &Func,
+        dest: &ast::Expr,
+    ) -> Result<Self, Error> {
+        match &dest {
+            ast::Expr::Iden(name) => {
+                let var = scope
+                    .resolve_var(&name.value)
+                    .ok_or(Error::UndeclaredVariable(Spanned::new(
+                        name.span,
+                        name.value.clone(),
+                    )))?;
+
+                Ok(Self::Var(var))
+            }
+            _ => Err(Error::InvalidAssignment(dest.span())),
+        }
+    }
+}
+
+/// Assigns a value to a variable.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Assign {
+    pub dest: AssignDest,
+    pub value: Value,
+}
+
+impl Assign {
+    pub fn check(
+        checker: &Typechecker,
+        scope: &mut Scope,
+        vars: &mut Vars,
+        func: &Func,
+        assign: &ast::Binary,
+    ) -> Result<Self, Error> {
+        let dest = AssignDest::check(checker, scope, vars, func, &assign.left)?;
+
+        match dest {
+            AssignDest::Var(var) => {
+                let value = GenericValue::check(checker, scope, vars, &assign.right)?
+                    .coerce(checker, vars, &vars.vars[var.0].ty)
+                    .ok_or(Error::CannotAssignType {
+                        decl: vars.vars[var.0].span,
+                        expected: vars.vars[var.0].ty.name(),
+                        offending: assign.right.span(),
+                    })?;
+
+                Ok(Self { dest, value })
+            }
+        }
+    }
+}
+
 /// A statement of code.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Stmnt {
     FuncCall(FuncCall),
     Return(Return),
     VarDecl(VarDecl),
+    Assign(Assign),
 }
 
 impl Stmnt {
@@ -151,6 +215,13 @@ impl Stmnt {
 
                 Ok(Stmnt::VarDecl(var))
             }
+            ast::Expr::Binary(binary) => match binary.op {
+                ast::BinaryOp::Eq => {
+                    let assign = Assign::check(checker, scope, vars, func, binary)?;
+
+                    Ok(Stmnt::Assign(assign))
+                }
+            },
             _ => Err(Error::InvalidStatement(stmnt.span())),
         }
     }

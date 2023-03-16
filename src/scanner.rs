@@ -220,6 +220,7 @@ impl Token {
         match self {
             // The left parenthesis is a special operator.
             Token::LParen => true,
+            Token::Eq => true,
             _ => false,
         }
     }
@@ -227,6 +228,7 @@ impl Token {
     /// Returns the binding power of the token.
     pub fn binding_power(&self) -> (u8, u8) {
         match self {
+            Token::Eq => (1, 0), // low binding power
             Token::LParen => (8, 7),
             _ => unreachable!("Invalid operator."),
         }

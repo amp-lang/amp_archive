@@ -276,6 +276,24 @@ pub enum Error {
 
     /// Could not find a variable with the given name.
     UndeclaredVariable(Spanned<String>) = 38,
+
+    /// Expected an expression.
+    ExpectedExpression(Span) = 39,
+
+    /// Cannot assign to the provided destination.
+    InvalidAssignment(Span) = 40,
+
+    /// Cannot assign a value to a variable of a different type.
+    CannotAssignType {
+        /// The original declaration.
+        decl: Span,
+
+        /// The name of the expected type.
+        expected: String,
+
+        /// The offending area.
+        offending: Span,
+    } = 41,
 }
 
 impl Error {
@@ -651,6 +669,25 @@ impl Error {
             Self::UndeclaredVariable(name) => {
                 diagnostic.message = format!("Undeclared variable '{}'", name.value);
                 diagnostic.labels.push(name.span.primary());
+            }
+            Self::ExpectedExpression(span) => {
+                diagnostic.message = "Expected an expression".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::InvalidAssignment(span) => {
+                diagnostic.message = "Cannot assign to this value".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::CannotAssignType {
+                decl,
+                expected,
+                offending,
+            } => {
+                diagnostic.message = format!("Expected '{}'", expected);
+                diagnostic
+                    .labels
+                    .push(decl.secondary().with_message("Declared here"));
+                diagnostic.labels.push(offending.primary());
             }
         }
 

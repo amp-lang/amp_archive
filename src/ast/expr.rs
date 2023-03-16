@@ -146,6 +146,32 @@ impl Parse for Var {
     }
 }
 
+/// The operator used in a binary operation.
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub enum BinaryOp {
+    /// `=`
+    Eq,
+}
+
+impl BinaryOp {
+    /// Creates a binary operator from a token.
+    pub fn from_token(token: Token) -> Self {
+        match token {
+            Token::Eq => Self::Eq,
+            _ => unreachable!("invalid token for binary operator"),
+        }
+    }
+}
+
+/// A binary operation.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Binary {
+    pub span: Span,
+    pub op: BinaryOp,
+    pub left: Box<Expr>,
+    pub right: Box<Expr>,
+}
+
 /// An expression in Amp code.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Expr {
@@ -155,6 +181,7 @@ pub enum Expr {
     Call(Call),
     Return(Return),
     Var(Var),
+    Binary(Binary),
 }
 
 impl Expr {
@@ -167,6 +194,7 @@ impl Expr {
             Expr::Call(call) => call.span,
             Expr::Return(return_) => return_.span,
             Expr::Var(var) => var.span,
+            Expr::Binary(binary) => binary.span,
         }
     }
 
@@ -237,8 +265,25 @@ impl Expr {
                 });
             } else {
                 parser.scanner_mut().next();
-                let _rhs = Expr::parse_expr(parser, right_power)?;
-                todo!() // currently unreachable
+                let rhs = if let Some(expr) = Expr::parse_expr(parser, right_power) {
+                    match expr {
+                        Ok(expr) => expr,
+                        Err(err) => return Some(Err(err)),
+                    }
+                } else {
+                    parser.scanner_mut().next();
+                    return Some(Err(Error::ExpectedExpression(parser.scanner().span())));
+                };
+                left = Expr::Binary(Binary {
+                    span: Span::new(
+                        parser.scanner().file_id(),
+                        left.span().start,
+                        rhs.span().end,
+                    ),
+                    op: BinaryOp::from_token(op),
+                    left: Box::new(left),
+                    right: Box::new(rhs),
+                }) // currently unreachable
             }
         }
 
