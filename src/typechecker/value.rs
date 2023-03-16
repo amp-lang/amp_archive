@@ -72,9 +72,45 @@ pub enum GenericValue {
     Str(String),
     Var(VarId),
     FuncCall(FuncCall),
+    Deref(Box<GenericValue>),
 }
 
 impl GenericValue {
+    pub fn check_deref(
+        checker: &Typechecker,
+        scope: &mut Scope,
+        vars: &Vars,
+        expr: &ast::Expr,
+    ) -> Result<Self, Error> {
+        let value = Self::check(checker, scope, vars, expr)?;
+
+        match value.default_type(checker, vars) {
+            Type::Ptr(_) => Ok(GenericValue::Deref(Box::new(value))),
+            _ => Err(Error::InvalidDeref(expr.span())),
+        }
+    }
+
+    /// Returns the default type for a generic value.
+    pub fn default_type(&self, checker: &Typechecker, vars: &Vars) -> Type {
+        match self {
+            Self::Int(_) => Type::Int,
+            Self::Str(_) => Type::Slice(Slice::new(Mutability::Const, Type::Int)),
+            Self::Var(var) => vars.vars[var.0 as usize].ty.clone(),
+            Self::FuncCall(func_call) => checker.funcs[func_call.callee.0 as usize]
+                .signature
+                .returns
+                .clone()
+                .unwrap(),
+            Self::Deref(value) => {
+                let ty = value.default_type(checker, vars);
+                match ty {
+                    Type::Ptr(ptr) => *ptr.ty,
+                    _ => unreachable!(),
+                }
+            }
+        }
+    }
+
     /// Converts an ast value into a generic value, if it is a value.
     pub fn check(
         checker: &Typechecker,
@@ -96,8 +132,17 @@ impl GenericValue {
             }
             ast::Expr::Call(call) => {
                 let func_call = FuncCall::check(checker, scope, vars, call)?;
+
+                let func = &checker.funcs[func_call.callee.0 as usize];
+                if func.signature.returns == None {
+                    return Err(Error::VoidAsValue(expr.span()));
+                }
+
                 Ok(GenericValue::FuncCall(func_call))
             }
+            ast::Expr::Unary(unary) => match unary.op {
+                ast::UnaryOp::Deref => Self::check_deref(checker, scope, vars, &unary.expr),
+            },
             _ => return Err(Error::InvalidValue(expr.span())),
         }
     }
@@ -109,6 +154,7 @@ impl GenericValue {
             GenericValue::Str(str) => Value::Str(Mutability::Const, str),
             GenericValue::Var(var) => Value::Var(var),
             GenericValue::FuncCall(call) => Value::FuncCall(call),
+            GenericValue::Deref(val) => Value::Deref(Box::new(val.coerce_default())),
         }
     }
 
@@ -140,6 +186,16 @@ impl GenericValue {
                     Some(Value::FuncCall(call))
                 }
             }
+            (GenericValue::Deref(val), ty) => match val.default_type(checker, vars) {
+                Type::Ptr(ptr) => {
+                    if ty != &*ptr.ty {
+                        None
+                    } else {
+                        Some(Value::Deref(Box::new(val.coerce_default())))
+                    }
+                }
+                _ => unreachable!(),
+            },
             _ => None,
         }
     }
@@ -189,6 +245,9 @@ pub enum Value {
 
     /// Calls a function.
     FuncCall(FuncCall),
+
+    /// Loads a value from a pointer.
+    Deref(Box<Value>),
 }
 
 impl Value {
@@ -213,6 +272,10 @@ impl Value {
                 .returns
                 .clone()
                 .expect("verified as a GenericValue"),
+            Value::Deref(ptr) => match ptr.ty(checker, vars) {
+                Type::Ptr(ptr) => *ptr.ty,
+                _ => unreachable!(),
+            },
         }
     }
 }

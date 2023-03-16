@@ -125,6 +125,7 @@ pub enum AssignDest {
 }
 
 impl AssignDest {
+    /// Checks a destination to assign.
     pub fn check(
         checker: &Typechecker,
         scope: &mut Scope,
@@ -156,6 +157,7 @@ pub struct Assign {
 }
 
 impl Assign {
+    /// Checks an assignment expression and returns the assignment.
     pub fn check(
         checker: &Typechecker,
         scope: &mut Scope,

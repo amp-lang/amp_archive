@@ -1,8 +1,7 @@
-func Print(str: []const u8);
+func printf(format: ~const u8, num: u8);
 
 func Main() {
-    var my_var = "Hello, world!";
-    Print(my_var);
-    my_var = "Hello, world!\n";
-    Print(my_var);
+    var my_str: ~const u8 = "Hello, world!";
+    var my_var = *my_str;
+    printf("%c\n", my_var);
 }

@@ -97,6 +97,9 @@ pub enum Token {
     /// `~`
     Tilde,
 
+    /// `*`
+    Star,
+
     /// `(`
     LParen,
 
@@ -212,11 +215,11 @@ pub enum Token {
 
 // TODO: implement other operators.
 impl Token {
-    /// Returns `true` if this token is an operator.
+    /// Returns `true` if this token is a binary operator.
     ///
     /// # Notes
     /// Also returns `true` for the function call operation (`()`).
-    pub fn is_operator(&self) -> bool {
+    pub fn is_binary_operator(&self) -> bool {
         match self {
             // The left parenthesis is a special operator.
             Token::LParen => true,
@@ -225,11 +228,33 @@ impl Token {
         }
     }
 
+    /// Returns `true` if this token is a unary operator.
+    pub fn is_unary_operator(&self) -> bool {
+        match self {
+            Token::Star => true,
+            _ => false,
+        }
+    }
+
     /// Returns the binding power of the token.
+    ///
+    /// # Panics
+    /// Panics if the token is not a binary operator.
     pub fn binding_power(&self) -> (u8, u8) {
         match self {
             Token::Eq => (1, 0), // low binding power
             Token::LParen => (8, 7),
+            _ => unreachable!("Invalid operator."),
+        }
+    }
+
+    /// Returns the prefix binding power of the token.
+    ///
+    /// # Panics
+    /// Panics if the token is not a unary operator.
+    pub fn prefix_binding_power(&self) -> u8 {
+        match self {
+            Token::Star => 5,
             _ => unreachable!("Invalid operator."),
         }
     }
@@ -543,6 +568,7 @@ impl<'a> Iterator for Scanner<'a> {
             '=' => Token::Eq,
             ';' => Token::Semi,
             '~' => Token::Tilde,
+            '*' => Token::Star,
             '-' => {
                 if self.peek_char() == Some('>') {
                     self.next_char();

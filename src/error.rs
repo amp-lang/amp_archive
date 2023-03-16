@@ -294,6 +294,12 @@ pub enum Error {
         /// The offending area.
         offending: Span,
     } = 41,
+
+    /// Function doesn't return a value, and cannot be used as a value.
+    VoidAsValue(Span) = 42,
+
+    /// Cannot dereference a non-pointer type.
+    InvalidDeref(Span) = 43,
 }
 
 impl Error {
@@ -688,6 +694,14 @@ impl Error {
                     .labels
                     .push(decl.secondary().with_message("Declared here"));
                 diagnostic.labels.push(offending.primary());
+            }
+            Self::VoidAsValue(span) => {
+                diagnostic.message = "Cannot use nothing as a value".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::InvalidDeref(span) => {
+                diagnostic.message = "Cannot dereference a non-pointer type".to_owned();
+                diagnostic.labels.push(span.primary());
             }
         }
 

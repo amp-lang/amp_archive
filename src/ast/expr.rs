@@ -172,6 +172,31 @@ pub struct Binary {
     pub right: Box<Expr>,
 }
 
+/// A unary operator.
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub enum UnaryOp {
+    /// `*`
+    Deref,
+}
+
+impl UnaryOp {
+    /// Creates a binary operator from a token.
+    pub fn from_token(token: Token) -> Self {
+        match token {
+            Token::Star => Self::Deref,
+            _ => unreachable!("invalid token for binary operator"),
+        }
+    }
+}
+
+/// A unary expression.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Unary {
+    pub span: Span,
+    pub op: UnaryOp,
+    pub expr: Box<Expr>,
+}
+
 /// An expression in Amp code.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Expr {
@@ -182,6 +207,7 @@ pub enum Expr {
     Return(Return),
     Var(Var),
     Binary(Binary),
+    Unary(Unary),
 }
 
 impl Expr {
@@ -195,6 +221,7 @@ impl Expr {
             Expr::Return(return_) => return_.span,
             Expr::Var(var) => var.span,
             Expr::Binary(binary) => binary.span,
+            Expr::Unary(unary) => unary.span,
         }
     }
 
@@ -220,9 +247,55 @@ impl Expr {
         }
     }
 
+    /// Parses a unary operation.
+    fn parse_unary(parser: &mut Parser, min_power: u8) -> Option<Result<Self, Error>> {
+        let op = match parser.scanner_mut().peek()? {
+            Ok(token) => {
+                if token.is_unary_operator() {
+                    parser.scanner_mut().next();
+                    token
+                } else {
+                    return Self::parse_atom(parser);
+                }
+            }
+            Err(err) => return Some(Err(err)),
+        };
+        let started = parser.scanner().span();
+
+        let power = op.prefix_binding_power();
+        if power < min_power {
+            return Some(if let Some(value) = Self::parse_atom(parser) {
+                value
+            } else {
+                parser.scanner_mut().next();
+                return Some(Err(Error::ExpectedExpression(parser.scanner().span())));
+            });
+        }
+
+        let expr = if let Some(value) = Self::parse_expr(parser, power) {
+            match value {
+                Ok(expr) => expr,
+                Err(err) => return Some(Err(err)),
+            }
+        } else {
+            parser.scanner_mut().next();
+            return Some(Err(Error::ExpectedExpression(parser.scanner().span())));
+        };
+
+        Some(Ok(Expr::Unary(Unary {
+            span: Span::new(
+                parser.scanner().file_id(),
+                started.start,
+                parser.scanner().span().end,
+            ),
+            op: UnaryOp::from_token(op),
+            expr: Box::new(expr),
+        })))
+    }
+
     /// Parses a basic value expression, such as `1 + 1`.
     fn parse_expr(parser: &mut Parser, min_power: u8) -> Option<Result<Self, Error>> {
-        let mut left = match Self::parse_atom(parser)? {
+        let mut left = match Self::parse_unary(parser, min_power)? {
             Ok(left) => left,
             Err(err) => return Some(Err(err)),
         };
@@ -231,7 +304,7 @@ impl Expr {
             let op = if let Some(next) = parser.scanner_mut().peek() {
                 match next {
                     Ok(token) => {
-                        if token.is_operator() {
+                        if token.is_binary_operator() {
                             token
                         } else {
                             break;

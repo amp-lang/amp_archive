@@ -45,7 +45,7 @@ impl Signature {
             self.returns
                 .as_ref()
                 .map(|ty| format!(" -> {}", ty.name()))
-                .unwrap_or("void".to_string())
+                .unwrap_or("".to_string())
         )
     }
 

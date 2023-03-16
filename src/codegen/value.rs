@@ -8,6 +8,7 @@ use cranelift_module::{DataContext, DataId, Module};
 
 use crate::typechecker::{
     func::FuncImpl,
+    types::Type,
     value::{FuncCall, Value},
     var::VarId,
     Typechecker,
@@ -214,6 +215,44 @@ pub fn compile_value(
         Value::Var(var) => use_var(codegen, builder, vars, data, *var, to)?,
         Value::FuncCall(call) => {
             compile_func_call(checker, codegen, builder, call, vars, data, to)?
+        }
+        Value::Deref(value) => {
+            let Type::Ptr(deref) = value.ty(checker, &data.vars)
+            else {
+                unreachable!()
+            };
+
+            let ptr = compile_value(checker, codegen, builder, value, vars, data, None).unwrap();
+
+            if deref.ty.is_big() {
+                if let Some(dest) = to {
+                    let size = builder.ins().iconst(
+                        codegen.pointer_type,
+                        deref.ty.size(codegen.pointer_type.bytes() as usize) as i64,
+                    );
+                    builder.call_memcpy(codegen.module.target_config(), dest, ptr, size);
+
+                    return None;
+                } else {
+                    let slot = builder.create_sized_stack_slot(StackSlotData::new(
+                        StackSlotKind::ExplicitSlot,
+                        deref.ty.size(codegen.pointer_type.bytes() as usize) as u32,
+                    ));
+                    let dest = builder.ins().stack_addr(codegen.pointer_type, slot, 0);
+                    let size = builder.ins().iconst(
+                        codegen.pointer_type,
+                        deref.ty.size(codegen.pointer_type.bytes() as usize) as i64,
+                    );
+                    builder.call_memcpy(codegen.module.target_config(), dest, ptr, size);
+
+                    builder.ins().stack_addr(codegen.pointer_type, slot, 0)
+                }
+            } else {
+                let ty = compile_type(codegen, &deref.ty);
+                builder
+                    .ins()
+                    .load(ty, cranelift::prelude::MemFlags::new(), ptr, 0)
+            }
         }
     };
 
