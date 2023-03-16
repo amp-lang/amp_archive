@@ -15,6 +15,7 @@ use cranelift_module::{Linkage, Module};
 use crate::typechecker::{
     func::{Func, FuncId, FuncImpl, Signature},
     var::VarId,
+    Typechecker,
 };
 
 use super::{stmnt, types, Codegen};
@@ -77,6 +78,7 @@ pub fn declare_func(codegen: &mut Codegen, decl: &Func) -> CraneliftFunc {
 }
 
 pub fn compile_func(
+    checker: &Typechecker,
     codegen: &mut Codegen,
     context: &mut Context,
     func_context: &mut FunctionBuilderContext,
@@ -135,7 +137,7 @@ pub fn compile_func(
         }
     }
 
-    stmnt::compile_block(codegen, &mut builder, &vars, signature, data);
+    stmnt::compile_block(checker, codegen, &mut builder, &vars, signature, data);
 
     builder.seal_all_blocks();
     builder.finalize();

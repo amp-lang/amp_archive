@@ -1,5 +1,10 @@
 func Print(s: []const u8);
 
+func GetStr() -> []const u8 {
+    return "Hello, world!\n";
+}
+
 func Main() {
-    Print("Hello, world!\n");
+    var my_str = GetStr();
+    Print(my_str);
 }

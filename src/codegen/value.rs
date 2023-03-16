@@ -6,7 +6,12 @@ use cranelift::{
 };
 use cranelift_module::{DataContext, DataId, Module};
 
-use crate::typechecker::{func::FuncImpl, value::Value, var::VarId};
+use crate::typechecker::{
+    func::FuncImpl,
+    value::{FuncCall, Value},
+    var::VarId,
+    Typechecker,
+};
 
 use super::{types::compile_type, Codegen};
 
@@ -57,9 +62,71 @@ pub fn use_var(
     }
 }
 
+/// Compiles a function call as a Cranelift value.
+pub fn compile_func_call(
+    checker: &Typechecker,
+    codegen: &mut Codegen,
+    builder: &mut FunctionBuilder,
+    call: &FuncCall,
+    vars: &HashMap<VarId, StackSlot>,
+    data: &FuncImpl,
+    // the address to write the value to, if any.
+    to: Option<cranelift::prelude::Value>,
+) -> Option<cranelift::prelude::Value> {
+    let func = &checker.funcs[call.callee.0];
+    let cranelift_func = codegen
+        .module
+        .declare_func_in_func(codegen.funcs[&call.callee].cranelift_id, &mut builder.func);
+
+    let mut args = Vec::new();
+
+    let dest = if let Some(ty) = &func.signature.returns {
+        if ty.is_big() {
+            if let Some(value) = to {
+                args.push(value);
+                Some(value)
+            } else {
+                let stack_slot = StackSlotData::new(
+                    StackSlotKind::ExplicitSlot,
+                    ty.size(codegen.pointer_type.bytes() as usize) as u32,
+                );
+                let slot = builder.create_sized_stack_slot(stack_slot);
+                args.push(builder.ins().stack_addr(codegen.pointer_type, slot, 0));
+
+                Some(builder.ins().stack_addr(codegen.pointer_type, slot, 0))
+            }
+        } else {
+            to
+        }
+    } else {
+        None
+    };
+
+    for arg in &call.args {
+        args.push(compile_value(checker, codegen, builder, arg, vars, data, None).unwrap());
+    }
+
+    let inst = builder.ins().call(cranelift_func, &args);
+
+    if let Some(ty) = &func.signature.returns {
+        if ty.is_big() {
+            if to == None {
+                Some(dest.unwrap())
+            } else {
+                None
+            }
+        } else {
+            Some(builder.inst_results(inst)[0])
+        }
+    } else {
+        None
+    }
+}
+
 /// Compiles the provided value into a Cranelift value.  Always returns [Some] if the `to`
 /// parameter is [None].
 pub fn compile_value(
+    checker: &Typechecker,
     codegen: &mut Codegen,
     builder: &mut FunctionBuilder,
     value: &Value,
@@ -125,6 +192,9 @@ pub fn compile_value(
             }
         }
         Value::Var(var) => use_var(codegen, builder, vars, data, *var, to)?,
+        Value::FuncCall(call) => {
+            compile_func_call(checker, codegen, builder, call, vars, data, to)?
+        }
     };
 
     if let Some(to) = to {

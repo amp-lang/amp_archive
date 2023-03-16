@@ -50,9 +50,9 @@ impl FuncCall {
         let mut args = Vec::new();
 
         for (idx, arg) in call.args.args.iter().enumerate() {
-            let generic_value = GenericValue::check(scope, vars, arg)?;
+            let generic_value = GenericValue::check(checker, scope, vars, arg)?;
             let value = generic_value
-                .coerce(vars, &func.signature.args[idx].value.ty)
+                .coerce(checker, vars, &func.signature.args[idx].value.ty)
                 .ok_or(Error::ExpectedArgumentOfType {
                     decl: func.span,
                     name: func.signature.args[idx].value.ty.name(),
@@ -71,11 +71,17 @@ pub enum GenericValue {
     Int(i64),
     Str(String),
     Var(VarId),
+    FuncCall(FuncCall),
 }
 
 impl GenericValue {
     /// Converts an ast value into a generic value, if it is a value.
-    pub fn check(scope: &mut Scope, vars: &Vars, expr: &ast::Expr) -> Result<Self, Error> {
+    pub fn check(
+        checker: &Typechecker,
+        scope: &mut Scope,
+        vars: &Vars,
+        expr: &ast::Expr,
+    ) -> Result<Self, Error> {
         match expr {
             ast::Expr::Int(int) => Ok(GenericValue::Int(int.value)),
             ast::Expr::Str(str) => Ok(GenericValue::Str(str.value.clone())),
@@ -88,6 +94,10 @@ impl GenericValue {
                     )))?;
                 Ok(GenericValue::Var(var))
             }
+            ast::Expr::Call(call) => {
+                let func_call = FuncCall::check(checker, scope, vars, call)?;
+                Ok(GenericValue::FuncCall(func_call))
+            }
             _ => return Err(Error::InvalidValue(expr.span())),
         }
     }
@@ -98,11 +108,12 @@ impl GenericValue {
             GenericValue::Int(int) => Value::I32(int as i32), // todo: replace with `int` value
             GenericValue::Str(str) => Value::Str(Mutability::Const, str),
             GenericValue::Var(var) => Value::Var(var),
+            GenericValue::FuncCall(call) => Value::FuncCall(call),
         }
     }
 
     /// Attempts to coerce this generic value into a value of the specified type.
-    pub fn coerce(self, vars: &Vars, ty: &Type) -> Option<Value> {
+    pub fn coerce(self, checker: &Typechecker, vars: &Vars, ty: &Type) -> Option<Value> {
         match (self, ty) {
             (GenericValue::Int(int), Type::I32) => Some(Value::I32(int as i32)),
             (GenericValue::Int(int), Type::U8) => Some(Value::U8(int as u8)),
@@ -119,6 +130,14 @@ impl GenericValue {
                     None
                 } else {
                     Some(Value::Var(var))
+                }
+            }
+            (GenericValue::FuncCall(call), ty) => {
+                let func = &checker.funcs[call.callee.0 as usize];
+                if Some(ty) != func.signature.returns.as_ref() {
+                    None
+                } else {
+                    Some(Value::FuncCall(call))
                 }
             }
             _ => None,
@@ -143,17 +162,25 @@ pub enum Value {
 
     /// Reads the value of a variable.
     Var(VarId),
+
+    /// Calls a function.
+    FuncCall(FuncCall),
 }
 
 impl Value {
     /// Returns the type of this value.
-    pub fn ty(&self, vars: &Vars) -> Type {
+    pub fn ty(&self, checker: &Typechecker, vars: &Vars) -> Type {
         match self {
             Value::CStr(mut_, _) => Type::Ptr(Ptr::new(*mut_, Type::U8)),
             Value::Str(mut_, _) => Type::Slice(Slice::new(*mut_, Type::U8)),
             Value::U8(_) => Type::U8,
             Value::I32(_) => Type::I32,
             Value::Var(var) => vars.vars[var.0].ty.clone(),
+            Value::FuncCall(call) => checker.funcs[call.callee.0 as usize]
+                .signature
+                .returns
+                .clone()
+                .expect("verified as a GenericValue"),
         }
     }
 }

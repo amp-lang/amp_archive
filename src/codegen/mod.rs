@@ -73,6 +73,7 @@ impl Codegen {
             let id = FuncId(idx);
             if let Some(data) = &func.func_impl {
                 func::compile_func(
+                    &checker,
                     self,
                     &mut context,
                     &mut func_context,

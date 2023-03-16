@@ -11,11 +11,13 @@ use crate::typechecker::{
     stmnt::{Return, Stmnt, VarDecl},
     value::FuncCall,
     var::VarId,
+    Typechecker,
 };
 
 use super::Codegen;
 
 pub fn compile_func_call(
+    checker: &Typechecker,
     codegen: &mut Codegen,
     builder: &mut FunctionBuilder,
     vars: &HashMap<VarId, StackSlot>,
@@ -30,7 +32,7 @@ pub fn compile_func_call(
 
     for arg in &call.args {
         args.push(
-            super::value::compile_value(codegen, builder, arg, vars, data, None)
+            super::value::compile_value(checker, codegen, builder, arg, vars, data, None)
                 .expect("no `to` provided"),
         );
     }
@@ -39,6 +41,7 @@ pub fn compile_func_call(
 }
 
 pub fn compile_return(
+    checker: &Typechecker,
     codegen: &mut Codegen,
     builder: &mut FunctionBuilder,
     vars: &HashMap<VarId, StackSlot>,
@@ -50,6 +53,7 @@ pub fn compile_return(
         if returns.is_big() {
             let addr = builder.block_params(builder.current_block().unwrap())[0];
             super::value::compile_value(
+                checker,
                 codegen,
                 builder,
                 ret.value.as_ref().unwrap(),
@@ -63,7 +67,7 @@ pub fn compile_return(
 
             ret.value.iter().for_each(|value| {
                 args.push(
-                    super::value::compile_value(codegen, builder, value, vars, data, None)
+                    super::value::compile_value(checker, codegen, builder, value, vars, data, None)
                         .expect("no `to` provided"),
                 );
             });
@@ -76,6 +80,7 @@ pub fn compile_return(
 }
 
 pub fn compile_var_decl(
+    checker: &Typechecker,
     codegen: &mut Codegen,
     builder: &mut FunctionBuilder,
     vars: &HashMap<VarId, StackSlot>,
@@ -85,12 +90,13 @@ pub fn compile_var_decl(
     if let Some(value) = &decl.value {
         let slot = vars[&decl.var];
         let addr = builder.ins().stack_addr(codegen.pointer_type, slot, 0);
-        super::value::compile_value(codegen, builder, value, vars, data, Some(addr));
+        super::value::compile_value(checker, codegen, builder, value, vars, data, Some(addr));
     }
 }
 
 /// Returns true if the statement returns.
 pub fn compile_statement(
+    checker: &Typechecker,
     codegen: &mut Codegen,
     builder: &mut FunctionBuilder,
     vars: &HashMap<VarId, StackSlot>,
@@ -100,14 +106,14 @@ pub fn compile_statement(
 ) -> bool {
     match stmnt {
         Stmnt::FuncCall(func_call) => {
-            compile_func_call(codegen, builder, vars, data, func_call);
+            compile_func_call(checker, codegen, builder, vars, data, func_call);
         }
         Stmnt::Return(ret) => {
-            compile_return(codegen, builder, vars, signature, data, ret);
+            compile_return(checker, codegen, builder, vars, signature, data, ret);
             return true;
         }
         Stmnt::VarDecl(decl) => {
-            compile_var_decl(codegen, builder, vars, data, decl);
+            compile_var_decl(checker, codegen, builder, vars, data, decl);
         }
     }
 
@@ -115,6 +121,7 @@ pub fn compile_statement(
 }
 
 pub fn compile_block(
+    checker: &Typechecker,
     codegen: &mut Codegen,
     builder: &mut FunctionBuilder,
     vars: &HashMap<VarId, StackSlot>,
@@ -123,7 +130,8 @@ pub fn compile_block(
 ) {
     let mut returns = false;
     for stmnt in &data.block.value {
-        returns = compile_statement(codegen, builder, vars, signature, data, stmnt) || returns;
+        returns =
+            compile_statement(checker, codegen, builder, vars, signature, data, stmnt) || returns;
     }
 
     // TODO: check if returned

@@ -37,8 +37,8 @@ impl Return {
                 });
             }
 
-            let value = GenericValue::check(scope, vars, value)?
-                .coerce(vars, &func.signature.returns.clone().unwrap())
+            let value = GenericValue::check(checker, scope, vars, value)?
+                .coerce(checker, vars, &func.signature.returns.clone().unwrap())
                 .ok_or(Error::InvalidReturnValue {
                     decl: func.span,
                     name: func.signature.returns.clone().unwrap().name(),
@@ -90,8 +90,8 @@ impl VarDecl {
             let ty = Type::check(scope, ty)?;
 
             if let Some(value) = &decl.value {
-                let value = GenericValue::check(scope, vars, value)?
-                    .coerce(vars, &ty)
+                let value = GenericValue::check(checker, scope, vars, value)?
+                    .coerce(checker, vars, &ty)
                     .ok_or(Error::InvalidValue(value.span()))?; // TODO: make special variable value error
 
                 (ty, Some(value))
@@ -99,12 +99,16 @@ impl VarDecl {
                 (ty, None)
             }
         } else {
-            let value =
-                GenericValue::check(scope, vars, &decl.value.clone().expect("Cannot be none"))?;
+            let value = GenericValue::check(
+                checker,
+                scope,
+                vars,
+                &decl.value.clone().expect("Cannot be none"),
+            )?;
 
             let value = value.coerce_default();
 
-            (value.ty(vars), Some(value))
+            (value.ty(checker, vars), Some(value))
         };
 
         let id = vars.declare_var(Var::new(decl.span, decl.name.value.clone(), ty));
