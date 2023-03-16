@@ -72,7 +72,14 @@ impl Codegen {
         for (idx, func) in checker.funcs.iter().enumerate() {
             let id = FuncId(idx);
             if let Some(data) = &func.func_impl {
-                func::compile_func(self, &mut context, &mut func_context, id, data);
+                func::compile_func(
+                    self,
+                    &mut context,
+                    &mut func_context,
+                    id,
+                    &func.signature,
+                    data,
+                );
             }
             self.module.clear_context(&mut context);
         }

@@ -6,14 +6,14 @@ use cranelift::{
         Context,
     },
     prelude::{
-        AbiParam, FunctionBuilder, FunctionBuilderContext, InstBuilder, Signature, StackSlotData,
-        StackSlotKind,
+        AbiParam, FunctionBuilder, FunctionBuilderContext, InstBuilder,
+        Signature as CraneliftSignature, StackSlotData, StackSlotKind,
     },
 };
 use cranelift_module::{Linkage, Module};
 
 use crate::typechecker::{
-    func::{Func, FuncId, FuncImpl},
+    func::{Func, FuncId, FuncImpl, Signature},
     var::VarId,
 };
 
@@ -26,12 +26,27 @@ pub struct CraneliftFunc {
     pub cranelift_id: cranelift_module::FuncId,
 
     /// The signature of this function.
-    pub signature: Signature,
+    pub signature: CraneliftSignature,
 }
 
 /// Declares a function in the Cranelift context.
 pub fn declare_func(codegen: &mut Codegen, decl: &Func) -> CraneliftFunc {
     let mut signature = codegen.module.make_signature();
+
+    // compile return types
+    for ret in &decl.signature.returns {
+        // TODO: support big types
+        if ret.is_big() {
+            signature.params.push(AbiParam::special(
+                codegen.pointer_type,
+                ArgumentPurpose::StructReturn,
+            ));
+            println!("TEST");
+        } else {
+            let ty = types::compile_type(codegen, &ret);
+            signature.returns.push(AbiParam::new(ty));
+        }
+    }
 
     for arg in &decl.signature.args {
         if arg.value.ty.is_big() {
@@ -50,13 +65,6 @@ pub fn declare_func(codegen: &mut Codegen, decl: &Func) -> CraneliftFunc {
         }
     }
 
-    // compile return types
-    for ret in &decl.signature.returns {
-        // TODO: support big types
-        let ty = types::compile_type(codegen, &ret);
-        signature.returns.push(AbiParam::new(ty));
-    }
-
     let cranelift_id = codegen
         .module
         .declare_function(&decl.name.value, Linkage::Export, &signature)
@@ -73,6 +81,7 @@ pub fn compile_func(
     context: &mut Context,
     func_context: &mut FunctionBuilderContext,
     id: FuncId,
+    signature: &Signature,
     data: &FuncImpl,
 ) {
     let mut function = Function::new();
@@ -87,6 +96,16 @@ pub fn compile_func(
     builder.append_block_params_for_function_params(entry_block);
     builder.switch_to_block(entry_block);
 
+    let arg_offset = if let Some(returns) = &signature.returns {
+        if returns.is_big() {
+            1
+        } else {
+            0
+        }
+    } else {
+        0
+    };
+
     for (idx, var) in data.vars.vars.iter().enumerate() {
         let slot = StackSlotData::new(
             StackSlotKind::ExplicitSlot,
@@ -98,7 +117,7 @@ pub fn compile_func(
         vars.insert(VarId(idx), slot);
 
         if let Some(arg) = var.argument {
-            let arg = builder.block_params(entry_block)[arg];
+            let arg = builder.block_params(entry_block)[arg_offset + arg];
 
             if var.ty.is_big() {
                 let addr = builder.ins().stack_addr(codegen.pointer_type, slot, 0);
@@ -116,7 +135,7 @@ pub fn compile_func(
         }
     }
 
-    stmnt::compile_block(codegen, &mut builder, &vars, data);
+    stmnt::compile_block(codegen, &mut builder, &vars, signature, data);
 
     builder.seal_all_blocks();
     builder.finalize();

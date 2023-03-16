@@ -7,7 +7,7 @@ use cranelift::{
 use cranelift_module::Module;
 
 use crate::typechecker::{
-    func::FuncImpl,
+    func::{FuncImpl, Signature},
     stmnt::{Return, Stmnt, VarDecl},
     value::FuncCall,
     var::VarId,
@@ -42,19 +42,37 @@ pub fn compile_return(
     codegen: &mut Codegen,
     builder: &mut FunctionBuilder,
     vars: &HashMap<VarId, StackSlot>,
+    signature: &Signature,
     data: &FuncImpl,
     ret: &Return,
 ) {
-    let mut args = Vec::new();
+    if let Some(returns) = &signature.returns {
+        if returns.is_big() {
+            let addr = builder.block_params(builder.current_block().unwrap())[0];
+            super::value::compile_value(
+                codegen,
+                builder,
+                ret.value.as_ref().unwrap(),
+                vars,
+                data,
+                Some(addr),
+            );
+            builder.ins().return_(&[]);
+        } else {
+            let mut args = Vec::new();
 
-    ret.value.iter().for_each(|value| {
-        args.push(
-            super::value::compile_value(codegen, builder, value, vars, data, None)
-                .expect("no `to` provided"),
-        );
-    });
+            ret.value.iter().for_each(|value| {
+                args.push(
+                    super::value::compile_value(codegen, builder, value, vars, data, None)
+                        .expect("no `to` provided"),
+                );
+            });
 
-    builder.ins().return_(&args);
+            builder.ins().return_(&args);
+        }
+    } else {
+        builder.ins().return_(&[]);
+    }
 }
 
 pub fn compile_var_decl(
@@ -76,6 +94,7 @@ pub fn compile_statement(
     codegen: &mut Codegen,
     builder: &mut FunctionBuilder,
     vars: &HashMap<VarId, StackSlot>,
+    signature: &Signature,
     data: &FuncImpl,
     stmnt: &Stmnt,
 ) -> bool {
@@ -84,7 +103,7 @@ pub fn compile_statement(
             compile_func_call(codegen, builder, vars, data, func_call);
         }
         Stmnt::Return(ret) => {
-            compile_return(codegen, builder, vars, data, ret);
+            compile_return(codegen, builder, vars, signature, data, ret);
             return true;
         }
         Stmnt::VarDecl(decl) => {
@@ -99,11 +118,12 @@ pub fn compile_block(
     codegen: &mut Codegen,
     builder: &mut FunctionBuilder,
     vars: &HashMap<VarId, StackSlot>,
+    signature: &Signature,
     data: &FuncImpl,
 ) {
     let mut returns = false;
     for stmnt in &data.block.value {
-        returns = compile_statement(codegen, builder, vars, data, stmnt) || returns;
+        returns = compile_statement(codegen, builder, vars, signature, data, stmnt) || returns;
     }
 
     // TODO: check if returned

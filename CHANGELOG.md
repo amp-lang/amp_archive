@@ -9,6 +9,7 @@
 - [feat (#8): [syntax/scanner, syntax/parser, typechecker, codegen] implement slice types](https://github.com/amp-lang/amp/issues/8)
 - [feat (#9): [syntax/scanner, syntax/parser, typechecker, codegen] implement variable declarations](https://github.com/amp-lang/amp/issues/9)
 - [feat (#11): [typechecker, codegen] implement function arguments](https://github.com/amp-lang/amp/issues/11)
+- [feat (#12): [typechecker, codegen] implement returning big values](https://github.com/amp-lang/amp/issues/12)
 
 ### Compiler
 - feat: Basic stopwatch benchmark for Amp compile times.
