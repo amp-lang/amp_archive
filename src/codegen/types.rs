@@ -5,6 +5,7 @@ use super::Codegen;
 /// Compiles a type into a Cranelift type.
 pub fn compile_type(codegen: &mut Codegen, ty: &Type) -> cranelift::prelude::Type {
     match ty {
+        Type::Bool => cranelift::prelude::types::I8,
         Type::I8 => cranelift::prelude::types::I8,
         Type::I16 => cranelift::prelude::types::I16,
         Type::I32 => cranelift::prelude::types::I32,

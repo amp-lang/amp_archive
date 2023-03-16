@@ -218,3 +218,35 @@ impl Parse for Int {
         }
     }
 }
+
+/// A boolean literal.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Bool {
+    pub span: Span,
+    pub value: bool,
+}
+
+impl Parse for Bool {
+    fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
+        match parser.scanner_mut().peek()? {
+            Ok(token) => {
+                if token == Token::KTrue {
+                    parser.scanner_mut().next();
+                    return Some(Ok(Self {
+                        span: parser.scanner().span(),
+                        value: true,
+                    }));
+                } else if token == Token::KFalse {
+                    parser.scanner_mut().next();
+                    return Some(Ok(Self {
+                        span: parser.scanner().span(),
+                        value: false,
+                    }));
+                }
+
+                return None;
+            }
+            Err(err) => return Some(Err(err)),
+        }
+    }
+}

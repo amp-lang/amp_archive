@@ -1,12 +1,11 @@
-func Set42(my_number: ~mut i32) {
-    *my_number = 42;
+func SetBool(bool: ~mut bool) {
+    *bool = true;
 }
 
-func printf(format: ~const u8, num: i32) -> i32;
+func printf(format: ~const u8, value: bool) -> i32;
 
 func Main() {
-    var format: ~mut u8 = "Hello, world!";
-    var my_var: i32;
-    Set42(~mut my_var);
-    printf(format, my_var);
+    var my_bool = false;
+    SetBool(~mut my_bool);
+    printf("my_bool = %hhd", my_bool);
 }

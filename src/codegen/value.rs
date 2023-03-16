@@ -137,6 +137,9 @@ pub fn compile_value(
     to: Option<cranelift::prelude::Value>,
 ) -> Option<cranelift::prelude::Value> {
     let value = match value {
+        Value::Bool(value) => builder
+            .ins()
+            .iconst(cranelift::prelude::types::I8, if *value { 255 } else { 0 }),
         Value::U8(value) => builder
             .ins()
             .iconst(cranelift::prelude::types::I8, *value as i64),

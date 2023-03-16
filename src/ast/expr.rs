@@ -5,7 +5,7 @@ use crate::{
     span::Span,
 };
 
-use super::{ArgList, Iden, Int, Str, Type};
+use super::{ArgList, Bool, Iden, Int, Str, Type};
 
 /// A function call expression.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -178,7 +178,7 @@ pub enum UnaryOp {
     /// `*`
     Deref,
 
-    /// `~
+    /// `~`
     Tilde,
 
     /// `~const`
@@ -210,6 +210,7 @@ pub struct Unary {
 /// An expression in Amp code.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Expr {
+    Bool(Bool),
     Iden(Iden),
     Int(Int),
     Str(Str),
@@ -224,6 +225,7 @@ impl Expr {
     /// Returns the span of the expression.
     pub fn span(&self) -> Span {
         match self {
+            Expr::Bool(bool) => bool.span,
             Expr::Iden(iden) => iden.span,
             Expr::Int(int) => int.span,
             Expr::Str(str) => str.span,
@@ -237,7 +239,12 @@ impl Expr {
 
     /// Parses an expression.
     fn parse_atom(parser: &mut Parser) -> Option<Result<Self, Error>> {
-        if let Some(res) = parser.parse::<Iden>() {
+        if let Some(res) = parser.parse::<Bool>() {
+            match res {
+                Ok(bool) => Some(Ok(Expr::Bool(bool))),
+                Err(err) => Some(Err(err)),
+            }
+        } else if let Some(res) = parser.parse::<Iden>() {
             match res {
                 Ok(iden) => Some(Ok(Expr::Iden(iden))),
                 Err(err) => Some(Err(err)),

@@ -162,6 +162,12 @@ pub enum Token {
     /// ```
     KReturn,
 
+    /// The `true` keyword.
+    KTrue,
+
+    /// The `false` keyword.
+    KFalse,
+
     /// A normal, non-suspicious string literal.
     ///
     /// ```amp
@@ -563,6 +569,8 @@ impl<'a> Iterator for Scanner<'a> {
                 "const" => Token::KConst,
                 "mut" => Token::KMut,
                 "return" => Token::KReturn,
+                "true" => Token::KTrue,
+                "false" => Token::KFalse,
                 _ => Token::Identifier,
             }));
         } else if first_char == '"' {

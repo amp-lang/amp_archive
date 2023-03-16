@@ -66,6 +66,7 @@ impl Slice {
 /// A type expression.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Type {
+    Bool,
     I8,
     I16,
     I32,
@@ -84,6 +85,7 @@ impl Type {
     /// Returns the visualized name of type.
     pub fn name(&self) -> String {
         match self {
+            Type::Bool => "bool".to_string(),
             Type::I8 => "i8".to_string(),
             Type::I16 => "i16".to_string(),
             Type::I32 => "i32".to_string(),
@@ -110,6 +112,7 @@ impl Type {
     /// Returns the size of the type in bytes.
     pub fn size(&self, ptr_size: usize) -> usize {
         match self {
+            Type::Bool => 1,
             Type::I8 => 1,
             Type::I16 => 2,
             Type::I32 => 4,
@@ -131,6 +134,7 @@ impl Type {
     pub fn check(module: &mut Scope, ty: &ast::Type) -> Result<Self, Error> {
         match ty {
             ast::Type::Named(name) => match name.value.as_str() {
+                "bool" => Ok(Type::Bool),
                 "i8" => Ok(Type::I8),
                 "i16" => Ok(Type::I16),
                 "i32" => Ok(Type::I32),
@@ -173,6 +177,7 @@ impl Type {
     /// have the same function).
     pub fn is_equivalent(&self, other: &Self) -> bool {
         match (self, other) {
+            (Type::Bool, Type::Bool) => true,
             (Type::I8, Type::I8) => true,
             (Type::I16, Type::I16) => true,
             (Type::I32, Type::I32) => true,

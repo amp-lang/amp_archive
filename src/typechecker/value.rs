@@ -72,6 +72,7 @@ impl FuncCall {
 /// A `{value}` literal value before it is coerced to a specific type.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum GenericValue {
+    Bool(bool),
     Int(i64),
     Str(String),
     Var(VarId),
@@ -119,6 +120,7 @@ impl GenericValue {
     /// Returns the default type for a generic value.
     pub fn default_type(&self, checker: &Typechecker, vars: &Vars) -> Type {
         match self {
+            Self::Bool(_) => Type::Bool,
             Self::Int(_) => Type::Int,
             Self::Str(_) => Type::Slice(Slice::new(Mutability::Const, Type::Int)),
             Self::Var(var) => vars.vars[var.0 as usize].ty.clone(),
@@ -152,6 +154,7 @@ impl GenericValue {
         expr: &ast::Expr,
     ) -> Result<Self, Error> {
         match expr {
+            ast::Expr::Bool(bool) => Ok(GenericValue::Bool(bool.value)),
             ast::Expr::Int(int) => Ok(GenericValue::Int(int.value)),
             ast::Expr::Str(str) => Ok(GenericValue::Str(str.value.clone())),
             ast::Expr::Iden(iden) => {
@@ -190,6 +193,7 @@ impl GenericValue {
     /// Returns the default value type for this generic value.
     pub fn coerce_default(self) -> Value {
         match self {
+            GenericValue::Bool(bool) => Value::Bool(bool),
             GenericValue::Int(int) => Value::Int(int as i64),
             GenericValue::Str(str) => Value::Str(Mutability::Const, str),
             GenericValue::Var(var) => Value::Var(var),
@@ -205,6 +209,7 @@ impl GenericValue {
     /// Attempts to coerce this generic value into a value of the specified type.
     pub fn coerce(self, checker: &Typechecker, vars: &Vars, ty: &Type) -> Option<Value> {
         match (self, ty) {
+            (GenericValue::Bool(bool), Type::Bool) => Some(Value::Bool(bool)),
             (GenericValue::Int(int), Type::I8) => Some(Value::I8(int as i8)),
             (GenericValue::Int(int), Type::I16) => Some(Value::I16(int as i16)),
             (GenericValue::Int(int), Type::I32) => Some(Value::I32(int as i32)),
@@ -267,6 +272,9 @@ impl GenericValue {
 /// A value expression in an Amp module.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Value {
+    /// A boolean value.
+    Bool(bool),
+
     /// A null terminated string.
     CStr(Mutability, String),
 
@@ -323,6 +331,7 @@ impl Value {
     /// Returns the type of this value.
     pub fn ty(&self, checker: &Typechecker, vars: &Vars) -> Type {
         match self {
+            Value::Bool(_) => Type::Bool,
             Value::CStr(mut_, _) => Type::Ptr(Ptr::new(*mut_, Type::U8)),
             Value::Str(mut_, _) => Type::Slice(Slice::new(*mut_, Type::U8)),
             Value::U8(_) => Type::U8,
