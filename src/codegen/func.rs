@@ -42,7 +42,6 @@ pub fn declare_func(codegen: &mut Codegen, decl: &Func) -> CraneliftFunc {
                 codegen.pointer_type,
                 ArgumentPurpose::StructReturn,
             ));
-            println!("TEST");
         } else {
             let ty = types::compile_type(codegen, &ret);
             signature.returns.push(AbiParam::new(ty));
