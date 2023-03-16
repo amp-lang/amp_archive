@@ -17,12 +17,30 @@ pub struct Var {
 
     /// The type of the variable.
     pub ty: Type,
+
+    /// The argument index of the variable, if any.
+    pub argument: Option<usize>,
 }
 
 impl Var {
     /// Creates a new variable.
     pub fn new(span: Span, name: String, ty: Type) -> Self {
-        Self { span, name, ty }
+        Self {
+            span,
+            name,
+            ty,
+            argument: None,
+        }
+    }
+
+    /// Creates a new argument variable.
+    pub fn new_argument(span: Span, name: String, ty: Type, argument: usize) -> Self {
+        Self {
+            span,
+            name,
+            ty,
+            argument: Some(argument),
+        }
     }
 }
 

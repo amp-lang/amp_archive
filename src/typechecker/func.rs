@@ -8,7 +8,7 @@ use super::{
     scope::Scope,
     stmnt::{Block, Stmnt},
     types::Type,
-    var::Vars,
+    var::{Var, Vars},
     Typechecker,
 };
 
@@ -27,7 +27,7 @@ pub struct FuncArg {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Signature {
     /// The arguments of the function.
-    pub args: Vec<FuncArg>,
+    pub args: Vec<Spanned<FuncArg>>,
 
     /// The return type of the function, if any.
     pub returns: Option<Type>,
@@ -39,7 +39,7 @@ impl Signature {
             "func({}){}",
             self.args
                 .iter()
-                .map(|arg| arg.ty.name())
+                .map(|arg| arg.value.ty.name())
                 .collect::<Vec<_>>()
                 .join(", "),
             self.returns
@@ -55,10 +55,13 @@ impl Signature {
 
         for arg in &decl.args.args {
             let ty = Type::check(scope, &arg.ty)?;
-            args.push(FuncArg {
-                name: arg.name.value.clone(),
-                ty,
-            });
+            args.push(Spanned::new(
+                arg.span,
+                FuncArg {
+                    name: arg.name.value.clone(),
+                    ty,
+                },
+            ));
         }
 
         let returns = match &decl.returns {
@@ -134,6 +137,17 @@ pub fn check_func_def(
             .expect("Typechecker confirms this function exists");
         let func = &checker.funcs[item.0 as usize];
         let mut vars = Vars::new();
+
+        for (idx, arg) in func.signature.args.iter().enumerate() {
+            let var = vars.declare_var(Var::new_argument(
+                arg.span,
+                arg.value.name.clone(),
+                arg.value.ty.clone(),
+                idx,
+            ));
+            scope.define_var(arg.value.name.clone(), var);
+        }
+
         let block = Block::check(checker, scope, &mut vars, func, ast_block)?;
 
         // check for return statement

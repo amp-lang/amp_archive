@@ -1,5 +1,9 @@
 func Print(buffer: []const u8);
 
+func Test(str: []const u8) {
+    Print(str);
+}
+
 func Main() {
-    Print("Hello, world!\n");
+    Test("Hello, world!\n");
 }

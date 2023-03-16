@@ -6,7 +6,8 @@ use cranelift::{
         Context,
     },
     prelude::{
-        AbiParam, FunctionBuilder, FunctionBuilderContext, Signature, StackSlotData, StackSlotKind,
+        AbiParam, FunctionBuilder, FunctionBuilderContext, InstBuilder, Signature, StackSlotData,
+        StackSlotKind,
     },
 };
 use cranelift_module::{Linkage, Module};
@@ -33,17 +34,18 @@ pub fn declare_func(codegen: &mut Codegen, decl: &Func) -> CraneliftFunc {
     let mut signature = codegen.module.make_signature();
 
     for arg in &decl.signature.args {
-        if arg.ty.is_big() {
+        if arg.value.ty.is_big() {
             signature.params.push(AbiParam::special(
                 codegen.pointer_type,
                 ArgumentPurpose::StructArgument(
-                    arg.ty
+                    arg.value
+                        .ty
                         .size(codegen.module.target_config().pointer_width.bytes() as usize)
                         as u32,
                 ),
             ));
         } else {
-            let ty = types::compile_type(codegen, &arg.ty);
+            let ty = types::compile_type(codegen, &arg.value.ty);
             signature.params.push(AbiParam::new(ty));
         }
     }
@@ -82,6 +84,7 @@ pub fn compile_func(
     let mut vars = HashMap::new();
 
     let entry_block = builder.create_block();
+    builder.append_block_params_for_function_params(entry_block);
     builder.switch_to_block(entry_block);
 
     for (idx, var) in data.vars.vars.iter().enumerate() {
@@ -93,6 +96,24 @@ pub fn compile_func(
         );
         let slot = builder.create_sized_stack_slot(slot);
         vars.insert(VarId(idx), slot);
+
+        if let Some(arg) = var.argument {
+            let arg = builder.block_params(entry_block)[arg];
+
+            if var.ty.is_big() {
+                let addr = builder.ins().stack_addr(codegen.pointer_type, slot, 0);
+                let size = builder.ins().iconst(
+                    codegen.pointer_type,
+                    var.ty.size(codegen.pointer_type.bytes() as usize) as i64,
+                );
+                builder.call_memcpy(codegen.module.target_config(), addr, arg, size);
+                // builder.ins().store(MemFlags::new(), arg, addr, 0);
+            } else {
+                // let ty = types::compile_type(codegen, &var.ty);
+                builder.ins().stack_store(arg, slot, 0);
+            }
+            // use_var(codegen, &mut builder, &vars, data, VarId(arg), Some(addr));
+        }
     }
 
     stmnt::compile_block(codegen, &mut builder, &vars, data);

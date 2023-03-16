@@ -52,10 +52,10 @@ impl FuncCall {
         for (idx, arg) in call.args.args.iter().enumerate() {
             let generic_value = GenericValue::check(scope, vars, arg)?;
             let value = generic_value
-                .coerce(vars, &func.signature.args[idx].ty)
+                .coerce(vars, &func.signature.args[idx].value.ty)
                 .ok_or(Error::ExpectedArgumentOfType {
                     decl: func.span,
-                    name: func.signature.args[idx].ty.name(),
+                    name: func.signature.args[idx].value.ty.name(),
                     offending: arg.span(),
                 })?;
             args.push(value);

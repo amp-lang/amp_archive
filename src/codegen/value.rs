@@ -25,6 +25,38 @@ fn compile_string(codegen: &mut Codegen, str: &str, nullterm: bool) -> DataId {
     data_id
 }
 
+pub fn use_var(
+    codegen: &mut Codegen,
+    builder: &mut FunctionBuilder,
+    vars: &HashMap<VarId, StackSlot>,
+    data: &FuncImpl,
+    var: VarId,
+    // the address to write the value to, if any.
+    to: Option<cranelift::prelude::Value>,
+) -> Option<cranelift::prelude::Value> {
+    let slot = vars[&var];
+    let ty = &data.vars.vars[var.0].ty;
+
+    match to {
+        Some(to) => {
+            let size = builder.ins().iconst(
+                codegen.pointer_type,
+                ty.size(codegen.pointer_type.bytes() as usize) as i64,
+            );
+            let addr = builder.ins().stack_addr(codegen.pointer_type, slot, 0);
+            builder.call_memcpy(codegen.module.target_config(), to, addr, size);
+            return None;
+        }
+        None => {
+            if ty.is_big() {
+                Some(builder.ins().stack_addr(codegen.pointer_type, slot, 0))
+            } else {
+                Some(builder.ins().stack_load(compile_type(codegen, ty), slot, 0))
+            }
+        }
+    }
+}
+
 /// Compiles the provided value into a Cranelift value.  Always returns [Some] if the `to`
 /// parameter is [None].
 pub fn compile_value(
@@ -92,29 +124,7 @@ pub fn compile_value(
                 }
             }
         }
-        Value::Var(var) => {
-            let slot = vars[&var];
-            let ty = &data.vars.vars[var.0].ty;
-
-            match to {
-                Some(to) => {
-                    let size = builder.ins().iconst(
-                        codegen.pointer_type,
-                        ty.size(codegen.pointer_type.bytes() as usize) as i64,
-                    );
-                    let addr = builder.ins().stack_addr(codegen.pointer_type, slot, 0);
-                    builder.call_memcpy(codegen.module.target_config(), to, addr, size);
-                    return None;
-                }
-                None => {
-                    if ty.is_big() {
-                        builder.ins().stack_addr(codegen.pointer_type, slot, 0)
-                    } else {
-                        builder.ins().stack_load(compile_type(codegen, ty), slot, 0)
-                    }
-                }
-            }
-        }
+        Value::Var(var) => use_var(codegen, builder, vars, data, *var, to)?,
     };
 
     if let Some(to) = to {
