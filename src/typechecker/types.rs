@@ -64,7 +64,7 @@ impl Slice {
 }
 
 /// A type expression.
-#[derive(Clone, Debug, Hash, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Type {
     I8,
     I16,
@@ -78,30 +78,6 @@ pub enum Type {
     Uint,
     Ptr(Ptr),
     Slice(Slice),
-}
-
-impl PartialEq for Type {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Type::I8, Type::I8) => true,
-            (Type::I16, Type::I16) => true,
-            (Type::I32, Type::I32) => true,
-            (Type::I64, Type::I64) => true,
-            (Type::Int, Type::Int) => true,
-            (Type::U8, Type::U8) => true,
-            (Type::U16, Type::U16) => true,
-            (Type::U32, Type::U32) => true,
-            (Type::U64, Type::U64) => true,
-            (Type::Uint, Type::Uint) => true,
-            (Type::Ptr(ptr), Type::Ptr(other)) => {
-                ptr.ty == other.ty && ptr.mutability >= other.mutability
-            }
-            (Type::Slice(slice), Type::Slice(other)) => {
-                slice.ty == other.ty && slice.mutability >= other.mutability
-            }
-            _ => false,
-        }
-    }
 }
 
 impl Type {
@@ -190,6 +166,30 @@ impl Type {
                     ty: Box::new(Type::check(module, &array.ty)?),
                 }))
             }
+        }
+    }
+
+    /// Returns `true` if the two types are equivalent (i.e, are represented the same in memory and
+    /// have the same function).
+    pub fn is_equivalent(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Type::I8, Type::I8) => true,
+            (Type::I16, Type::I16) => true,
+            (Type::I32, Type::I32) => true,
+            (Type::I64, Type::I64) => true,
+            (Type::Int, Type::Int) => true,
+            (Type::U8, Type::U8) => true,
+            (Type::U16, Type::U16) => true,
+            (Type::U32, Type::U32) => true,
+            (Type::U64, Type::U64) => true,
+            (Type::Uint, Type::Uint) => true,
+            (Type::Ptr(ptr), Type::Ptr(other)) => {
+                ptr.ty == other.ty && ptr.mutability >= other.mutability
+            }
+            (Type::Slice(slice), Type::Slice(other)) => {
+                slice.ty == other.ty && slice.mutability >= other.mutability
+            }
+            _ => false,
         }
     }
 }

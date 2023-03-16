@@ -13,7 +13,7 @@ pub mod value;
 pub mod var;
 
 /// The state of the typechecker.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Typechecker {
     /// The functions declared by all modules.
     pub funcs: Vec<Func>,

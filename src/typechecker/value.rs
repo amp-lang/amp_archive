@@ -224,15 +224,15 @@ impl GenericValue {
                 _ => None,
             },
             (GenericValue::Var(var), ty) => {
-                if &vars.vars[var.0].ty != ty {
-                    None
-                } else {
+                if vars.vars[var.0].ty.is_equivalent(ty) {
                     Some(Value::Var(var))
+                } else {
+                    None
                 }
             }
             (GenericValue::FuncCall(call), ty) => {
                 let func = &checker.funcs[call.callee.0 as usize];
-                if func.signature.returns.as_ref() != Some(ty) {
+                if func.signature.returns.as_ref().unwrap().is_equivalent(ty) {
                     None
                 } else {
                     Some(Value::FuncCall(call))
@@ -240,25 +240,24 @@ impl GenericValue {
             }
             (GenericValue::Deref(val), ty) => match val.default_type(checker, vars) {
                 Type::Ptr(ptr) => {
-                    if &*ptr.ty != ty {
-                        None
-                    } else {
+                    if ptr.ty.is_equivalent(ty) {
                         Some(Value::Deref(Box::new(val.coerce_default())))
+                    } else {
+                        None
                     }
                 }
                 _ => unreachable!(),
             },
-            (GenericValue::AddrOfVar(mut_, var), Type::Ptr(ty)) => {
-                if &vars.vars[var.0].ty != &*ty.ty {
-                    None
-                } else {
+            (GenericValue::AddrOfVar(mut_, var), Type::Ptr(ptr)) => {
+                if vars.vars[var.0].ty.is_equivalent(&*ptr.ty) {
                     Some(Value::AddrOfVar(mut_, var))
+                } else {
+                    None
                 }
             }
-            (GenericValue::Store(mut_, val), Type::Ptr(ty)) => Some(Value::Store(
-                mut_,
-                Box::new(val.coerce(checker, vars, &ty.ty)?),
-            )),
+            (GenericValue::Store(mut_, val), Type::Ptr(ty)) if mut_ >= ty.mutability => Some(
+                Value::Store(ty.mutability, Box::new(val.coerce(checker, vars, &ty.ty)?)),
+            ),
             // TODO: coerce reference here
             _ => None,
         }

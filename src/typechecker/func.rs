@@ -17,14 +17,14 @@ use super::{
 pub struct FuncId(pub usize);
 
 /// An argument in a function declaration.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq)]
 pub struct FuncArg {
     pub name: String,
     pub ty: Type,
 }
 
 /// The signature of a function declaration in Amp.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq)]
 pub struct Signature {
     /// The arguments of the function.
     pub args: Vec<Spanned<FuncArg>>,
@@ -74,7 +74,7 @@ impl Signature {
 }
 
 /// A function declaration in Amp.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Func {
     /// The type signature of the function.
     pub signature: Signature,
