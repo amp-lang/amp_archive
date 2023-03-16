@@ -26,6 +26,7 @@
 - feat: Basic stopwatch benchmark for Amp compile times.
 - feat: Wrap linker in `build` subcommand
 - feat: Add `-l` linker option to command line.
+- [fix (#7): no longer panic if compiler fails](https://github.com/amp-lang/amp/issues/7)
 
 ### Internals
 - refactor: Make `GenericValue` abstraction to clean up code a bit.

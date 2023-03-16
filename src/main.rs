@@ -4,6 +4,7 @@ use args::Cli;
 use ast::Source;
 use clap::Parser;
 use codespan_reporting::{
+    diagnostic::Diagnostic,
     files::SimpleFiles,
     term::{self, termcolor::StandardStream},
 };
@@ -31,9 +32,12 @@ fn main() -> ExitCode {
     let mut files = SimpleFiles::new();
 
     // Load the source file
-    // TODO: read from command line arguments
-    let src = std::fs::read_to_string(&args.input_path).unwrap();
+    let Ok(src) = std::fs::read_to_string(&args.input_path) else {
+        diagnostic::display_diagnostic(&files, &Diagnostic::error().with_message("Could not read source file"));
+        return ExitCode::FAILURE;
+    };
 
+    // Time the compilation
     let start_time = Instant::now();
 
     let file_id = FileId::new(files.add(args.input_path, src));
@@ -44,9 +48,7 @@ fn main() -> ExitCode {
         match res {
             Ok(value) => value,
             Err(value) => {
-                let config = diagnostic::config();
-                let mut stdout = StandardStream::stderr(term::termcolor::ColorChoice::Auto);
-                term::emit(&mut stdout, &config, &files, &value.as_diagnostic()).unwrap();
+                diagnostic::display_diagnostic(&files, &value.as_diagnostic());
                 return ExitCode::FAILURE;
             }
         }
@@ -59,9 +61,7 @@ fn main() -> ExitCode {
     match checker.check(&res) {
         Ok(_) => {}
         Err(value) => {
-            let config = diagnostic::config();
-            let mut stdout = StandardStream::stderr(term::termcolor::ColorChoice::Auto);
-            term::emit(&mut stdout, &config, &files, &value.as_diagnostic()).unwrap();
+            diagnostic::display_diagnostic(&files, &value.as_diagnostic());
             return ExitCode::FAILURE;
         }
     }
@@ -71,9 +71,18 @@ fn main() -> ExitCode {
     let binary = codegen.finish();
 
     let file = NamedTempFile::new().unwrap();
-    std::fs::write(&file, binary).unwrap();
+    if let Err(_) = std::fs::write(&file, binary) {
+        diagnostic::display_diagnostic(
+            &files,
+            &Diagnostic::error().with_message("could not write object file"),
+        );
+        return ExitCode::FAILURE;
+    }
     args.link.push(file.path().to_str().unwrap().to_owned());
-    linker::link(&args.link, args.output_path);
+    if let Err(_) = linker::link(&args.link, args.output_path) {
+        diagnostic::display_diagnostic(&files, &Diagnostic::error().with_message("linking failed"));
+        return ExitCode::FAILURE;
+    }
 
     let compile_time = start_time.elapsed().as_nanos() as f64 / 1_000_000.0;
 

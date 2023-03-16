@@ -1,7 +1,10 @@
-use std::{path::Path, process::Command};
+use std::{
+    path::Path,
+    process::{Command, ExitStatus},
+};
 
 /// Links the provided files together using GCC.
-pub fn link(files: &[String], output: String) {
+pub fn link(files: &[String], output: String) -> std::io::Result<ExitStatus> {
     let mut cmd = Command::new("gcc");
 
     cmd.args(files).args([
@@ -15,5 +18,5 @@ pub fn link(files: &[String], output: String) {
         },
     ]);
 
-    cmd.status().expect("failed to execute process");
+    cmd.status()
 }
