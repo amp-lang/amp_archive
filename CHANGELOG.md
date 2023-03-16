@@ -15,6 +15,7 @@
 - [feat (#15): [syntax/parser, typechecker, codegen] implement variable assignment](https://github.com/amp-lang/amp/issues/15)
 - [feat (#19): [syntax/scanner, syntax/parser, typechecker, codegen] implement dereference operator](https://github.com/amp-lang/amp/issues/19)
 - [feat (#20): [typechecker, codegen] implement dereference assignment](https://github.com/amp-lang/amp/issues/20)
+- [feat (#6): [syntax/parser] implement hexadecimal, binary and octal literals](https://github.com/amp-lang/amp/issues/6)
 
 ### Compiler
 - feat: Basic stopwatch benchmark for Amp compile times.

@@ -174,6 +174,42 @@ impl Parse for Int {
                             }
                         },
                     }));
+                } else if token == Token::Hex {
+                    parser.scanner_mut().next();
+
+                    return Some(Ok(Self {
+                        span: parser.scanner().span(),
+                        value: match i64::from_str_radix(&parser.scanner().slice()[2..], 16) {
+                            Ok(value) => value,
+                            Err(_) => {
+                                return Some(Err(Error::IntegerTooLarge(parser.scanner().span())))
+                            }
+                        },
+                    }));
+                } else if token == Token::Octal {
+                    parser.scanner_mut().next();
+
+                    return Some(Ok(Self {
+                        span: parser.scanner().span(),
+                        value: match i64::from_str_radix(&parser.scanner().slice()[2..], 8) {
+                            Ok(value) => value,
+                            Err(_) => {
+                                return Some(Err(Error::IntegerTooLarge(parser.scanner().span())))
+                            }
+                        },
+                    }));
+                } else if token == Token::Binary {
+                    parser.scanner_mut().next();
+
+                    return Some(Ok(Self {
+                        span: parser.scanner().span(),
+                        value: match i64::from_str_radix(&parser.scanner().slice()[2..], 2) {
+                            Ok(value) => value,
+                            Err(_) => {
+                                return Some(Err(Error::IntegerTooLarge(parser.scanner().span())))
+                            }
+                        },
+                    }));
                 }
 
                 return None;
