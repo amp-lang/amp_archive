@@ -1,5 +1,6 @@
 func Print(str: []const u8);
 
 func Main() {
+    var my_var: u32 = 0;
     Print("Hello, world!\n"); // => Hello, world!
 }

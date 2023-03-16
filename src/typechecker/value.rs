@@ -150,7 +150,7 @@ impl GenericValue {
     /// Returns the default value type for this generic value.
     pub fn coerce_default(self) -> Value {
         match self {
-            GenericValue::Int(int) => Value::I32(int as i32), // todo: replace with `int` value
+            GenericValue::Int(int) => Value::Int(int as i64),
             GenericValue::Str(str) => Value::Str(Mutability::Const, str),
             GenericValue::Var(var) => Value::Var(var),
             GenericValue::FuncCall(call) => Value::FuncCall(call),
@@ -161,8 +161,16 @@ impl GenericValue {
     /// Attempts to coerce this generic value into a value of the specified type.
     pub fn coerce(self, checker: &Typechecker, vars: &Vars, ty: &Type) -> Option<Value> {
         match (self, ty) {
+            (GenericValue::Int(int), Type::I8) => Some(Value::I8(int as i8)),
+            (GenericValue::Int(int), Type::I16) => Some(Value::I16(int as i16)),
             (GenericValue::Int(int), Type::I32) => Some(Value::I32(int as i32)),
+            (GenericValue::Int(int), Type::I64) => Some(Value::I64(int as i64)),
+            (GenericValue::Int(int), Type::Int) => Some(Value::Int(int as i64)),
             (GenericValue::Int(int), Type::U8) => Some(Value::U8(int as u8)),
+            (GenericValue::Int(int), Type::U16) => Some(Value::U16(int as u16)),
+            (GenericValue::Int(int), Type::U32) => Some(Value::U32(int as u32)),
+            (GenericValue::Int(int), Type::U64) => Some(Value::U64(int as u64)),
+            (GenericValue::Int(int), Type::Uint) => Some(Value::Uint(int as u64)),
             (GenericValue::Str(str), Type::Ptr(ptr)) => match &*ptr.ty {
                 Type::U8 => Some(Value::CStr(ptr.mutability, str)),
                 _ => None,
