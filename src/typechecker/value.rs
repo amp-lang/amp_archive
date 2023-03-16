@@ -224,7 +224,7 @@ impl GenericValue {
                 _ => None,
             },
             (GenericValue::Var(var), ty) => {
-                if ty != &vars.vars[var.0].ty {
+                if &vars.vars[var.0].ty != ty {
                     None
                 } else {
                     Some(Value::Var(var))
@@ -232,7 +232,7 @@ impl GenericValue {
             }
             (GenericValue::FuncCall(call), ty) => {
                 let func = &checker.funcs[call.callee.0 as usize];
-                if Some(ty) != func.signature.returns.as_ref() {
+                if func.signature.returns.as_ref() != Some(ty) {
                     None
                 } else {
                     Some(Value::FuncCall(call))
@@ -240,7 +240,7 @@ impl GenericValue {
             }
             (GenericValue::Deref(val), ty) => match val.default_type(checker, vars) {
                 Type::Ptr(ptr) => {
-                    if ty != &*ptr.ty {
+                    if &*ptr.ty != ty {
                         None
                     } else {
                         Some(Value::Deref(Box::new(val.coerce_default())))
@@ -249,7 +249,7 @@ impl GenericValue {
                 _ => unreachable!(),
             },
             (GenericValue::AddrOfVar(mut_, var), Type::Ptr(ty)) => {
-                if &*ty.ty != &vars.vars[var.0].ty {
+                if &vars.vars[var.0].ty != &*ty.ty {
                     None
                 } else {
                     Some(Value::AddrOfVar(mut_, var))

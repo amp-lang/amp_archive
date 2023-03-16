@@ -5,8 +5,8 @@ func Set42(my_number: ~mut i32) {
 func printf(format: ~const u8, num: i32) -> i32;
 
 func Main() {
-    var my_number: i32 = 0;
-    Set42(~mut my_number);
-    Set42(~mut 42);
-    printf("%d\n", my_number);
+    var format: ~mut u8 = "Hello, world!";
+    var my_var: i32;
+    Set42(~const my_var);
+    printf(format, my_var);
 }
