@@ -177,6 +177,15 @@ pub struct Binary {
 pub enum UnaryOp {
     /// `*`
     Deref,
+
+    /// `~
+    Tilde,
+
+    /// `~const`
+    ConstRef,
+
+    /// `~mut`
+    MutRef,
 }
 
 impl UnaryOp {
@@ -184,6 +193,7 @@ impl UnaryOp {
     pub fn from_token(token: Token) -> Self {
         match token {
             Token::Star => Self::Deref,
+            Token::Tilde => Self::Tilde,
             _ => unreachable!("invalid token for binary operator"),
         }
     }
@@ -249,7 +259,7 @@ impl Expr {
 
     /// Parses a unary operation.
     fn parse_unary(parser: &mut Parser, min_power: u8) -> Option<Result<Self, Error>> {
-        let op = match parser.scanner_mut().peek()? {
+        let token = match parser.scanner_mut().peek()? {
             Ok(token) => {
                 if token.is_unary_operator() {
                     parser.scanner_mut().next();
@@ -262,7 +272,24 @@ impl Expr {
         };
         let started = parser.scanner().span();
 
-        let power = op.prefix_binding_power();
+        let mut op = UnaryOp::from_token(token);
+
+        if token == Token::Tilde {
+            // check for const/mut
+            match parser.scanner_mut().peek() {
+                Some(Ok(Token::KConst)) => {
+                    parser.scanner_mut().next();
+                    op = UnaryOp::ConstRef;
+                }
+                Some(Ok(Token::KMut)) => {
+                    parser.scanner_mut().next();
+                    op = UnaryOp::MutRef;
+                }
+                _ => {}
+            }
+        }
+
+        let power = token.prefix_binding_power();
         if power < min_power {
             return Some(if let Some(value) = Self::parse_atom(parser) {
                 value
@@ -288,7 +315,7 @@ impl Expr {
                 started.start,
                 parser.scanner().span().end,
             ),
-            op: UnaryOp::from_token(op),
+            op,
             expr: Box::new(expr),
         })))
     }

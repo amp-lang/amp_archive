@@ -18,6 +18,7 @@
 - [feat (#6): [syntax/parser] implement hexadecimal, binary and octal literals](https://github.com/amp-lang/amp/issues/6)
 - [feat (#16): [syntax/scanner] skip comments in scanner](https://github.com/amp-lang/amp/issues/16)
 - fix: allow the new integer types to be used in variables.
+- [feat (#18): [syntax/scanner, typechecker, codegen] implement reference operator](https://github.com/amp-lang/amp/issues/18)
 
 ### Compiler
 - feat: Basic stopwatch benchmark for Amp compile times.

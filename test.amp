@@ -1,6 +1,12 @@
-func Print(str: []const u8);
+func Set42(my_number: ~mut i32) {
+    *my_number = 42;
+}
+
+func printf(format: ~const u8, num: i32) -> i32;
 
 func Main() {
-    var my_var: u32 = 0;
-    Print("Hello, world!\n"); // => Hello, world!
+    var my_number: i32 = 0;
+    Set42(~mut my_number);
+    Set42(~mut 42);
+    printf("%d\n", my_number);
 }

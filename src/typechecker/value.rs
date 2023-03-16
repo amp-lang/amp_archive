@@ -1,4 +1,8 @@
-use crate::{ast, error::Error, span::Spanned};
+use crate::{
+    ast::{self, PointerMutability},
+    error::Error,
+    span::Spanned,
+};
 
 use super::{
     func::FuncId,
@@ -73,6 +77,13 @@ pub enum GenericValue {
     Var(VarId),
     FuncCall(FuncCall),
     Deref(Box<GenericValue>),
+
+    /// Same as `~const var` or `~mut var`.
+    AddrOfVar(Mutability, VarId),
+
+    /// Same as `~const {value}` or `~mut {value}`.  Stores a literal on the stack without storing
+    /// it in a variable.
+    Store(Mutability, Box<GenericValue>),
 }
 
 impl GenericValue {
@@ -87,6 +98,21 @@ impl GenericValue {
         match value.default_type(checker, vars) {
             Type::Ptr(_) => Ok(GenericValue::Deref(Box::new(value))),
             _ => Err(Error::InvalidDeref(expr.span())),
+        }
+    }
+
+    pub fn check_ref(
+        checker: &Typechecker,
+        scope: &mut Scope,
+        vars: &Vars,
+        mutability: Mutability,
+        expr: &ast::Expr,
+    ) -> Result<Self, Error> {
+        let value = Self::check(checker, scope, vars, expr)?;
+
+        match value {
+            Self::Var(var) => Ok(GenericValue::AddrOfVar(mutability, var)),
+            value => Ok(GenericValue::Store(mutability, Box::new(value))),
         }
     }
 
@@ -107,6 +133,13 @@ impl GenericValue {
                     Type::Ptr(ptr) => *ptr.ty,
                     _ => unreachable!(),
                 }
+            }
+            Self::AddrOfVar(mutability, var) => {
+                let ty = vars.vars[var.0 as usize].ty.clone();
+                Type::Ptr(Ptr::new(*mutability, ty))
+            }
+            Self::Store(mutability, value) => {
+                Type::Ptr(Ptr::new(*mutability, value.default_type(checker, vars)))
             }
         }
     }
@@ -142,6 +175,13 @@ impl GenericValue {
             }
             ast::Expr::Unary(unary) => match unary.op {
                 ast::UnaryOp::Deref => Self::check_deref(checker, scope, vars, &unary.expr),
+                ast::UnaryOp::ConstRef => {
+                    Self::check_ref(checker, scope, vars, Mutability::Const, &unary.expr)
+                }
+                ast::UnaryOp::MutRef => {
+                    Self::check_ref(checker, scope, vars, Mutability::Mut, &unary.expr)
+                }
+                _ => todo!("implement bitwise not operator"),
             },
             _ => return Err(Error::InvalidValue(expr.span())),
         }
@@ -155,6 +195,10 @@ impl GenericValue {
             GenericValue::Var(var) => Value::Var(var),
             GenericValue::FuncCall(call) => Value::FuncCall(call),
             GenericValue::Deref(val) => Value::Deref(Box::new(val.coerce_default())),
+            GenericValue::AddrOfVar(mutability, var) => Value::AddrOfVar(mutability, var),
+            GenericValue::Store(mutability, var) => {
+                Value::Store(mutability, Box::new(var.coerce_default()))
+            }
         }
     }
 
@@ -204,6 +248,18 @@ impl GenericValue {
                 }
                 _ => unreachable!(),
             },
+            (GenericValue::AddrOfVar(mut_, var), Type::Ptr(ty)) => {
+                if &*ty.ty != &vars.vars[var.0].ty {
+                    None
+                } else {
+                    Some(Value::AddrOfVar(mut_, var))
+                }
+            }
+            (GenericValue::Store(mut_, val), Type::Ptr(ty)) => Some(Value::Store(
+                mut_,
+                Box::new(val.coerce(checker, vars, &ty.ty)?),
+            )),
+            // TODO: coerce reference here
             _ => None,
         }
     }
@@ -256,6 +312,12 @@ pub enum Value {
 
     /// Loads a value from a pointer.
     Deref(Box<Value>),
+
+    /// Returns the address of the provided variable.
+    AddrOfVar(Mutability, VarId),
+
+    /// Stores a value on the stack, outputting the address as a pointer.
+    Store(Mutability, Box<Value>),
 }
 
 impl Value {
@@ -284,6 +346,12 @@ impl Value {
                 Type::Ptr(ptr) => *ptr.ty,
                 _ => unreachable!(),
             },
+            Value::AddrOfVar(mutability, var) => {
+                Type::Ptr(Ptr::new(*mutability, vars.vars[var.0].ty.clone()))
+            }
+            Value::Store(mutability, val) => {
+                Type::Ptr(Ptr::new(*mutability, val.ty(checker, vars)))
+            }
         }
     }
 }

@@ -254,6 +254,22 @@ pub fn compile_value(
                     .load(ty, cranelift::prelude::MemFlags::new(), ptr, 0)
             }
         }
+        Value::AddrOfVar(_, var) => builder
+            .ins()
+            .stack_addr(codegen.pointer_type, vars[&var], 0),
+        Value::Store(_, value) => {
+            let ty = value.ty(checker, &data.vars);
+
+            let slot = builder.create_sized_stack_slot(StackSlotData::new(
+                StackSlotKind::ExplicitSlot,
+                ty.size(codegen.pointer_type.bytes() as usize) as u32,
+            ));
+
+            let addr = builder.ins().stack_addr(codegen.pointer_type, slot, 0);
+            compile_value(checker, codegen, builder, value, vars, data, Some(addr));
+
+            builder.ins().stack_addr(codegen.pointer_type, slot, 0)
+        }
     };
 
     if let Some(to) = to {

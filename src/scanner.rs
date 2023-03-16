@@ -232,6 +232,7 @@ impl Token {
     pub fn is_unary_operator(&self) -> bool {
         match self {
             Token::Star => true,
+            Token::Tilde => true,
             _ => false,
         }
     }
@@ -255,6 +256,7 @@ impl Token {
     pub fn prefix_binding_power(&self) -> u8 {
         match self {
             Token::Star => 5,
+            Token::Tilde => 5,
             _ => unreachable!("Invalid operator."),
         }
     }
