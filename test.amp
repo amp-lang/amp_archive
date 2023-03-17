@@ -6,6 +6,7 @@ func printf(format: ~const u8, value: bool) -> i32;
 
 func Main() {
     var my_bool = false;
+
     SetBool(~mut my_bool);
     printf("my_bool = %hhd", my_bool);
 }
