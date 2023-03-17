@@ -7,6 +7,7 @@ mod decl;
 mod expr;
 mod func;
 mod source;
+mod struct_;
 mod types;
 
 pub use arg_list::*;
@@ -16,4 +17,5 @@ pub use decl::*;
 pub use expr::*;
 pub use func::*;
 pub use source::*;
+pub use struct_::*;
 pub use types::*;

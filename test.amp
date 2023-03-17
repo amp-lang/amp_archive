@@ -1,12 +1,4 @@
-func SetBool(bool: ~mut bool) {
-    *bool = true;
-}
-
-func printf(format: ~const u8, value: bool) -> i32;
-
-func Main() {
-    var my_bool = false;
-
-    SetBool(~mut my_bool);
-    printf("my_bool = %hhd", my_bool);
+struct Slice {
+    ptr: ~const u8,
+    len: uint,
 }

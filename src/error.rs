@@ -303,6 +303,18 @@ pub enum Error {
 
     /// Cannot change an immutable pointer/slice.
     CannotChangeImmutable(Span) = 44,
+
+    /// Expected a colon after a declaration.
+    ExpectedColon(Span) = 45,
+
+    /// Expected the type for a struct field.
+    ExpectedFieldType(Span) = 46,
+
+    /// Expected the name for a struct.
+    ExpectedStructName(Span) = 47,
+
+    /// Expected the fields of a struct type.
+    ExpectedStructFields(Span) = 48,
 }
 
 impl Error {
@@ -708,6 +720,22 @@ impl Error {
             }
             Self::CannotChangeImmutable(span) => {
                 diagnostic.message = "Cannot change an immutable value".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::ExpectedColon(span) => {
+                diagnostic.message = "Expected a colon".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::ExpectedFieldType(span) => {
+                diagnostic.message = "Expected a type for the struct field".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::ExpectedStructName(span) => {
+                diagnostic.message = "Expected a name for the struct".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::ExpectedStructFields(span) => {
+                diagnostic.message = "Expected a field for the struct".to_owned();
                 diagnostic.labels.push(span.primary());
             }
         }
