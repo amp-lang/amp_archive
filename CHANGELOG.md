@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.3.0-alpha
+
+## Language
+- [feat (#21) [syntax/scanner, syntax/parser, typechecker, codegen] implement struct types & constructors](https://github.com/amp-lang/amp/issues/21)
+
 ## v0.2.0-alpha
 
 ### Language

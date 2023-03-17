@@ -1,19 +1,23 @@
+use std::collections::HashMap;
+
 use crate::{
     ast::{self, PointerMutability},
     error::Error,
     span::Spanned,
+    typechecker::scope::TypeDecl,
 };
 
 use super::{
     func::FuncId,
     scope::Scope,
-    types::{Mutability, Ptr, Slice, Type},
+    struct_::StructId,
+    types::{self, Mutability, Ptr, Slice, Type},
     var::{VarId, Vars},
     Typechecker,
 };
 
 /// A function call value.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FuncCall {
     pub callee: FuncId,
     pub args: Vec<Value>,
@@ -70,7 +74,7 @@ impl FuncCall {
 }
 
 /// A `{value}` literal value before it is coerced to a specific type.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum GenericValue {
     Bool(bool),
     Int(i64),
@@ -85,6 +89,9 @@ pub enum GenericValue {
     /// Same as `~const {value}` or `~mut {value}`.  Stores a literal on the stack without storing
     /// it in a variable.
     Store(Mutability, Box<GenericValue>),
+
+    /// A constructor of a struct.
+    Constructor(StructId, HashMap<usize, Value>),
 }
 
 impl GenericValue {
@@ -143,6 +150,7 @@ impl GenericValue {
             Self::Store(mutability, value) => {
                 Type::Ptr(Ptr::new(*mutability, value.default_type(checker, vars)))
             }
+            Self::Constructor(struct_id, _) => Type::Struct(*struct_id),
         }
     }
 
@@ -186,6 +194,38 @@ impl GenericValue {
                 }
                 _ => todo!("implement bitwise not operator"),
             },
+            ast::Expr::Constructor(constructor) => {
+                let ty = types::check_type_decl_path(scope, &*constructor.ty)
+                    .ok_or(Error::InvalidTypePath(constructor.ty.span()))?;
+                let TypeDecl::Struct(id) = ty;
+
+                let struct_decl = &checker.structs[id.0 as usize];
+
+                let mut fields = HashMap::new();
+
+                for field in &constructor.fields {
+                    let (field_id, field_decl) = struct_decl
+                        .get_field(&field.name.value)
+                        .ok_or(Error::UnknownStructField(field.span))?;
+
+                    if fields.contains_key(&field_id) {
+                        return Err(Error::DuplicateFieldDefinition(field.span));
+                    }
+
+                    let value = Self::check(checker, scope, vars, &field.value)?
+                        .coerce(checker, vars, &field_decl.ty.value)
+                        .ok_or(Error::ExpectedFieldOfType {
+                            decl: field.span,
+                            name: field_decl.ty.value.name(checker),
+                            offending: field.span,
+                        })?;
+
+                    fields.insert(field_id, value);
+                }
+
+                Ok(GenericValue::Constructor(id, fields))
+            }
+
             _ => return Err(Error::InvalidValue(expr.span())),
         }
     }
@@ -203,6 +243,7 @@ impl GenericValue {
             GenericValue::Store(mutability, var) => {
                 Value::Store(mutability, Box::new(var.coerce_default()))
             }
+            GenericValue::Constructor(struct_id, fields) => Value::Constructor(struct_id, fields),
         }
     }
 
@@ -263,14 +304,18 @@ impl GenericValue {
             (GenericValue::Store(mut_, val), Type::Ptr(ty)) if mut_ >= ty.mutability => Some(
                 Value::Store(ty.mutability, Box::new(val.coerce(checker, vars, &ty.ty)?)),
             ),
-            // TODO: coerce reference here
+            (GenericValue::Constructor(struct_id, fields), Type::Struct(struct_ty))
+                if struct_id == *struct_ty =>
+            {
+                Some(Value::Constructor(struct_id, fields))
+            }
             _ => None,
         }
     }
 }
 
 /// A value expression in an Amp module.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Value {
     /// A boolean value.
     Bool(bool),
@@ -325,6 +370,9 @@ pub enum Value {
 
     /// Stores a value on the stack, outputting the address as a pointer.
     Store(Mutability, Box<Value>),
+
+    /// Creates a new struct valuie
+    Constructor(StructId, HashMap<usize, Value>),
 }
 
 impl Value {
@@ -360,6 +408,7 @@ impl Value {
             Value::Store(mutability, val) => {
                 Type::Ptr(Ptr::new(*mutability, val.ty(checker, vars)))
             }
+            Value::Constructor(struct_, _) => Type::Struct(*struct_),
         }
     }
 }

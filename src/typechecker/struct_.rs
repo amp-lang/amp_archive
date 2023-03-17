@@ -44,6 +44,33 @@ impl Struct {
 
         size
     }
+
+    /// Gets the field with the provided name.
+    pub fn get_field(&self, name: &str) -> Option<(usize, &Field)> {
+        self.fields
+            .iter()
+            .enumerate()
+            .find(|(_, field)| field.name.value == name)
+    }
+
+    /// Gets the offset of a field.
+    ///
+    /// Fails if the field does not exist.
+    pub fn get_field_offset(&self, checker: &Typechecker, ptr_size: usize, target: usize) -> usize {
+        let mut offset = 0;
+
+        for (idx, field) in self.fields.iter().enumerate() {
+            if idx == target {
+                break;
+            }
+
+            let field_size = field.ty.value.size(checker, ptr_size);
+            let padding = (field_size - (offset % field_size)) % field_size;
+            offset += padding + field_size;
+        }
+
+        offset
+    }
 }
 
 /// Checks a struct declaration, simply checks if the name is already defined in the current scope.

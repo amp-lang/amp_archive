@@ -207,6 +207,68 @@ pub struct Unary {
     pub expr: Box<Expr>,
 }
 
+/// A struct constructor field.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct ConstructorField {
+    pub span: Span,
+    pub name: Iden,
+    pub value: Box<Expr>,
+}
+
+impl Parse for ConstructorField {
+    fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
+        let name = match parser.parse::<Iden>()? {
+            Ok(iden) => iden,
+            Err(err) => return Some(Err(err)),
+        };
+
+        let started = parser.scanner().span();
+
+        if let Some(Ok(Token::Eq)) = parser.scanner_mut().next() {
+        } else {
+            return Some(Err(Error::ExpectedEq(parser.scanner().span())));
+        }
+
+        let value = if let Some(res) = parser.parse::<Expr>() {
+            match res {
+                Ok(expr) => Box::new(expr),
+                Err(err) => return Some(Err(err)),
+            }
+        } else {
+            parser.scanner_mut().next();
+            return Some(Err(Error::ExpectedFieldValue(parser.scanner().span())));
+        };
+
+        Some(Ok(Self {
+            span: Span::new(
+                parser.scanner().file_id(),
+                started.start,
+                parser.scanner().span().end,
+            ),
+            name,
+            value,
+        }))
+    }
+}
+
+/// The struct constructor operator.
+///
+/// ```amp
+/// var my_struct = MyStruct .{
+///    field = 1,
+/// };
+/// ```
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Constructor {
+    pub span: Span,
+
+    /// The path to the struct type.
+    pub ty: Box<Expr>,
+
+    /// The fields in the struct.
+    pub fields: Vec<ConstructorField>,
+}
+
 /// An expression in Amp code.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Expr {
@@ -219,6 +281,7 @@ pub enum Expr {
     Var(Var),
     Binary(Binary),
     Unary(Unary),
+    Constructor(Constructor),
 }
 
 impl Expr {
@@ -234,6 +297,7 @@ impl Expr {
             Expr::Var(var) => var.span,
             Expr::Binary(binary) => binary.span,
             Expr::Unary(unary) => unary.span,
+            Expr::Constructor(constructor) => constructor.span,
         }
     }
 
@@ -369,6 +433,36 @@ impl Expr {
                     span: Span::new(parser.scanner().file_id(), left.span().start, args.span.end),
                     callee: Box::new(left),
                     args,
+                });
+            } else if op == Token::Constructor {
+                parser.scanner_mut().next();
+                let starts = parser.scanner().span();
+
+                let fields = match parser
+                    .parse::<Vec<ConstructorField>>()
+                    .expect("cannot return nothing")
+                {
+                    Ok(args) => args,
+                    Err(err) => return Some(Err(err)),
+                };
+
+                // check for closing brace
+                if let Some(Ok(Token::RBrace)) = parser.scanner_mut().next() {
+                } else {
+                    return Some(Err(Error::ExpectedClosingBrace {
+                        starts,
+                        offending: parser.scanner().span(),
+                    }));
+                }
+
+                left = Expr::Constructor(Constructor {
+                    span: Span::new(
+                        parser.scanner().file_id(),
+                        left.span().start,
+                        parser.scanner().span().end,
+                    ),
+                    ty: Box::new(left),
+                    fields,
                 });
             } else {
                 parser.scanner_mut().next();

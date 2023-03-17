@@ -216,3 +216,13 @@ impl Type {
         }
     }
 }
+
+/// Checks a type declaration path.
+pub fn check_type_decl_path(scope: &mut Scope, path: &ast::Expr) -> Option<TypeDecl> {
+    match path {
+        ast::Expr::Iden(iden) => scope.resolve_type(&iden.value),
+        _ => None,
+    }
+
+    // Ok(ty)
+}

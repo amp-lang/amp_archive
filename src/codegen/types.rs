@@ -21,10 +21,14 @@ pub fn compile_type(
         Type::U64 => cranelift::prelude::types::I64,
         Type::Uint => codegen.pointer_type,
         Type::Ptr(_) => codegen.pointer_type,
-        Type::Struct(struct_) => cranelift::prelude::Type::int(
-            checker.structs[struct_.0].size(checker, codegen.pointer_type.bytes() as usize) as u16,
-        )
-        .expect("struct must not be big"),
+        Type::Struct(struct_) => {
+            let ty = cranelift::prelude::Type::int_with_byte_size(
+                checker.structs[struct_.0].size(checker, codegen.pointer_type.bytes() as usize)
+                    as u16,
+            )
+            .expect("struct must not be big");
+            ty
+        }
         _ => unreachable!("compile_type: {:?}", ty),
     }
 }

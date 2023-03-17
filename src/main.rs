@@ -9,7 +9,7 @@ use span::FileId;
 use tempfile::NamedTempFile;
 use typechecker::Typechecker;
 
-use crate::{ast::Struct, codegen::Codegen};
+use crate::codegen::Codegen;
 
 pub mod args;
 pub mod ast;

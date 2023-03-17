@@ -318,6 +318,33 @@ pub enum Error {
 
     /// A duplicate struct field was found.
     DuplicateField(Spanned<String>) = 49,
+
+    /// Expected an equals expression.
+    ExpectedEq(Span) = 50,
+
+    /// Expected a field value.
+    ExpectedFieldValue(Span) = 51,
+
+    /// An invalid type path was found.
+    InvalidTypePath(Span) = 52,
+
+    /// An invalid struct field was found in a constructor.
+    UnknownStructField(Span) = 53,
+
+    /// Expected a field of the given type.
+    ExpectedFieldOfType {
+        /// The original declaration.
+        decl: Span,
+
+        /// The name of the expected type.
+        name: String,
+
+        /// The offending argument location.
+        offending: Span,
+    } = 54,
+
+    /// A field in a struct constructor was defined twice.
+    DuplicateFieldDefinition(Span) = 55,
 }
 
 impl Error {
@@ -744,6 +771,37 @@ impl Error {
             Self::DuplicateField(name) => {
                 diagnostic.message = format!("Duplicate field '{}'", name.value);
                 diagnostic.labels.push(name.span.primary());
+            }
+            Self::ExpectedEq(span) => {
+                diagnostic.message = "Expected `=`".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::ExpectedFieldValue(span) => {
+                diagnostic.message = "Expected a value for the struct field".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::InvalidTypePath(span) => {
+                diagnostic.message = "Invalid type path".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::UnknownStructField(span) => {
+                diagnostic.message = "Unknown struct field".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::ExpectedFieldOfType {
+                decl,
+                name,
+                offending,
+            } => {
+                diagnostic.message = format!("Expected field of type '{}'", name);
+                diagnostic
+                    .labels
+                    .push(decl.secondary().with_message("Declared here"));
+                diagnostic.labels.push(offending.primary());
+            }
+            Self::DuplicateFieldDefinition(span) => {
+                diagnostic.message = "Duplicate field definition".to_owned();
+                diagnostic.labels.push(span.primary());
             }
         }
 

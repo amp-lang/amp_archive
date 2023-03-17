@@ -58,11 +58,8 @@ pub fn use_var(
             if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
                 Some(builder.ins().stack_addr(codegen.pointer_type, slot, 0))
             } else {
-                Some(
-                    builder
-                        .ins()
-                        .stack_load(compile_type(codegen, checker, ty), slot, 0),
-                )
+                let ty = compile_type(codegen, checker, ty);
+                Some(builder.ins().stack_load(ty, slot, 0))
             }
         }
     }
@@ -289,6 +286,56 @@ pub fn compile_value(
             compile_value(checker, codegen, builder, value, vars, data, Some(addr));
 
             builder.ins().stack_addr(codegen.pointer_type, slot, 0)
+        }
+        Value::Constructor(struct_id, fields) => {
+            let struct_decl = &checker.structs[struct_id.0];
+
+            if let Some(dest) = to {
+                for (id, value) in fields {
+                    let addr = builder.ins().iadd_imm(
+                        dest,
+                        struct_decl.get_field_offset(
+                            checker,
+                            codegen.pointer_type.bytes() as usize,
+                            *id,
+                        ) as i64,
+                    );
+
+                    compile_value(checker, codegen, builder, value, vars, data, Some(addr));
+                }
+
+                return None;
+            } else {
+                let size = struct_decl.size(checker, codegen.pointer_type.bytes() as usize);
+                let slot = builder.create_sized_stack_slot(StackSlotData::new(
+                    StackSlotKind::ExplicitSlot,
+                    size as u32,
+                ));
+
+                for (id, value) in fields {
+                    let dest = builder.ins().stack_addr(codegen.pointer_type, slot, 0);
+                    let addr = builder.ins().iadd_imm(
+                        dest,
+                        struct_decl.get_field_offset(
+                            checker,
+                            codegen.pointer_type.bytes() as usize,
+                            *id,
+                        ) as i64,
+                    );
+
+                    compile_value(checker, codegen, builder, value, vars, data, Some(addr));
+                }
+
+                if size > codegen.pointer_type.bytes() as usize {
+                    builder.ins().stack_addr(codegen.pointer_type, slot, 0)
+                } else {
+                    let ptr = builder.ins().stack_addr(codegen.pointer_type, slot, 0);
+                    let ty = cranelift::prelude::Type::int(size as u16).unwrap();
+                    builder
+                        .ins()
+                        .load(ty, cranelift::prelude::MemFlags::new(), ptr, 0)
+                }
+            }
         }
     };
 

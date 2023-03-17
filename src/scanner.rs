@@ -106,6 +106,9 @@ pub enum Token {
     /// `)`
     RParen,
 
+    /// `.{`
+    Constructor,
+
     /// `{`
     LBrace,
 
@@ -239,6 +242,7 @@ impl Token {
             // The left parenthesis is a special operator.
             Token::LParen => true,
             Token::Eq => true,
+            Token::Constructor => true,
             _ => false,
         }
     }
@@ -260,6 +264,7 @@ impl Token {
         match self {
             Token::Eq => (1, 0), // low binding power
             Token::LParen => (8, 7),
+            Token::Constructor => (8, 7),
             _ => unreachable!("Invalid operator."),
         }
     }
@@ -608,6 +613,15 @@ impl<'a> Iterator for Scanner<'a> {
                     Token::Arrow
                 } else {
                     Token::Minus
+                }
+            }
+            '.' => {
+                if self.peek_char() == Some('{') {
+                    self.next_char();
+                    Token::Constructor
+                } else {
+                    println!("TODO! implement dot operator");
+                    return Some(Err(Error::InvalidToken(self.current_span)));
                 }
             }
             '(' => Token::LParen,

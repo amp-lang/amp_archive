@@ -11,7 +11,7 @@ use super::{
 
 /// A return statement.
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Return {
     pub value: Option<Value>,
 }
@@ -68,7 +68,7 @@ impl Return {
 }
 
 /// A variable declaration.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VarDecl {
     pub var: VarId,
     pub value: Option<Value>,
@@ -119,7 +119,7 @@ impl VarDecl {
 }
 
 /// The destination of an assignment.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AssignDest {
     Var(VarId),
     Deref(Value),
@@ -168,7 +168,7 @@ impl AssignDest {
 }
 
 /// Assigns a value to a variable.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Assign {
     pub dest: AssignDest,
     pub value: Value,
@@ -215,7 +215,7 @@ impl Assign {
 }
 
 /// A statement of code.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Stmnt {
     FuncCall(FuncCall),
     Return(Return),
@@ -261,7 +261,7 @@ impl Stmnt {
 }
 
 /// A block in Amp.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Block {
     pub value: Vec<Stmnt>,
 }
