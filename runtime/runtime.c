@@ -4,7 +4,7 @@
 typedef struct Slice
 {
     void *ptr;
-    size_t len;
+    int len;
 } Slice;
 
 size_t Len(Slice slice)

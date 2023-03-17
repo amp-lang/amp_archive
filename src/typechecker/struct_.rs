@@ -30,18 +30,38 @@ pub struct Struct {
     pub fields: Vec<Field>,
 }
 
+/// Rounds a number up to the nearest multiple of another number.
+fn round_up(num_to_round: usize, multiple: usize) -> usize {
+    if multiple == 0 {
+        return num_to_round;
+    }
+
+    let remainder = num_to_round % multiple;
+    if remainder == 0 {
+        num_to_round
+    } else {
+        num_to_round + multiple - remainder
+    }
+}
+
 impl Struct {
     /// Returns the size, in bytes, of this [Struct].
     pub fn size(&self, checker: &Typechecker, ptr_size: usize) -> usize {
         // calculate size with field padding
         let mut size = 0;
 
-        for field in &self.fields {
-            let field_size = field.ty.value.size(checker, ptr_size);
-            let padding = (field_size - (size % field_size)) % field_size;
-            size += padding + field_size;
+        let mut fields = self.fields.iter().peekable();
+        while let Some(field) = fields.next() {
+            size += field.ty.value.size(checker, ptr_size);
+
+            if let Some(next_field) = fields.peek() {
+                let next_size = next_field.ty.value.size(checker, ptr_size);
+                size = round_up(size, next_size);
+            }
         }
 
+        size = round_up(size, ptr_size); // align struct to pointer size for system
+        dbg!(size);
         size
     }
 
@@ -57,16 +77,21 @@ impl Struct {
     ///
     /// Fails if the field does not exist.
     pub fn get_field_offset(&self, checker: &Typechecker, ptr_size: usize, target: usize) -> usize {
+        // calculate size with field padding
         let mut offset = 0;
 
-        for (idx, field) in self.fields.iter().enumerate() {
+        let mut fields = self.fields.iter().enumerate().peekable();
+        while let Some((idx, field)) = fields.next() {
             if idx == target {
-                break;
+                return offset;
             }
 
-            let field_size = field.ty.value.size(checker, ptr_size);
-            let padding = (field_size - (offset % field_size)) % field_size;
-            offset += padding + field_size;
+            offset += field.ty.value.size(checker, ptr_size);
+
+            if let Some((_, next_field)) = fields.peek() {
+                let next_size = next_field.ty.value.size(checker, ptr_size);
+                offset = round_up(offset, next_size);
+            }
         }
 
         offset
