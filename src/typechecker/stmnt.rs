@@ -254,6 +254,7 @@ impl Stmnt {
 
                     Ok(Stmnt::Assign(assign))
                 }
+                _ => Err(Error::InvalidStatement(stmnt.span())),
             },
             _ => Err(Error::InvalidStatement(stmnt.span())),
         }

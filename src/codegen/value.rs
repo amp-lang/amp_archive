@@ -8,6 +8,7 @@ use cranelift_module::{DataContext, DataId, Module};
 
 use crate::typechecker::{
     func::FuncImpl,
+    struct_,
     types::Type,
     value::{FuncCall, Value},
     var::VarId,
@@ -335,6 +336,69 @@ pub fn compile_value(
                         .ins()
                         .load(ty, cranelift::prelude::MemFlags::new(), ptr, 0)
                 }
+            }
+        }
+        Value::StructAccess(value, field) => {
+            let Type::Struct(struct_id) = value.ty(checker, &data.vars) else {
+                unreachable!();
+            };
+            let struct_decl = &checker.structs[struct_id.0];
+
+            if struct_decl.size(checker, codegen.pointer_type.bytes() as usize)
+                > codegen.pointer_type.bytes() as usize
+            {
+                let ptr =
+                    compile_value(checker, codegen, builder, value, vars, data, None).unwrap();
+
+                let offset = struct_decl.get_field_offset(
+                    checker,
+                    codegen.pointer_type.bytes() as usize,
+                    *field,
+                );
+                let field = &struct_decl.fields[*field].ty.value;
+
+                let ptr = builder.ins().iadd_imm(ptr, offset as i64);
+                let size = builder.ins().iconst(
+                    codegen.pointer_type,
+                    field.size(checker, codegen.pointer_type.bytes() as usize) as i64,
+                );
+
+                if let Some(to) = to {
+                    builder.call_memcpy(codegen.module.target_config(), to, ptr, size);
+                    return None;
+                } else {
+                    if !field.is_big(checker, codegen.pointer_type.bytes() as usize) {
+                        let ty = compile_type(codegen, checker, field);
+                        builder
+                            .ins()
+                            .load(ty, cranelift::prelude::MemFlags::new(), ptr, 0)
+                    } else {
+                        ptr
+                    }
+                }
+            } else {
+                // Temporarily store on stack to get field
+                let stack_slot = builder.create_sized_stack_slot(StackSlotData::new(
+                    StackSlotKind::ExplicitSlot,
+                    struct_decl.size(checker, codegen.pointer_type.bytes() as usize) as u32,
+                ));
+                let value =
+                    compile_value(checker, codegen, builder, value, vars, data, None).unwrap();
+                builder.ins().stack_store(value, stack_slot, 0);
+
+                // Read field
+                let offset = struct_decl.get_field_offset(
+                    checker,
+                    codegen.pointer_type.bytes() as usize,
+                    *field,
+                );
+                let field = struct_decl.fields[*field].ty.value.clone();
+
+                builder.ins().stack_load(
+                    compile_type(codegen, checker, &field),
+                    stack_slot,
+                    offset as i32,
+                )
             }
         }
     };

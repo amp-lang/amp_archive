@@ -269,7 +269,7 @@ impl Token {
             Token::Eq => (1, 0), // low binding power
             Token::LParen => (8, 7),
             Token::Constructor => (8, 7),
-            Token::Dot => (8, 7),
+            Token::Dot => (7, 8),
             _ => unreachable!("Invalid operator."),
         }
     }

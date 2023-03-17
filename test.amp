@@ -1,5 +1,16 @@
-func Test();
+func printf(str: ~const u8, value: i32, other_value: i32);
+
+struct MyOtherStruct {
+    mem: i32,
+}
+
+struct MyStruct {
+    str: ~const u8,
+    mem: i32,
+    other: MyOtherStruct,
+}
 
 func Main() {
-    Test();
+    var my_struct = MyStruct .{ str = "Hello, world! %d:%d\n", mem = 42, other = MyOtherStruct .{ mem = 64 } };
+    printf(my_struct.str, my_struct.mem, my_struct.other.mem);
 }

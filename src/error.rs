@@ -345,6 +345,12 @@ pub enum Error {
 
     /// A field in a struct constructor was defined twice.
     DuplicateFieldDefinition(Span) = 55,
+
+    /// Attempt to access a non-struct type.
+    AccessNonStruct(Span) = 56,
+
+    /// Expected a field name in an access.
+    ExpectedFieldName(Span) = 57,
 }
 
 impl Error {
@@ -801,6 +807,14 @@ impl Error {
             }
             Self::DuplicateFieldDefinition(span) => {
                 diagnostic.message = "Duplicate field definition".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::AccessNonStruct(span) => {
+                diagnostic.message = "Cannot access a field from a non-struct value".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::ExpectedFieldName(span) => {
+                diagnostic.message = "Expected a field name to access".to_owned();
                 diagnostic.labels.push(span.primary());
             }
         }

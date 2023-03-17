@@ -151,6 +151,9 @@ impl Parse for Var {
 pub enum BinaryOp {
     /// `=`
     Eq,
+
+    /// `.`
+    Dot,
 }
 
 impl BinaryOp {
@@ -158,6 +161,7 @@ impl BinaryOp {
     pub fn from_token(token: Token) -> Self {
         match token {
             Token::Eq => Self::Eq,
+            Token::Dot => Self::Dot,
             _ => unreachable!("invalid token for binary operator"),
         }
     }
