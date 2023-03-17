@@ -46,7 +46,7 @@ impl FuncCall {
         if func.signature.args.len() != call.args.args.len() {
             return Err(Error::InvalidArgumentCount {
                 decl: func.span,
-                decl_type: func.signature.name(),
+                decl_type: func.signature.name(checker),
                 offending: call.span,
             });
         }
@@ -59,7 +59,7 @@ impl FuncCall {
                 .coerce(checker, vars, &func.signature.args[idx].value.ty)
                 .ok_or(Error::ExpectedArgumentOfType {
                     decl: func.span,
-                    name: func.signature.args[idx].value.ty.name(),
+                    name: func.signature.args[idx].value.ty.name(checker),
                     offending: arg.span(),
                 })?;
             args.push(value);

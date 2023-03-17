@@ -31,36 +31,38 @@ pub struct CraneliftFunc {
 }
 
 /// Declares a function in the Cranelift context.
-pub fn declare_func(codegen: &mut Codegen, decl: &Func) -> CraneliftFunc {
+pub fn declare_func(codegen: &mut Codegen, checker: &Typechecker, decl: &Func) -> CraneliftFunc {
     let mut signature = codegen.module.make_signature();
 
     // compile return types
     for ret in &decl.signature.returns {
         // TODO: support big types
-        if ret.is_big() {
+        if ret.is_big(checker, codegen.pointer_type.bytes() as usize) {
             signature.params.push(AbiParam::special(
                 codegen.pointer_type,
                 ArgumentPurpose::StructReturn,
             ));
         } else {
-            let ty = types::compile_type(codegen, &ret);
+            let ty = types::compile_type(codegen, checker, &ret);
             signature.returns.push(AbiParam::new(ty));
         }
     }
 
     for arg in &decl.signature.args {
-        if arg.value.ty.is_big() {
+        if arg
+            .value
+            .ty
+            .is_big(checker, codegen.pointer_type.bytes() as usize)
+        {
             signature.params.push(AbiParam::special(
                 codegen.pointer_type,
-                ArgumentPurpose::StructArgument(
-                    arg.value
-                        .ty
-                        .size(codegen.module.target_config().pointer_width.bytes() as usize)
-                        as u32,
-                ),
+                ArgumentPurpose::StructArgument(arg.value.ty.size(
+                    checker,
+                    codegen.module.target_config().pointer_width.bytes() as usize,
+                ) as u32),
             ));
         } else {
-            let ty = types::compile_type(codegen, &arg.value.ty);
+            let ty = types::compile_type(codegen, checker, &arg.value.ty);
             signature.params.push(AbiParam::new(ty));
         }
     }
@@ -98,7 +100,7 @@ pub fn compile_func(
     builder.switch_to_block(entry_block);
 
     let arg_offset = if let Some(returns) = &signature.returns {
-        if returns.is_big() {
+        if returns.is_big(checker, codegen.pointer_type.bytes() as usize) {
             1
         } else {
             0
@@ -110,9 +112,10 @@ pub fn compile_func(
     for (idx, var) in data.vars.vars.iter().enumerate() {
         let slot = StackSlotData::new(
             StackSlotKind::ExplicitSlot,
-            var.ty
-                .size(codegen.module.target_config().pointer_width.bytes() as usize)
-                as u32,
+            var.ty.size(
+                checker,
+                codegen.module.target_config().pointer_width.bytes() as usize,
+            ) as u32,
         );
         let slot = builder.create_sized_stack_slot(slot);
         vars.insert(VarId(idx), slot);
@@ -120,11 +123,14 @@ pub fn compile_func(
         if let Some(arg) = var.argument {
             let arg = builder.block_params(entry_block)[arg_offset + arg];
 
-            if var.ty.is_big() {
+            if var
+                .ty
+                .is_big(checker, codegen.pointer_type.bytes() as usize)
+            {
                 let addr = builder.ins().stack_addr(codegen.pointer_type, slot, 0);
                 let size = builder.ins().iconst(
                     codegen.pointer_type,
-                    var.ty.size(codegen.pointer_type.bytes() as usize) as i64,
+                    var.ty.size(checker, codegen.pointer_type.bytes() as usize) as i64,
                 );
                 builder.call_memcpy(codegen.module.target_config(), addr, arg, size);
                 // builder.ins().store(MemFlags::new(), arg, addr, 0);

@@ -50,7 +50,7 @@ pub fn compile_return(
     ret: &Return,
 ) {
     if let Some(returns) = &signature.returns {
-        if returns.is_big() {
+        if returns.is_big(checker, codegen.pointer_type.bytes() as usize) {
             let addr = builder.block_params(builder.current_block().unwrap())[0];
             super::value::compile_value(
                 checker,

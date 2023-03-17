@@ -1,9 +1,13 @@
-use crate::typechecker::types::Type;
+use crate::typechecker::{types::Type, Typechecker};
 
 use super::Codegen;
 
 /// Compiles a type into a Cranelift type.
-pub fn compile_type(codegen: &mut Codegen, ty: &Type) -> cranelift::prelude::Type {
+pub fn compile_type(
+    codegen: &mut Codegen,
+    checker: &Typechecker,
+    ty: &Type,
+) -> cranelift::prelude::Type {
     match ty {
         Type::Bool => cranelift::prelude::types::I8,
         Type::I8 => cranelift::prelude::types::I8,
@@ -17,6 +21,10 @@ pub fn compile_type(codegen: &mut Codegen, ty: &Type) -> cranelift::prelude::Typ
         Type::U64 => cranelift::prelude::types::I64,
         Type::Uint => codegen.pointer_type,
         Type::Ptr(_) => codegen.pointer_type,
+        Type::Struct(struct_) => cranelift::prelude::Type::int(
+            checker.structs[struct_.0].size(checker, codegen.pointer_type.bytes() as usize) as u16,
+        )
+        .expect("struct must not be big"),
         _ => unreachable!("compile_type: {:?}", ty),
     }
 }

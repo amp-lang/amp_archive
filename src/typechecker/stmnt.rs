@@ -32,7 +32,7 @@ impl Return {
                         .signature
                         .returns
                         .clone()
-                        .map_or("{nothing}".to_string(), |value| value.name()),
+                        .map_or("{nothing}".to_string(), |value| value.name(checker)),
                     offending: value.span(),
                 });
             }
@@ -41,7 +41,7 @@ impl Return {
                 .coerce(checker, vars, &func.signature.returns.clone().unwrap())
                 .ok_or(Error::InvalidReturnValue {
                     decl: func.span,
-                    name: func.signature.returns.clone().unwrap().name(),
+                    name: func.signature.returns.clone().unwrap().name(checker),
                     offending: value.span(),
                 })?;
 
@@ -54,7 +54,7 @@ impl Return {
                         .signature
                         .returns
                         .clone()
-                        .map(|value| value.name())
+                        .map(|value| value.name(checker))
                         .unwrap(),
                     offending: return_.span,
                 });
@@ -191,7 +191,7 @@ impl Assign {
                     .coerce(checker, vars, &vars.vars[var.0].ty)
                     .ok_or(Error::CannotAssignType {
                         decl: vars.vars[var.0].span,
-                        expected: vars.vars[var.0].ty.name(),
+                        expected: vars.vars[var.0].ty.name(checker),
                         offending: assign.right.span(),
                     })?;
 
@@ -204,7 +204,7 @@ impl Assign {
                     .coerce(checker, vars, &ptr.ty)
                     .ok_or(Error::CannotAssignType {
                         decl: assign.right.span(),
-                        expected: ptr.ty.name(),
+                        expected: ptr.ty.name(checker),
                         offending: assign.right.span(),
                     })?;
 

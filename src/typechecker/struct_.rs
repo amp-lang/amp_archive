@@ -1,0 +1,96 @@
+use std::collections::HashSet;
+
+use crate::{
+    ast,
+    error::Error,
+    span::{Span, Spanned},
+    typechecker::scope::TypeDecl,
+};
+
+use super::{scope::Scope, types::Type, Typechecker};
+
+/// A unique identifier for a struct.
+#[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct StructId(pub usize);
+
+/// A field in a struct.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Field {
+    pub span: Span,
+    pub name: Spanned<String>,
+    pub ty: Spanned<Type>,
+}
+
+/// A struct type.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Struct {
+    /// The location of the struct's declaration.
+    pub span: Span,
+    pub name: Spanned<String>,
+    pub fields: Vec<Field>,
+}
+
+impl Struct {
+    /// Returns the size, in bytes, of this [Struct].
+    pub fn size(&self, checker: &Typechecker, ptr_size: usize) -> usize {
+        // calculate size with field padding
+        let mut size = 0;
+
+        for field in &self.fields {
+            let field_size = field.ty.value.size(checker, ptr_size);
+            let padding = (field_size - (size % field_size)) % field_size;
+            size += padding + field_size;
+        }
+
+        size
+    }
+}
+
+/// Checks a struct declaration, simply checks if the name is already defined in the current scope.
+pub fn check_struct_decl(
+    checker: &mut Typechecker,
+    scope: &mut Scope,
+    decl: &ast::Struct,
+) -> Result<(), Error> {
+    let struct_ = Struct {
+        span: decl.span,
+        name: Spanned::new(decl.name.span, decl.name.value.clone()),
+        fields: Vec::new(),
+    };
+
+    checker.declare_struct(struct_, scope)?;
+
+    Ok(())
+}
+
+/// Checks the struct definition.
+pub fn check_struct_def(
+    checker: &mut Typechecker,
+    scope: &mut Scope,
+    ast: &ast::Struct,
+) -> Result<(), Error> {
+    let item = scope
+        .resolve_type(&ast.name.value)
+        .expect("Typechecker confirms this type exists");
+    let TypeDecl::Struct(id) = item;
+    let struct_ = &mut checker.structs[id.0 as usize];
+
+    let mut field_names = HashSet::new();
+    for item in &ast.fields.fields {
+        // TODO: check if field makes struct infinitely sized
+        if field_names.contains(&item.name.value) {
+            return Err(Error::DuplicateField(Spanned::new(
+                item.name.span,
+                item.name.value.clone(),
+            )));
+        }
+        field_names.insert(&item.name.value);
+        struct_.fields.push(Field {
+            span: item.span,
+            name: Spanned::new(item.name.span, item.name.value.clone()),
+            ty: Spanned::new(item.ty.span(), Type::check(scope, &item.ty)?),
+        });
+    }
+
+    Ok(())
+}

@@ -79,8 +79,8 @@ impl Parse for StructFieldList {
         Some(Ok(Self {
             span: Span::new(
                 parser.scanner().file_id(),
-                fields[0].span.start,
-                fields[fields.len() - 1].span.end,
+                starts.start,
+                parser.scanner().span().end,
             ),
             fields,
         }))

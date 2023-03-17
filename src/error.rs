@@ -315,6 +315,9 @@ pub enum Error {
 
     /// Expected the fields of a struct type.
     ExpectedStructFields(Span) = 48,
+
+    /// A duplicate struct field was found.
+    DuplicateField(Spanned<String>) = 49,
 }
 
 impl Error {
@@ -737,6 +740,10 @@ impl Error {
             Self::ExpectedStructFields(span) => {
                 diagnostic.message = "Expected a field for the struct".to_owned();
                 diagnostic.labels.push(span.primary());
+            }
+            Self::DuplicateField(name) => {
+                diagnostic.message = format!("Duplicate field '{}'", name.value);
+                diagnostic.labels.push(name.span.primary());
             }
         }
 

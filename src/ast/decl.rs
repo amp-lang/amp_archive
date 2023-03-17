@@ -3,7 +3,7 @@ use crate::{
     parser::{Parse, Parser},
 };
 
-use super::Func;
+use super::{Func, Struct};
 
 /// A declaration in an Amp module.
 ///
@@ -15,6 +15,9 @@ use super::Func;
 pub enum Decl {
     /// A function declaration.
     Func(Func),
+
+    /// A struct declaration.
+    Struct(Struct),
 }
 
 impl Parse for Decl {
@@ -22,6 +25,11 @@ impl Parse for Decl {
         if let Some(value) = parser.parse::<Func>() {
             match value {
                 Ok(value) => Some(Ok(Self::Func(value))),
+                Err(err) => Some(Err(err)),
+            }
+        } else if let Some(value) = parser.parse::<Struct>() {
+            match value {
+                Ok(value) => Some(Ok(Self::Struct(value))),
                 Err(err) => Some(Err(err)),
             }
         } else {

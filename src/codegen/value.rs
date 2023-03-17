@@ -33,6 +33,7 @@ fn compile_string(codegen: &mut Codegen, str: &str, nullterm: bool) -> DataId {
 
 pub fn use_var(
     codegen: &mut Codegen,
+    checker: &Typechecker,
     builder: &mut FunctionBuilder,
     vars: &HashMap<VarId, StackSlot>,
     data: &FuncImpl,
@@ -47,17 +48,21 @@ pub fn use_var(
         Some(to) => {
             let size = builder.ins().iconst(
                 codegen.pointer_type,
-                ty.size(codegen.pointer_type.bytes() as usize) as i64,
+                ty.size(checker, codegen.pointer_type.bytes() as usize) as i64,
             );
             let addr = builder.ins().stack_addr(codegen.pointer_type, slot, 0);
             builder.call_memcpy(codegen.module.target_config(), to, addr, size);
             return None;
         }
         None => {
-            if ty.is_big() {
+            if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
                 Some(builder.ins().stack_addr(codegen.pointer_type, slot, 0))
             } else {
-                Some(builder.ins().stack_load(compile_type(codegen, ty), slot, 0))
+                Some(
+                    builder
+                        .ins()
+                        .stack_load(compile_type(codegen, checker, ty), slot, 0),
+                )
             }
         }
     }
@@ -82,14 +87,14 @@ pub fn compile_func_call(
     let mut args = Vec::new();
 
     let dest = if let Some(ty) = &func.signature.returns {
-        if ty.is_big() {
+        if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
             if let Some(value) = to {
                 args.push(value);
                 Some(value)
             } else {
                 let stack_slot = StackSlotData::new(
                     StackSlotKind::ExplicitSlot,
-                    ty.size(codegen.pointer_type.bytes() as usize) as u32,
+                    ty.size(checker, codegen.pointer_type.bytes() as usize) as u32,
                 );
                 let slot = builder.create_sized_stack_slot(stack_slot);
                 args.push(builder.ins().stack_addr(codegen.pointer_type, slot, 0));
@@ -110,7 +115,7 @@ pub fn compile_func_call(
     let inst = builder.ins().call(cranelift_func, &args);
 
     if let Some(ty) = &func.signature.returns {
-        if ty.is_big() {
+        if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
             if to == None {
                 Some(dest.unwrap())
             } else {
@@ -215,7 +220,7 @@ pub fn compile_value(
                 }
             }
         }
-        Value::Var(var) => use_var(codegen, builder, vars, data, *var, to)?,
+        Value::Var(var) => use_var(codegen, checker, builder, vars, data, *var, to)?,
         Value::FuncCall(call) => {
             compile_func_call(checker, codegen, builder, call, vars, data, to)?
         }
@@ -227,11 +232,17 @@ pub fn compile_value(
 
             let ptr = compile_value(checker, codegen, builder, value, vars, data, None).unwrap();
 
-            if deref.ty.is_big() {
+            if deref
+                .ty
+                .is_big(checker, codegen.pointer_type.bytes() as usize)
+            {
                 if let Some(dest) = to {
                     let size = builder.ins().iconst(
                         codegen.pointer_type,
-                        deref.ty.size(codegen.pointer_type.bytes() as usize) as i64,
+                        deref
+                            .ty
+                            .size(checker, codegen.pointer_type.bytes() as usize)
+                            as i64,
                     );
                     builder.call_memcpy(codegen.module.target_config(), dest, ptr, size);
 
@@ -239,19 +250,25 @@ pub fn compile_value(
                 } else {
                     let slot = builder.create_sized_stack_slot(StackSlotData::new(
                         StackSlotKind::ExplicitSlot,
-                        deref.ty.size(codegen.pointer_type.bytes() as usize) as u32,
+                        deref
+                            .ty
+                            .size(checker, codegen.pointer_type.bytes() as usize)
+                            as u32,
                     ));
                     let dest = builder.ins().stack_addr(codegen.pointer_type, slot, 0);
                     let size = builder.ins().iconst(
                         codegen.pointer_type,
-                        deref.ty.size(codegen.pointer_type.bytes() as usize) as i64,
+                        deref
+                            .ty
+                            .size(checker, codegen.pointer_type.bytes() as usize)
+                            as i64,
                     );
                     builder.call_memcpy(codegen.module.target_config(), dest, ptr, size);
 
                     builder.ins().stack_addr(codegen.pointer_type, slot, 0)
                 }
             } else {
-                let ty = compile_type(codegen, &deref.ty);
+                let ty = compile_type(codegen, checker, &deref.ty);
                 builder
                     .ins()
                     .load(ty, cranelift::prelude::MemFlags::new(), ptr, 0)
@@ -265,7 +282,7 @@ pub fn compile_value(
 
             let slot = builder.create_sized_stack_slot(StackSlotData::new(
                 StackSlotKind::ExplicitSlot,
-                ty.size(codegen.pointer_type.bytes() as usize) as u32,
+                ty.size(checker, codegen.pointer_type.bytes() as usize) as u32,
             ));
 
             let addr = builder.ins().stack_addr(codegen.pointer_type, slot, 0);

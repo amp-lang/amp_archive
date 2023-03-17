@@ -61,7 +61,7 @@ impl Codegen {
     pub fn compile(&mut self, checker: Typechecker) {
         // Declare functions
         for (idx, item) in checker.funcs.iter().enumerate() {
-            let cranelift_func = func::declare_func(self, &item);
+            let cranelift_func = func::declare_func(self, &checker, &item);
             self.funcs.insert(FuncId(idx), cranelift_func);
         }
 

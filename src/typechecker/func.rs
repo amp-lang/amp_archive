@@ -34,17 +34,17 @@ pub struct Signature {
 }
 
 impl Signature {
-    pub fn name(&self) -> String {
+    pub fn name(&self, checker: &Typechecker) -> String {
         format!(
             "func({}){}",
             self.args
                 .iter()
-                .map(|arg| arg.value.ty.name())
+                .map(|arg| arg.value.ty.name(checker))
                 .collect::<Vec<_>>()
                 .join(", "),
             self.returns
                 .as_ref()
-                .map(|ty| format!(" -> {}", ty.name()))
+                .map(|ty| format!(" -> {}", ty.name(checker)))
                 .unwrap_or("".to_string())
         )
     }
@@ -158,7 +158,7 @@ pub fn check_func_def(
             }) {
                 return Err(Error::MissingReturn {
                     decl: func.span,
-                    name: value.name(),
+                    name: value.name(checker),
                     offending: Span::new(
                         ast_block.span.file_id,
                         ast_block.span.end - 1,

@@ -1,6 +1,10 @@
 use crate::{ast, error::Error};
 
-use super::scope::Scope;
+use super::{
+    scope::{Scope, TypeDecl},
+    struct_::StructId,
+    Typechecker,
+};
 
 /// The mutability of a type.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -26,13 +30,13 @@ impl Ptr {
     }
 
     /// Returns the visualized name of the pointer type.
-    pub fn name(&self) -> String {
+    pub fn name(&self, checker: &Typechecker) -> String {
         let mutability = match self.mutability {
             Mutability::Const => "const",
             Mutability::Mut => "mut",
         };
 
-        format!("~{} {}", mutability, self.ty.name())
+        format!("~{} {}", mutability, self.ty.name(checker))
     }
 }
 
@@ -53,13 +57,13 @@ impl Slice {
     }
 
     /// Returns the visualized name of the pointer type.
-    pub fn name(&self) -> String {
+    pub fn name(&self, checker: &Typechecker) -> String {
         let mutability = match self.mutability {
             Mutability::Const => "const",
             Mutability::Mut => "mut",
         };
 
-        format!("[]{} {}", mutability, self.ty.name())
+        format!("[]{} {}", mutability, self.ty.name(checker))
     }
 }
 
@@ -79,11 +83,12 @@ pub enum Type {
     Uint,
     Ptr(Ptr),
     Slice(Slice),
+    Struct(StructId),
 }
 
 impl Type {
     /// Returns the visualized name of type.
-    pub fn name(&self) -> String {
+    pub fn name(&self, checker: &Typechecker) -> String {
         match self {
             Type::Bool => "bool".to_string(),
             Type::I8 => "i8".to_string(),
@@ -96,21 +101,25 @@ impl Type {
             Type::U32 => "u32".to_string(),
             Type::U64 => "u64".to_string(),
             Type::Uint => "uint".to_string(),
-            Type::Ptr(ptr) => ptr.name(),
-            Type::Slice(slice) => slice.name(),
+            Type::Ptr(ptr) => ptr.name(checker),
+            Type::Slice(slice) => slice.name(checker),
+            Type::Struct(struct_) => checker.structs[struct_.0].name.value.clone(),
         }
     }
 
     /// Returns `true` if this type needs to be passed through a pointer rather than by value.
-    pub fn is_big(&self) -> bool {
+    pub fn is_big(&self, checker: &Typechecker, ptr_size: usize) -> bool {
         match self {
-            Type::Slice(_) => true,
+            // slice is always ptr_size * 2, so it's guaranteed a big type
+            Self::Slice(_) => true,
+            // for C abi
+            Self::Struct(struct_) => checker.structs[struct_.0].size(checker, ptr_size) > ptr_size,
             _ => false,
         }
     }
 
     /// Returns the size of the type in bytes.
-    pub fn size(&self, ptr_size: usize) -> usize {
+    pub fn size(&self, checker: &Typechecker, ptr_size: usize) -> usize {
         match self {
             Type::Bool => 1,
             Type::I8 => 1,
@@ -125,13 +134,14 @@ impl Type {
             Type::Uint => ptr_size,
             Type::Ptr(_) => ptr_size,
             Type::Slice(_) => ptr_size * 2,
+            Type::Struct(struct_) => checker.structs[struct_.0].size(checker, ptr_size),
         }
     }
 
-    /// Checks for a type in the given module.
+    /// Checks for a type in the given scope.
     ///
     /// TODO: check imports and declared types
-    pub fn check(module: &mut Scope, ty: &ast::Type) -> Result<Self, Error> {
+    pub fn check(scope: &mut Scope, ty: &ast::Type) -> Result<Self, Error> {
         match ty {
             ast::Type::Named(name) => match name.value.as_str() {
                 "bool" => Ok(Type::Bool),
@@ -145,7 +155,14 @@ impl Type {
                 "u32" => Ok(Type::U32),
                 "u64" => Ok(Type::U64),
                 "uint" => Ok(Type::Uint),
-                _ => return Err(Error::UnknownNamedType(name.clone())),
+                str => {
+                    let value = scope
+                        .resolve_type(str)
+                        .ok_or(Error::UnknownNamedType(name.clone()))?;
+                    match value {
+                        TypeDecl::Struct(struct_) => Ok(Type::Struct(struct_)),
+                    }
+                }
             },
             ast::Type::Pointer(ptr) => {
                 let mutability = match ptr.mutability {
@@ -155,7 +172,7 @@ impl Type {
 
                 Ok(Type::Ptr(Ptr {
                     mutability,
-                    ty: Box::new(Type::check(module, &ptr.ty)?),
+                    ty: Box::new(Type::check(scope, &ptr.ty)?),
                 }))
             }
             ast::Type::Array(array) => {
@@ -167,7 +184,7 @@ impl Type {
 
                 Ok(Type::Slice(Slice {
                     mutability,
-                    ty: Box::new(Type::check(module, &array.ty)?),
+                    ty: Box::new(Type::check(scope, &array.ty)?),
                 }))
             }
         }
@@ -194,6 +211,7 @@ impl Type {
             (Type::Slice(slice), Type::Slice(other)) => {
                 slice.ty == other.ty && slice.mutability >= other.mutability
             }
+            (Type::Struct(struct_), Type::Struct(other)) => struct_ == other,
             _ => false,
         }
     }
