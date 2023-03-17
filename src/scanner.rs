@@ -141,6 +141,15 @@ pub enum Token {
     /// ```
     KVar,
 
+    /// The `struct` keyword.
+    ///
+    /// ```amp
+    /// struct MyStruct {
+    ///     member: i32,
+    /// }
+    /// ```
+    KStruct,
+
     /// A `const` keyword.
     ///
     /// ```amp
@@ -566,6 +575,7 @@ impl<'a> Iterator for Scanner<'a> {
             return Some(Ok(match self.slice() {
                 "func" => Token::KFunc,
                 "var" => Token::KVar,
+                "struct" => Token::KStruct,
                 "const" => Token::KConst,
                 "mut" => Token::KMut,
                 "return" => Token::KReturn,

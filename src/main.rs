@@ -3,11 +3,7 @@ use std::{process::ExitCode, time::Instant};
 use args::Cli;
 use ast::Source;
 use clap::Parser;
-use codespan_reporting::{
-    diagnostic::Diagnostic,
-    files::SimpleFiles,
-    term::{self, termcolor::StandardStream},
-};
+use codespan_reporting::{diagnostic::Diagnostic, files::SimpleFiles};
 use scanner::Scanner;
 use span::FileId;
 use tempfile::NamedTempFile;
