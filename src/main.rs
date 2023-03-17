@@ -4,6 +4,7 @@ use args::Cli;
 use ast::Source;
 use clap::Parser;
 use codespan_reporting::{diagnostic::Diagnostic, files::SimpleFiles};
+use error::Error;
 use scanner::Scanner;
 use span::FileId;
 use tempfile::NamedTempFile;
@@ -22,45 +23,15 @@ pub mod scanner;
 pub mod span;
 pub mod typechecker;
 
-fn main() -> ExitCode {
-    let Cli::Build(mut args) = Cli::parse();
-
-    let mut files = SimpleFiles::new();
-
-    // Load the source file
-    let Ok(src) = std::fs::read_to_string(&args.input_path) else {
-        diagnostic::display_diagnostic(&files, &Diagnostic::error().with_message("Could not read source file"));
-        return ExitCode::FAILURE;
-    };
-
-    // Time the compilation
-    let start_time = Instant::now();
-
-    let file_id = FileId::new(files.add(args.input_path, src));
-    let scanner = Scanner::new(file_id, files.get(file_id.0 as usize).unwrap().source());
+fn build_path(file_id: FileId, files: &SimpleFiles<String, String>, input: &str) -> Result<Option<NamedTempFile>, Error> {
+    let scanner = Scanner::new(file_id, input);
     let mut parser = parser::Parser::new(scanner);
+    let mut checker = Typechecker::new();
 
-    let res = if let Some(res) = parser.parse::<Source>() {
-        match res {
-            Ok(value) => value,
-            Err(value) => {
-                diagnostic::display_diagnostic(&files, &value.as_diagnostic());
-                return ExitCode::FAILURE;
-            }
-        }
-    } else {
-        // TODO: handle empty source
-        return ExitCode::SUCCESS;
+    if let Some(res) = parser.parse::<Source>() {
+        checker.check(&res?)?;
     };
 
-    let mut checker = Typechecker::new();
-    match checker.check(&res) {
-        Ok(_) => {}
-        Err(value) => {
-            diagnostic::display_diagnostic(&files, &value.as_diagnostic());
-            return ExitCode::FAILURE;
-        }
-    }
 
     let mut codegen = Codegen::new();
     codegen.compile(checker);
@@ -72,17 +43,65 @@ fn main() -> ExitCode {
             &files,
             &Diagnostic::error().with_message("could not write object file"),
         );
-        return ExitCode::FAILURE;
+        return Ok(None);
     }
-    args.link.push(file.path().to_str().unwrap().to_owned());
+    
+
+    Ok(Some(file))
+}
+
+fn main() -> ExitCode {
+    let Cli::Build(mut args) = Cli::parse();
+
+    let mut files = SimpleFiles::new();
+    let mut object_files: Vec<NamedTempFile> = Vec::new(); // compiled object files
+
+    for input in args.input {
+        let Ok(src) = std::fs::read_to_string(&input) 
+        else {
+            diagnostic::display_diagnostic(&files, &Diagnostic::error().with_message("Could not read source file"));
+            return ExitCode::FAILURE;
+        };
+
+        let id = files.add(input, src);
+        let file_id = FileId::new(id);
+
+        object_files.push(match build_path(file_id, &files, files.get(id).unwrap().source()) {
+            Ok(res) => match res {
+                Some(file) => file,
+                None => return ExitCode::FAILURE,
+            },
+            Err(err) => {
+                diagnostic::display_diagnostic(&files, &err.as_diagnostic());
+                return ExitCode::FAILURE;
+            }
+        })
+    }
+
+    for file in &object_files {
+        args.link.push(file.path().to_str().unwrap().to_owned());
+    }
+
     if let Err(_) = linker::link(&args.link, args.output_path) {
         diagnostic::display_diagnostic(&files, &Diagnostic::error().with_message("linking failed"));
         return ExitCode::FAILURE;
     }
 
-    let compile_time = start_time.elapsed().as_nanos() as f64 / 1_000_000.0;
+    // // Load the source file
+    // let Ok(src) = std::fs::read_to_string(&args.input_path) else {
+    //     diagnostic::display_diagnostic(&files, &Diagnostic::error().with_message("Could not read source file"));
+    //     return ExitCode::FAILURE;
+    // };
 
-    println!("Binary written in {}ms", compile_time);
+    // // Time the compilation
+    // let start_time = Instant::now();
+
+    // let file_id = FileId::new(files.add(args.input_path, src));
+    
+
+    // let compile_time = start_time.elapsed().as_nanos() as f64 / 1_000_000.0;
+
+    // println!("Binary written in {}ms", compile_time);
 
     ExitCode::SUCCESS
 }

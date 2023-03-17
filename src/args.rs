@@ -11,8 +11,9 @@ pub enum Cli {
 #[derive(clap::Args)]
 #[command(author, version, about, long_about = None)]
 pub struct Build {
-    /// The path to the source file to compile.
-    pub input_path: String,
+    /// Input files to compile.
+    #[clap(required = true)]
+    pub input: Vec<String>,
 
     /// The path to output to.
     #[clap(short)]

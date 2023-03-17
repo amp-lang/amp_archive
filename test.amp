@@ -1,14 +1,5 @@
-struct Slice {
-    ptr: ~const u8,
-    len: i32,
-}
-
-func Len(slice: Slice) -> uint;
-func Print(slice: Slice);
+func Test();
 
 func Main() {
-    var str: ~mut u8 = "Hello\n";
-    *str = 0x42;
-    var slice = Slice .{ ptr = str, len = 6 };
-    Print(slice);
+    Test();
 }

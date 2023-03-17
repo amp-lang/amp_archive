@@ -61,7 +61,6 @@ impl Struct {
         }
 
         size = round_up(size, ptr_size); // align struct to pointer size for system
-        dbg!(size);
         size
     }
 
