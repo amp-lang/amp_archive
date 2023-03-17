@@ -3,6 +3,8 @@
 
 ## Overview
 > :warning: For legal reasons, I must warn you that the bold claims in this section aren't necessarily true, *yet*.
+>
+> :exclamation: Also, Amp isn't really ready for serious use yet.  It's not well tested and there's probably some undetected bugs in the compiler.  With that in mind, have fun! :)
 
 Amp focuses on:
 
