@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::{self, PointerMutability},
+    ast::{self},
     error::Error,
     span::Spanned,
     typechecker::scope::TypeDecl,

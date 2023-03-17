@@ -88,6 +88,9 @@ pub enum Token {
     /// `,`
     Comma,
 
+    /// `.`
+    Dot,
+
     /// `=`
     Eq,
 
@@ -243,6 +246,7 @@ impl Token {
             Token::LParen => true,
             Token::Eq => true,
             Token::Constructor => true,
+            Token::Dot => true,
             _ => false,
         }
     }
@@ -265,6 +269,7 @@ impl Token {
             Token::Eq => (1, 0), // low binding power
             Token::LParen => (8, 7),
             Token::Constructor => (8, 7),
+            Token::Dot => (8, 7),
             _ => unreachable!("Invalid operator."),
         }
     }
@@ -620,8 +625,7 @@ impl<'a> Iterator for Scanner<'a> {
                     self.next_char();
                     Token::Constructor
                 } else {
-                    println!("TODO! implement dot operator");
-                    return Some(Err(Error::InvalidToken(self.current_span)));
+                    Token::Dot
                 }
             }
             '(' => Token::LParen,

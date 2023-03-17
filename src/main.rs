@@ -1,4 +1,4 @@
-use std::{process::ExitCode, time::Instant};
+use std::{process::ExitCode};
 
 use args::Cli;
 use ast::Source;
@@ -86,22 +86,6 @@ fn main() -> ExitCode {
         diagnostic::display_diagnostic(&files, &Diagnostic::error().with_message("linking failed"));
         return ExitCode::FAILURE;
     }
-
-    // // Load the source file
-    // let Ok(src) = std::fs::read_to_string(&args.input_path) else {
-    //     diagnostic::display_diagnostic(&files, &Diagnostic::error().with_message("Could not read source file"));
-    //     return ExitCode::FAILURE;
-    // };
-
-    // // Time the compilation
-    // let start_time = Instant::now();
-
-    // let file_id = FileId::new(files.add(args.input_path, src));
-    
-
-    // let compile_time = start_time.elapsed().as_nanos() as f64 / 1_000_000.0;
-
-    // println!("Binary written in {}ms", compile_time);
 
     ExitCode::SUCCESS
 }

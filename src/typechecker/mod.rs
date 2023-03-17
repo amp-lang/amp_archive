@@ -1,4 +1,4 @@
-use crate::{ast, error::Error, span::Spanned};
+use crate::{ast, error::Error};
 
 use self::{
     func::{Func, FuncId},
