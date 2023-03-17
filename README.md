@@ -1,6 +1,13 @@
 <p align="center"><img src="assets/logo.svg" width="60%"></p>
 <p align="center">A language designed for building high performance systems.</p>
 
+| Platform                | Support                |
+| ----------------------- | ---------------------- |
+| `x86_64-pc-windows`     | :white_check_mark:     |
+| `x86_64-unknown-linux`  | :warning: **untested** |
+| `x86_64-unknown-darwin` | :warning: **untested** |
+| `aarch64-unknown-linux` | :warning: **untested** |
+
 ## Overview
 > :warning: For legal reasons, I must warn you that the bold claims in this section aren't necessarily true, *yet*.
 >
