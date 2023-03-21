@@ -382,6 +382,12 @@ pub fn compile_value(
 
             builder.ins().iadd_imm(ptr, offset as i64)
         }
+        Value::IntMul(left, right) => {
+            let left = compile_value(checker, codegen, builder, left, vars, data, None).unwrap();
+            let right = compile_value(checker, codegen, builder, right, vars, data, None).unwrap();
+
+            builder.ins().imul(left, right)
+        }
     };
 
     if let Some(to) = to {

@@ -247,6 +247,7 @@ impl Token {
             Token::Eq => true,
             Token::Constructor => true,
             Token::Dot => true,
+            Token::Star => true,
             _ => false,
         }
     }
@@ -267,6 +268,7 @@ impl Token {
     pub fn binding_power(&self) -> (u8, u8) {
         match self {
             Token::Eq => (1, 0), // low binding power
+            Token::Star => (6, 5),
             Token::LParen => (8, 7),
             Token::Constructor => (8, 7),
             Token::Dot => (7, 8),

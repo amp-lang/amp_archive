@@ -118,6 +118,23 @@ impl Type {
         }
     }
 
+    /// Returns `true` if this value is an integer type.
+    pub fn is_int(&self) -> bool {
+        match self {
+            Type::I8
+            | Type::I16
+            | Type::I32
+            | Type::I64
+            | Type::Int
+            | Type::U8
+            | Type::U16
+            | Type::U32
+            | Type::U64
+            | Type::Uint => true,
+            _ => false,
+        }
+    }
+
     /// Returns the size of the type in bytes.
     pub fn size(&self, checker: &Typechecker, ptr_size: usize) -> usize {
         match self {

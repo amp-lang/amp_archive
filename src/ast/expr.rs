@@ -154,6 +154,9 @@ pub enum BinaryOp {
 
     /// `.`
     Dot,
+
+    /// `*`
+    Mul,
 }
 
 impl BinaryOp {
@@ -162,6 +165,7 @@ impl BinaryOp {
         match token {
             Token::Eq => Self::Eq,
             Token::Dot => Self::Dot,
+            Token::Star => Self::Mul,
             _ => unreachable!("invalid token for binary operator"),
         }
     }

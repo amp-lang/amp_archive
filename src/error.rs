@@ -351,6 +351,19 @@ pub enum Error {
 
     /// Expected a field name in an access.
     ExpectedFieldName(Span) = 57,
+
+    /// The types of an expression were invalid.
+    InvalidExprTypes {
+        left: Spanned<String>,
+        right: Spanned<String>,
+        offending: Span,
+    } = 58,
+
+    /// Attempted to perform math with a non-number type.
+    NonNumberMath {
+        ty: Spanned<String>,
+        offending: Span,
+    } = 59,
 }
 
 impl Error {
@@ -816,6 +829,27 @@ impl Error {
             Self::ExpectedFieldName(span) => {
                 diagnostic.message = "Expected a field name to access".to_owned();
                 diagnostic.labels.push(span.primary());
+            }
+            Self::InvalidExprTypes {
+                left,
+                right,
+                offending,
+            } => {
+                diagnostic.message = "Unmatching expression types".to_owned();
+                diagnostic
+                    .labels
+                    .push(left.span.secondary().with_message(&left.value));
+                diagnostic
+                    .labels
+                    .push(right.span.secondary().with_message(&right.value));
+                diagnostic.labels.push(offending.primary());
+            }
+            Self::NonNumberMath { ty, offending } => {
+                diagnostic.message = "Cannot perform math on a non-number type".to_owned();
+                diagnostic
+                    .labels
+                    .push(ty.span.secondary().with_message(&ty.value));
+                diagnostic.labels.push(offending.primary());
             }
         }
 
