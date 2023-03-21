@@ -1,5 +1,0 @@
-func Print(str: []const u8);
-
-func Test() {
-    Print("Hello, world!\n");
-}
