@@ -3,6 +3,7 @@ use crate::{ast, error::Error, span::Spanned, typechecker::var::Var};
 use super::{
     func::Func,
     scope::Scope,
+    struct_::StructId,
     types::{Mutability, Type},
     value::{FuncCall, GenericValue, Value},
     var::{VarId, Vars},
@@ -123,6 +124,9 @@ impl VarDecl {
 pub enum AssignDest {
     Var(VarId),
     Deref(Value),
+
+    /// Assigns to a field of a struct.
+    StructField(Value, StructId, usize),
 }
 
 impl AssignDest {
@@ -159,6 +163,41 @@ impl AssignDest {
                     }
 
                     Ok(Self::Deref(value.coerce_default()))
+                }
+                _ => Err(Error::InvalidAssignment(dest.span())),
+            },
+            ast::Expr::Binary(binary) => match binary.op {
+                ast::BinaryOp::Dot => {
+                    let left =
+                        GenericValue::check(checker, scope, vars, &binary.left)?.coerce_default();
+                    let Type::Struct(id) = left.ty(checker, vars) else {
+                        return Err(Error::AccessNonStruct(binary.left.span()));
+                    };
+
+                    let iden = match binary.right.as_ref() {
+                        ast::Expr::Iden(iden) => iden,
+                        _ => return Err(Error::ExpectedFieldName(dest.span())),
+                    };
+
+                    let struct_decl = &checker.structs[id.0];
+
+                    if let Some((field_id, _)) = struct_decl.get_field(&iden.value) {
+                        Ok(Self::StructField(
+                            // get address of value to assign to
+                            GenericValue::check_ref(
+                                checker,
+                                scope,
+                                vars,
+                                Mutability::Mut,
+                                &binary.left,
+                            )?
+                            .coerce_default(),
+                            id,
+                            field_id,
+                        ))
+                    } else {
+                        return Err(Error::UnknownStructField(iden.span));
+                    }
                 }
                 _ => Err(Error::InvalidAssignment(dest.span())),
             },
@@ -205,6 +244,19 @@ impl Assign {
                     .ok_or(Error::CannotAssignType {
                         decl: assign.right.span(),
                         expected: ptr.ty.name(checker),
+                        offending: assign.right.span(),
+                    })?;
+
+                Ok(Self { dest, value })
+            }
+            AssignDest::StructField(_, id, field) => {
+                let struct_decl = &checker.structs[id.0];
+
+                let value = GenericValue::check(checker, scope, vars, &assign.right)?
+                    .coerce(checker, vars, &struct_decl.fields[*field].ty.value)
+                    .ok_or(Error::CannotAssignType {
+                        decl: assign.right.span(),
+                        expected: struct_decl.fields[*field].ty.value.name(checker),
                         offending: assign.right.span(),
                     })?;
 

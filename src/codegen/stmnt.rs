@@ -111,6 +111,27 @@ pub fn compile_assign(
             super::value::compile_value(checker, codegen, builder, &deref, vars, data, None)
                 .expect("no `to` provided")
         }
+        AssignDest::StructField(dest, ty, field) => {
+            let dest =
+                super::value::compile_value(checker, codegen, builder, &dest, vars, data, None)
+                    .expect("no `to` provided");
+            builder.ins().iadd_imm(
+                dest,
+                checker.structs[ty.0].get_field_offset(
+                    checker,
+                    codegen.pointer_type.bytes() as usize,
+                    *field,
+                ) as i64,
+            )
+            // let ty = checker.structs[&dest.ty(checker, vars)].fields[field].ty;
+
+            // let addr =
+            //     super::value::compile_value(checker, codegen, builder, &dest, vars, data, None)
+            //         .expect("no `to` provided");
+
+            // let offset = checker.structs[&dest.ty].fields[field].offset;
+            // builder.ins().iadd_imm(addr, offset as i64)
+        }
     };
 
     super::value::compile_value(

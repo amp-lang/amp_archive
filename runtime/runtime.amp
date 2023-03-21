@@ -1,0 +1,33 @@
+/// The entry point of the program.
+func Main();
+
+/// Prints a UTF-8 string to the console.
+func printf(str: ~const u8, len: uint, ptr: ~const u8);
+
+/// A generic slice.
+struct Slice {
+    ptr: ~const u8,
+    len: uint,
+}
+
+/// Returns the length of a slice.
+func Len(slice: Slice) -> uint {
+    return slice.len;
+}
+
+/// Prints a slice to the console.
+func Print(slice: Slice) {
+    printf("%.*s", slice.len, slice.ptr);
+}
+
+func SetLen(slice: Slice, len: uint) -> Slice {
+    slice.len = len;
+    return slice;
+}
+
+
+/// Runtime's entry point.  Must be linked with the C standard library to be functional.
+func main() -> i32 {
+    Main();
+    return 0;
+}

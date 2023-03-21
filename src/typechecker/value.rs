@@ -112,6 +112,7 @@ impl GenericValue {
         }
     }
 
+    /// Checks a reference operator.
     pub fn check_ref(
         checker: &Typechecker,
         scope: &mut Scope,
@@ -236,7 +237,6 @@ impl GenericValue {
                 Ok(GenericValue::Constructor(id, fields))
             }
             ast::Expr::Binary(ast::Binary {
-                span,
                 op: ast::BinaryOp::Dot,
                 left,
                 right,
