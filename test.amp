@@ -1,23 +1,35 @@
-struct MyStruct {
-    member: i32,
-}
+func malloc(size: uint) -> ~mut i32;
+func free(ptr: ~mut i32);
+func printf(format: ~const u8, value: i32) -> i32;
 
 struct Box {
-    member: MyStruct,
+    member: ~mut i32,
 }
 
-func Box() -> Box {
-    return Box .{ member = MyStruct .{ member = 0 } };
+func Box(value: i32) -> Box {
+    var ptr = malloc(4);
+    *ptr = value;
+    return Box .{ member = ptr };
 }
 
-func SetI32(dst: ~mut i32, value: i32) {
-    *dst = value;
+func BoxGet(box: ~const Box) -> i32 {
+    return *box.member;
 }
 
-func printf(str: ~const u8, arg: i32);
+func BoxSet(box: ~const Box, value: i32) {
+    *box.member = value;
+}
+
+func BoxFree(box: ~mut Box) {
+    free(box.member);
+}
 
 func Main() {
-    var box = Box();
-    SetI32(~mut box.member.member, 64);
-    printf("%d\n", box.member.member);
+    var my_box = Box(42);
+
+    printf("Box value: %d\n", BoxGet(~const my_box));
+    BoxSet(~mut my_box, 1337);
+    printf("Box value: %d\n", BoxGet(~const my_box));
+    
+    BoxFree(~mut my_box);
 }

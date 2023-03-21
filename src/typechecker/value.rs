@@ -286,9 +286,9 @@ impl GenericValue {
             }) => {
                 let lhs = Self::check(checker, scope, vars, left)?;
 
-                let Type::Struct(id) = lhs.default_type(checker, vars) else {
-                    return Err(Error::AccessNonStruct(left.span()));
-                };
+                let id = lhs
+                    .resolve_struct(checker, vars)
+                    .ok_or(Error::AccessNonStruct(left.span()))?;
 
                 let ast::Expr::Iden(iden) = right.as_ref() else {
                     return Err(Error::ExpectedFieldName(right.span()));
@@ -301,7 +301,15 @@ impl GenericValue {
 
                     // let ty = field_decl.ty.value.name(checker);
 
-                    Ok(Self::StructAccess(Box::new(lhs), id, field_id))
+                    Ok(Self::StructAccess(
+                        Box::new(if lhs.is_pointer(checker, vars) {
+                            lhs
+                        } else {
+                            lhs.as_ref(Mutability::Const)
+                        }),
+                        id,
+                        field_id,
+                    ))
                 } else {
                     return Err(Error::UnknownStructField(iden.span));
                 }
@@ -366,9 +374,9 @@ impl GenericValue {
             (GenericValue::FuncCall(call), ty) => {
                 let func = &checker.funcs[call.callee.0 as usize];
                 if func.signature.returns.as_ref().unwrap().is_equivalent(ty) {
-                    None
-                } else {
                     Some(Value::FuncCall(call))
+                } else {
+                    None
                 }
             }
             (GenericValue::Deref(val), ty) => match val.default_type(checker, vars) {
@@ -397,19 +405,14 @@ impl GenericValue {
                 Some(Value::Constructor(struct_id, fields))
             }
             (GenericValue::StructAccess(value, id, field), ty) => {
-                let struct_ty = value.default_type(checker, vars);
-                if let Type::Struct(struct_ty) = struct_ty {
-                    let struct_decl = &checker.structs[struct_ty.0 as usize];
+                let struct_decl = &checker.structs[id.0];
 
-                    if struct_decl.fields[field].ty.value.is_equivalent(ty) {
-                        Some(Value::StructAccess(
-                            Box::new(value.coerce_default()),
-                            id,
-                            field,
-                        ))
-                    } else {
-                        None
-                    }
+                if struct_decl.fields[field].ty.value.is_equivalent(ty) {
+                    Some(Value::StructAccess(
+                        Box::new(value.coerce_default()),
+                        id,
+                        field,
+                    ))
                 } else {
                     None
                 }
