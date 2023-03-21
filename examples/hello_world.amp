@@ -1,0 +1,9 @@
+//! Prints hello world to the console.
+//!
+//! Requires linking with the Runtime (`amp build examples/hello_world.amp runtime/runtime.amp -o hello_world`).
+
+func Print(str: []const u8);
+
+func Main() {
+    Print("Hello, world!\n");
+}
