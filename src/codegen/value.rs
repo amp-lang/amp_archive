@@ -331,7 +331,7 @@ pub fn compile_value(
                     builder.ins().stack_addr(codegen.pointer_type, slot, 0)
                 } else {
                     let ptr = builder.ins().stack_addr(codegen.pointer_type, slot, 0);
-                    let ty = cranelift::prelude::Type::int(size as u16).unwrap();
+                    let ty = cranelift::prelude::Type::int_with_byte_size(size as u16).unwrap();
                     builder
                         .ins()
                         .load(ty, cranelift::prelude::MemFlags::new(), ptr, 0)

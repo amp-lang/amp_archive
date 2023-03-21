@@ -1,8 +1,29 @@
+// func Print(str: []const u8);
+// func SetLen(str: []const u8, len: uint) -> []const u8;
+
+// func Main() {
+//     var str = "Hello, world!\n";
+//     var new_str = SetLen(str, 5);
+//     Print(str);
+//     Print(new_str);
+// }
+
 func Print(str: []const u8);
-func SetLen(str: []const u8, len: uint) -> []const u8;
+
+/// A struct for testing pointer accessing.
+struct MyStruct {
+    member: i32,
+}
+
+func MyStruct() -> MyStruct {
+    return MyStruct .{ member = 0 };
+}
+
+// func InitStruct(my_struct: ~mut MyStruct) {
+//     *my_struct = MyStruct .{ member = 42 };
+// }
 
 func Main() {
-    var str = "Hello, world!\n";
-    var new_str = SetLen(str, 5);
-    Print(new_str);
+    var my_struct = MyStruct();
+    // InitStruct(~mut my_struct);
 }

@@ -20,11 +20,11 @@ func Print(slice: Slice) {
     printf("%.*s", slice.len, slice.ptr);
 }
 
+/// Sets the length of a slice.
 func SetLen(slice: Slice, len: uint) -> Slice {
     slice.len = len;
     return slice;
 }
-
 
 /// Runtime's entry point.  Must be linked with the C standard library to be functional.
 func main() -> i32 {
