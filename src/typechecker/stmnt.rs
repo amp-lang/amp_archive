@@ -84,6 +84,7 @@ impl VarDecl {
         decl: &ast::Var,
     ) -> Result<Self, Error> {
         if decl.ty == None && decl.value == None {
+            // var my_name; // cannot infer the type of the variable without looking ahead
             return Err(Error::CannotInferVarType(decl.span));
         }
 
@@ -104,7 +105,7 @@ impl VarDecl {
                 checker,
                 scope,
                 vars,
-                &decl.value.clone().expect("Cannot be none"),
+                decl.value.as_ref().expect("Cannot be none"),
             )?;
 
             let value = value.coerce_default();
@@ -168,11 +169,12 @@ impl AssignDest {
             },
             ast::Expr::Binary(binary) => match binary.op {
                 ast::BinaryOp::Dot => {
-                    let left =
-                        GenericValue::check(checker, scope, vars, &binary.left)?.coerce_default();
-                    let Type::Struct(id) = left.ty(checker, vars) else {
-                        return Err(Error::AccessNonStruct(binary.left.span()));
-                    };
+                    let left = GenericValue::check(checker, scope, vars, &binary.left)?;
+
+                    // get id of struct type
+                    let id = left
+                        .resolve_struct(checker, vars)
+                        .ok_or(Error::AccessNonStruct(binary.left.span()))?;
 
                     let iden = match binary.right.as_ref() {
                         ast::Expr::Iden(iden) => iden,
@@ -182,19 +184,21 @@ impl AssignDest {
                     let struct_decl = &checker.structs[id.0];
 
                     if let Some((field_id, _)) = struct_decl.get_field(&iden.value) {
-                        Ok(Self::StructField(
-                            // get address of value to assign to
-                            GenericValue::check_ref(
-                                checker,
-                                scope,
-                                vars,
-                                Mutability::Mut,
-                                &binary.left,
-                            )?
-                            .coerce_default(),
-                            id,
-                            field_id,
-                        ))
+                        if left.is_pointer(checker, vars) {
+                            Ok(Self::StructField(
+                                // already a pointer
+                                left.coerce_default(),
+                                id,
+                                field_id,
+                            ))
+                        } else {
+                            Ok(Self::StructField(
+                                // get address of value to assign to
+                                left.as_ref(Mutability::Mut).coerce_default(),
+                                id,
+                                field_id,
+                            ))
+                        }
                     } else {
                         return Err(Error::UnknownStructField(iden.span));
                     }

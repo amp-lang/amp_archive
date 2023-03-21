@@ -94,10 +94,37 @@ pub enum GenericValue {
     Constructor(StructId, HashMap<usize, Value>),
 
     /// A field access of a struct.
-    StructAccess(Box<GenericValue>, usize),
+    StructAccess(Box<GenericValue>, StructId, usize),
+
+    /// Outputs the address of a field of a struct.
+    AddrOfField(Mutability, Box<GenericValue>, StructId, usize),
 }
 
 impl GenericValue {
+    /// Returns the ID of the struct type if the value acts as a struct (e.g. a struct type or a
+    /// struct pointer).
+    pub fn resolve_struct(&self, checker: &Typechecker, vars: &Vars) -> Option<StructId> {
+        match self.default_type(checker, vars) {
+            Type::Struct(id) => Some(id),
+            Type::Ptr(ptr) => match *ptr.ty {
+                Type::Struct(id) => Some(id),
+                _ => return None,
+            },
+            _ => return None,
+        }
+    }
+
+    /// Returns `true` if the value is a pointer.
+    ///
+    /// TODO: check if useful, if not, remove
+    pub fn is_pointer(&self, checker: &Typechecker, vars: &Vars) -> bool {
+        match self.default_type(checker, vars) {
+            Type::Ptr(_) => true,
+            _ => false,
+        }
+    }
+
+    /// Checks a dereference expression (`*{value}`).
     pub fn check_deref(
         checker: &Typechecker,
         scope: &mut Scope,
@@ -113,6 +140,11 @@ impl GenericValue {
     }
 
     /// Checks a reference operator.
+    ///
+    /// ```amp
+    /// var my_var = 42;
+    /// MyFunction(~mut my_var);
+    /// ```
     pub fn check_ref(
         checker: &Typechecker,
         scope: &mut Scope,
@@ -120,11 +152,21 @@ impl GenericValue {
         mutability: Mutability,
         expr: &ast::Expr,
     ) -> Result<Self, Error> {
-        let value = Self::check(checker, scope, vars, expr)?;
+        Ok(Self::check(checker, scope, vars, expr)?.as_ref(mutability))
+    }
 
-        match value {
-            Self::Var(var) => Ok(GenericValue::AddrOfVar(mutability, var)),
-            value => Ok(GenericValue::Store(mutability, Box::new(value))),
+    /// Gets a reference to this value. If the value is an immediate value (for example, `~mut 8`),
+    /// it will be stored on the stack.
+    pub fn as_ref(&self, mutability: Mutability) -> Self {
+        match self {
+            Self::Var(var) => Self::AddrOfVar(mutability, *var),
+            Self::StructAccess(target, id, field) => Self::AddrOfField(
+                mutability,
+                Box::new(target.as_ref().as_ref(mutability)),
+                *id,
+                *field,
+            ),
+            value => Self::Store(mutability, Box::new(value.clone())),
         }
     }
 
@@ -155,12 +197,12 @@ impl GenericValue {
                 Type::Ptr(Ptr::new(*mutability, value.default_type(checker, vars)))
             }
             Self::Constructor(struct_id, _) => Type::Struct(*struct_id),
-            Self::StructAccess(struct_, field) => {
-                let Type::Struct(struct_ty) = struct_.default_type(checker, vars) else {
-                    unreachable!()
-                };
-
-                checker.structs[struct_ty.0].fields[*field].ty.value.clone()
+            Self::StructAccess(_, id, field) => {
+                checker.structs[id.0].fields[*field].ty.value.clone()
+            }
+            Self::AddrOfField(mutability, _, id, field) => {
+                let ty = checker.structs[id.0].fields[*field].ty.value.clone();
+                Type::Ptr(Ptr::new(*mutability, ty))
             }
         }
     }
@@ -259,7 +301,7 @@ impl GenericValue {
 
                     // let ty = field_decl.ty.value.name(checker);
 
-                    Ok(Self::StructAccess(Box::new(lhs), field_id))
+                    Ok(Self::StructAccess(Box::new(lhs), id, field_id))
                 } else {
                     return Err(Error::UnknownStructField(iden.span));
                 }
@@ -283,8 +325,11 @@ impl GenericValue {
                 Value::Store(mutability, Box::new(var.coerce_default()))
             }
             GenericValue::Constructor(struct_id, fields) => Value::Constructor(struct_id, fields),
-            GenericValue::StructAccess(value, field) => {
-                Value::StructAccess(Box::new(value.coerce_default()), field)
+            GenericValue::StructAccess(value, id, field) => {
+                Value::StructAccess(Box::new(value.coerce_default()), id, field)
+            }
+            GenericValue::AddrOfField(mutability, value, id, field) => {
+                Value::AddrOfField(mutability, Box::new(value.coerce_default()), id, field)
             }
         }
     }
@@ -351,16 +396,39 @@ impl GenericValue {
             {
                 Some(Value::Constructor(struct_id, fields))
             }
-            (GenericValue::StructAccess(value, field), ty) => {
+            (GenericValue::StructAccess(value, id, field), ty) => {
                 let struct_ty = value.default_type(checker, vars);
                 if let Type::Struct(struct_ty) = struct_ty {
                     let struct_decl = &checker.structs[struct_ty.0 as usize];
 
                     if struct_decl.fields[field].ty.value.is_equivalent(ty) {
-                        Some(Value::StructAccess(Box::new(value.coerce_default()), field))
+                        Some(Value::StructAccess(
+                            Box::new(value.coerce_default()),
+                            id,
+                            field,
+                        ))
                     } else {
                         None
                     }
+                } else {
+                    None
+                }
+            }
+            (GenericValue::AddrOfField(mutability, value, id, field), ty) => {
+                let struct_decl = &checker.structs[id.0];
+
+                if Type::Ptr(Ptr::new(
+                    mutability,
+                    struct_decl.fields[field].ty.value.clone(),
+                ))
+                .is_equivalent(ty)
+                {
+                    Some(Value::AddrOfField(
+                        mutability,
+                        Box::new(value.coerce_default()),
+                        id,
+                        field,
+                    ))
                 } else {
                     None
                 }
@@ -430,7 +498,10 @@ pub enum Value {
     /// Creates a new struct valuie
     Constructor(StructId, HashMap<usize, Value>),
 
-    StructAccess(Box<Value>, usize),
+    StructAccess(Box<Value>, StructId, usize),
+
+    /// Outputs the address of a field.
+    AddrOfField(Mutability, Box<Value>, StructId, usize),
 }
 
 impl Value {
@@ -467,13 +538,13 @@ impl Value {
                 Type::Ptr(Ptr::new(*mutability, val.ty(checker, vars)))
             }
             Value::Constructor(struct_, _) => Type::Struct(*struct_),
-            Value::StructAccess(struct_, field) => {
-                let Type::Struct(struct_ty) = struct_.ty(checker, vars) else {
-                    unreachable!()
-                };
-
-                checker.structs[struct_ty.0].fields[*field].ty.value.clone()
+            Value::StructAccess(_, id, field) => {
+                checker.structs[id.0].fields[*field].ty.value.clone()
             }
+            Value::AddrOfField(mutability, _, id, field) => Type::Ptr(Ptr::new(
+                *mutability,
+                checker.structs[id.0].fields[*field].ty.value.clone(),
+            )),
         }
     }
 }

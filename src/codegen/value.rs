@@ -8,7 +8,6 @@ use cranelift_module::{DataContext, DataId, Module};
 
 use crate::typechecker::{
     func::FuncImpl,
-    struct_,
     types::Type,
     value::{FuncCall, Value},
     var::VarId,
@@ -338,11 +337,8 @@ pub fn compile_value(
                 }
             }
         }
-        Value::StructAccess(value, field) => {
-            let Type::Struct(struct_id) = value.ty(checker, &data.vars) else {
-                unreachable!();
-            };
-            let struct_decl = &checker.structs[struct_id.0];
+        Value::StructAccess(value, id, field) => {
+            let struct_decl = &checker.structs[id.0];
 
             if struct_decl.size(checker, codegen.pointer_type.bytes() as usize)
                 > codegen.pointer_type.bytes() as usize
@@ -400,6 +396,19 @@ pub fn compile_value(
                     offset as i32,
                 )
             }
+        }
+        Value::AddrOfField(_, value, id, field) => {
+            let struct_decl = &checker.structs[id.0];
+
+            let ptr = compile_value(checker, codegen, builder, value, vars, data, None).unwrap();
+
+            let offset = struct_decl.get_field_offset(
+                checker,
+                codegen.pointer_type.bytes() as usize,
+                *field,
+            );
+
+            builder.ins().iadd_imm(ptr, offset as i64)
         }
     };
 
