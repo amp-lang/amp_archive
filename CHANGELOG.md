@@ -12,6 +12,7 @@
 ## Compiler
 - [feat (#23): implement multiple module linking](https://github.com/amp-lang/amp/issues/23)
 - fix: don't return correct struct field
+- refactor: remove `unescaper` dependency
 
 ## v0.2.0-alpha
 
