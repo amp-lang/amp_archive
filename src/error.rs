@@ -352,7 +352,12 @@ pub enum Error {
         ty: Spanned<String>,
         offending: Span,
     } = 59,
-    // next error is 30
+
+    /// Expected a block.
+    ExpectedBlock(Span) = 30,
+
+    /// A non-boolean value was used as a condition in a conditional block.
+    InvalidCondition(Span) = 60,
 }
 
 impl Error {
@@ -828,6 +833,14 @@ impl Error {
                     .labels
                     .push(ty.span.secondary().with_message(&ty.value));
                 diagnostic.labels.push(offending.primary());
+            }
+            Self::ExpectedBlock(span) => {
+                diagnostic.message = "Expected a block".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::InvalidCondition(span) => {
+                diagnostic.message = "Expected a boolean condition".to_owned();
+                diagnostic.labels.push(span.primary());
             }
         }
 

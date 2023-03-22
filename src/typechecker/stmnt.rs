@@ -270,6 +270,37 @@ impl Assign {
     }
 }
 
+/// A while loop.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct While {
+    pub cond: Option<Value>,
+    pub body: Block,
+}
+
+impl While {
+    pub fn check(
+        checker: &Typechecker,
+        scope: &mut Scope,
+        vars: &mut Vars,
+        func: &Func,
+        ast: &ast::While,
+    ) -> Result<Self, Error> {
+        let cond = if let Some(cond) = &ast.cond {
+            Some(
+                GenericValue::check(checker, scope, vars, cond)?
+                    .coerce(checker, vars, &Type::Bool)
+                    .ok_or(Error::InvalidCondition(cond.span()))?,
+            )
+        } else {
+            None
+        };
+
+        let body = Block::check(checker, scope, vars, func, &ast.body)?;
+
+        Ok(Self { cond, body })
+    }
+}
+
 /// A statement of code.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Stmnt {
@@ -277,6 +308,7 @@ pub enum Stmnt {
     Return(Return),
     VarDecl(VarDecl),
     Assign(Assign),
+    While(While),
 }
 
 impl Stmnt {
@@ -312,6 +344,11 @@ impl Stmnt {
                 }
                 _ => Err(Error::InvalidStatement(stmnt.span())),
             },
+            ast::Expr::While(while_) => {
+                let while_ = While::check(checker, scope, vars, func, while_)?;
+
+                Ok(Stmnt::While(while_))
+            }
             _ => Err(Error::InvalidStatement(stmnt.span())),
         }
     }

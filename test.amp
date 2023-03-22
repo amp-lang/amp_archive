@@ -1,5 +1,10 @@
-func printf(fmt: ~const u8);
+func Print(str: []const u8);
 
-func main() -> i32 {
-    printf("Hello, world!\n");
+func Main() {
+    var i = true;
+    while i {
+        Print("Hello, world!");
+        i = false;
+    }
+    Print("Hello, world!");
 }

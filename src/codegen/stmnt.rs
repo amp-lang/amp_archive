@@ -8,7 +8,7 @@ use cranelift_module::Module;
 
 use crate::typechecker::{
     func::{FuncImpl, Signature},
-    stmnt::{Assign, AssignDest, Return, Stmnt, VarDecl},
+    stmnt::{Assign, AssignDest, Block, Return, Stmnt, VarDecl},
     value::FuncCall,
     var::VarId,
     Typechecker,
@@ -167,6 +167,57 @@ pub fn compile_statement(
             compile_var_decl(checker, codegen, builder, vars, data, decl);
         }
         Stmnt::Assign(assign) => compile_assign(checker, codegen, builder, vars, data, assign),
+        Stmnt::While(while_) => {
+            // TODO: implement break statements.
+            if let Some(cond) = &while_.cond {
+                let cond_block = builder.create_block();
+                let body_block = builder.create_block();
+                let end_block = builder.create_block();
+
+                builder.ins().jump(cond_block, &[]);
+
+                builder.switch_to_block(cond_block);
+                let cond =
+                    super::value::compile_value(checker, codegen, builder, cond, vars, data, None)
+                        .expect("no `to` provided");
+                builder.ins().brif(cond, body_block, &[], end_block, &[]);
+
+                builder.switch_to_block(body_block);
+                compile_block(
+                    checker,
+                    codegen,
+                    builder,
+                    vars,
+                    signature,
+                    data,
+                    &while_.body,
+                    false,
+                );
+                builder.ins().jump(cond_block, &[]);
+
+                builder.switch_to_block(end_block);
+            } else {
+                let body_block = builder.create_block();
+                let end_block = builder.create_block();
+
+                builder.ins().jump(body_block, &[]);
+
+                builder.switch_to_block(body_block);
+                compile_block(
+                    checker,
+                    codegen,
+                    builder,
+                    vars,
+                    signature,
+                    data,
+                    &while_.body,
+                    false,
+                );
+                builder.ins().jump(body_block, &[]);
+
+                builder.switch_to_block(end_block);
+            }
+        }
     }
 
     false
@@ -179,14 +230,16 @@ pub fn compile_block(
     vars: &HashMap<VarId, StackSlot>,
     signature: &Signature,
     data: &FuncImpl,
+    block: &Block,
+    must_return: bool,
 ) {
     let mut returns = false;
-    for stmnt in &data.block.value {
+    for stmnt in &block.value {
         returns =
             compile_statement(checker, codegen, builder, vars, signature, data, stmnt) || returns;
     }
 
-    if !returns {
+    if !returns && must_return {
         if let Some(returns) = &signature.returns {
             if returns.is_big(checker, codegen.pointer_type.bytes() as usize) {
                 builder.ins().return_(&[]);

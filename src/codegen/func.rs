@@ -142,7 +142,16 @@ pub fn compile_func(
         }
     }
 
-    stmnt::compile_block(checker, codegen, &mut builder, &vars, signature, data);
+    stmnt::compile_block(
+        checker,
+        codegen,
+        &mut builder,
+        &vars,
+        signature,
+        data,
+        &data.block,
+        true,
+    );
 
     builder.seal_all_blocks();
     builder.finalize();

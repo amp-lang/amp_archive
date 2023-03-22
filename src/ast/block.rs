@@ -16,23 +16,20 @@ pub struct Block {
 
 impl Parse for Block {
     fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
-        let start = parser.scanner().span().start;
         let mut value = Vec::new();
 
-        if let Some(res) = parser.scanner_mut().peek() {
-            match res {
-                Ok(token) => {
-                    if token != Token::LBrace {
-                        return None;
-                    }
-
-                    parser.scanner_mut().next();
+        match parser.scanner_mut().peek()? {
+            Ok(token) => {
+                if token != Token::LBrace {
+                    return None;
                 }
-                Err(err) => return Some(Err(err)),
+
+                parser.scanner_mut().next();
             }
-        } else {
-            return None;
+            Err(err) => return Some(Err(err)),
         }
+
+        let start = parser.scanner().span().start;
 
         loop {
             let expr = if let Some(res) = parser.parse::<Expr>() {
@@ -45,18 +42,21 @@ impl Parse for Block {
             };
 
             // Parse semicolon
-            // TODO: check if semicolon is required
-            if let Some(res) = parser.scanner_mut().next() {
-                match res {
-                    Ok(token) => {
-                        if token != Token::Semi {
-                            return Some(Err(Error::ExpectedSemicolon(parser.scanner().span())));
+            if expr.requires_semi() {
+                if let Some(res) = parser.scanner_mut().next() {
+                    match res {
+                        Ok(token) => {
+                            if token != Token::Semi {
+                                return Some(Err(Error::ExpectedSemicolon(
+                                    parser.scanner().span(),
+                                )));
+                            }
                         }
+                        Err(err) => return Some(Err(err)),
                     }
-                    Err(err) => return Some(Err(err)),
+                } else {
+                    return Some(Err(Error::ExpectedSemicolon(parser.scanner().span())));
                 }
-            } else {
-                return Some(Err(Error::ExpectedSemicolon(parser.scanner().span())));
             }
 
             value.push(expr);

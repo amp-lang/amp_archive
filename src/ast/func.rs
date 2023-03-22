@@ -179,34 +179,21 @@ impl Parse for Func {
             None => None,
         };
 
-        // Check for semicolon
-        // TODO: parse code block
-
         let block = if let Some(res) = parser.parse::<Block>() {
             match res {
                 Ok(block) => Some(block),
                 Err(err) => return Some(Err(err)),
             }
         } else {
+            if let Some(Ok(Token::Semi)) = parser.scanner_mut().next() {
+            } else {
+                return Some(Err(Error::ExpectedFunctionDefinition {
+                    func_keyword,
+                    offending: parser.scanner().span(),
+                }));
+            }
             None
         };
-
-        if block == None {
-            if let Some(res) = parser.scanner_mut().peek() {
-                match res {
-                    Ok(value) => {
-                        if value != Token::Semi {
-                            return Some(Err(Error::ExpectedFunctionDefinition {
-                                func_keyword,
-                                offending: parser.scanner().span(),
-                            }));
-                        }
-                        parser.scanner_mut().next();
-                    }
-                    Err(err) => return Some(Err(err)),
-                }
-            }
-        }
 
         Some(Ok(Self {
             span: Span::new(

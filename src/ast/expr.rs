@@ -5,7 +5,7 @@ use crate::{
     span::Span,
 };
 
-use super::{ArgList, Bool, Iden, Int, Str, Type};
+use super::{ArgList, Block, Bool, Iden, Int, Str, Type};
 
 /// A function call expression.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -293,6 +293,50 @@ pub struct Constructor {
     pub fields: Vec<ConstructorField>,
 }
 
+/// A `while` statement.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct While {
+    pub span: Span,
+    pub cond: Option<Box<Expr>>,
+    pub body: Block,
+}
+
+impl Parse for While {
+    fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
+        if let Ok(Token::KWhile) = parser.scanner_mut().peek()? {
+            parser.scanner_mut().next();
+        } else {
+            return None;
+        }
+        let start = parser.scanner().span();
+
+        let cond = if let Some(value) = Expr::parse(parser) {
+            match value {
+                Ok(expr) => Some(Box::new(expr)),
+                Err(err) => return Some(Err(err)),
+            }
+        } else {
+            None
+        };
+
+        let body = if let Some(block) = Block::parse(parser) {
+            match block {
+                Ok(block) => block,
+                Err(err) => return Some(Err(err)),
+            }
+        } else {
+            parser.scanner_mut().next();
+            return Some(Err(Error::ExpectedBlock(parser.scanner().span())));
+        };
+
+        Some(Ok(Self {
+            span: Span::new(parser.scanner().file_id(), start.start, body.span.end),
+            cond,
+            body,
+        }))
+    }
+}
+
 /// An expression in Amp code.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Expr {
@@ -306,6 +350,7 @@ pub enum Expr {
     Binary(Binary),
     Unary(Unary),
     Constructor(Constructor),
+    While(While),
 }
 
 impl Expr {
@@ -322,6 +367,15 @@ impl Expr {
             Expr::Binary(binary) => binary.span,
             Expr::Unary(unary) => unary.span,
             Expr::Constructor(constructor) => constructor.span,
+            Expr::While(while_) => while_.span,
+        }
+    }
+
+    /// Returns `true` if the expression must be followed by a semicolon.
+    pub fn requires_semi(&self) -> bool {
+        match self {
+            Expr::While(_) => false,
+            _ => true,
         }
     }
 
@@ -519,6 +573,7 @@ impl Expr {
 
 impl Parse for Expr {
     fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
+        // todo: move statements to a [Statement] enum
         if let Some(res) = parser.parse::<Return>() {
             match res {
                 Ok(return_) => Some(Ok(Expr::Return(return_))),
@@ -527,6 +582,11 @@ impl Parse for Expr {
         } else if let Some(res) = parser.parse::<Var>() {
             match res {
                 Ok(var) => Some(Ok(Expr::Var(var))),
+                Err(err) => Some(Err(err)),
+            }
+        } else if let Some(res) = parser.parse::<While>() {
+            match res {
+                Ok(while_) => Some(Ok(Expr::While(while_))),
                 Err(err) => Some(Err(err)),
             }
         } else {

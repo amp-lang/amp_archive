@@ -192,6 +192,15 @@ pub enum Token {
     /// The `false` keyword.
     KFalse,
 
+    /// The `while` keyword.
+    ///
+    /// ```amp
+    /// while {
+    ///     Print("Hello, world!");
+    /// }
+    /// ```
+    KWhile,
+
     /// A normal, non-suspicious string literal.
     ///
     /// ```amp
@@ -610,6 +619,7 @@ impl<'a> Iterator for Scanner<'a> {
                 "const" => Token::KConst,
                 "mut" => Token::KMut,
                 "return" => Token::KReturn,
+                "while" => Token::KWhile,
                 "true" => Token::KTrue,
                 "false" => Token::KFalse,
                 _ => Token::Identifier,
