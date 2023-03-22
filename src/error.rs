@@ -358,6 +358,9 @@ pub enum Error {
 
     /// A non-boolean value was used as a condition in a conditional block.
     InvalidCondition(Span) = 60,
+
+    /// Cannot compare two values of different types for equality.
+    InvalidEq(Span) = 61,
 }
 
 impl Error {
@@ -840,6 +843,10 @@ impl Error {
             }
             Self::InvalidCondition(span) => {
                 diagnostic.message = "Expected a boolean condition".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::InvalidEq(span) => {
+                diagnostic.message = "Cannot compare two values of different types".to_owned();
                 diagnostic.labels.push(span.primary());
             }
         }

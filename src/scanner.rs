@@ -91,6 +91,9 @@ pub enum Token {
     /// `.`
     Dot,
 
+    /// `==`
+    EqEq,
+
     /// `=`
     Eq,
 
@@ -262,6 +265,7 @@ impl Token {
         match self {
             // The left parenthesis is a special operator.
             Token::LParen => true,
+            Token::EqEq => true,
             Token::Eq => true,
             Token::Constructor => true,
             Token::Dot => true,
@@ -289,7 +293,8 @@ impl Token {
     /// Panics if the token is not a binary operator.
     pub fn binding_power(&self) -> (u8, u8) {
         match self {
-            Token::Eq => (0, 1), // low binding power
+            Token::Eq => (0, 1),   // low binding power
+            Token::EqEq => (1, 2), // low binding power
             Token::Plus => (4, 5),
             Token::Minus => (4, 5),
             Token::Star => (5, 6),
@@ -639,7 +644,14 @@ impl<'a> Iterator for Scanner<'a> {
         Some(Ok(match first_char {
             ':' => Token::Colon,
             ',' => Token::Comma,
-            '=' => Token::Eq,
+            '=' => {
+                if self.peek_char() == Some('=') {
+                    self.next_char();
+                    Token::EqEq
+                } else {
+                    Token::Eq
+                }
+            }
             ';' => Token::Semi,
             '~' => Token::Tilde,
             '*' => Token::Star,

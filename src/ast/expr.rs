@@ -169,6 +169,9 @@ pub enum BinaryOp {
 
     /// `%`
     Mod,
+
+    /// `==`
+    LogEq,
 }
 
 impl BinaryOp {
@@ -182,6 +185,7 @@ impl BinaryOp {
             Token::Slash => Self::Div,
             Token::Minus => Self::Sub,
             Token::Percent => Self::Mod,
+            Token::EqEq => Self::LogEq,
             _ => unreachable!("invalid token for binary operator"),
         }
     }

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use cranelift::{
     codegen::ir::StackSlot,
-    prelude::{FunctionBuilder, InstBuilder, StackSlotData, StackSlotKind},
+    prelude::{FunctionBuilder, InstBuilder, IntCC, StackSlotData, StackSlotKind},
 };
 use cranelift_module::{DataContext, DataId, Module};
 
@@ -402,6 +402,27 @@ pub fn compile_value(
                     _ => builder.ins().urem(lhs, rhs),
                 },
                 Op::Sub => builder.ins().isub(lhs, rhs),
+            }
+        }
+        Value::LogEq(left, right) => {
+            let ty = left.ty(checker, &data.vars);
+
+            let lhs = compile_value(checker, codegen, builder, left, vars, data, None).unwrap();
+            let rhs = compile_value(checker, codegen, builder, right, vars, data, None).unwrap();
+
+            if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
+                let size = builder.ins().iconst(
+                    codegen.pointer_type,
+                    ty.size(checker, codegen.pointer_type.bytes() as usize) as i64,
+                );
+                let res = builder.call_memcmp(codegen.module.target_config(), lhs, rhs, size);
+                builder.ins().icmp_imm(IntCC::Equal, res, 0)
+            } else {
+                if ty.is_int() || ty == Type::Bool || matches!(ty, Type::Ptr(_)) {
+                    builder.ins().icmp(IntCC::Equal, lhs, rhs)
+                } else {
+                    todo!("implement other types");
+                }
             }
         }
     };

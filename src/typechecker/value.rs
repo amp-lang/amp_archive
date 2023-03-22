@@ -101,6 +101,9 @@ pub enum GenericValue {
 
     /// Performs an integer operation.
     IntOp(Op, Box<GenericValue>, Box<GenericValue>),
+
+    /// Compares two values for equality.
+    LogEq(Box<GenericValue>, Box<GenericValue>),
 }
 
 impl GenericValue {
@@ -237,6 +240,7 @@ impl GenericValue {
                 Type::Ptr(Ptr::new(*mutability, ty))
             }
             Self::IntOp(_, lhs, _) => lhs.default_type(checker, vars),
+            Self::LogEq(_, _) => Type::Bool,
         }
     }
 
@@ -347,6 +351,17 @@ impl GenericValue {
                     return Err(Error::UnknownStructField(iden.span));
                 }
             }
+            // Comparison operators
+            ast::Expr::Binary(ast::Binary {
+                op: ast::BinaryOp::LogEq,
+                left,
+                right,
+                ..
+            }) => {
+                let (lhs, rhs) = Self::check_math_expr(checker, scope, vars, left, right)?;
+
+                Ok(Self::LogEq(Box::new(lhs), Box::new(rhs)))
+            }
             ast::Expr::Binary(ast::Binary {
                 span,
                 op,
@@ -403,6 +418,10 @@ impl GenericValue {
             }
             GenericValue::IntOp(op, lhs, rhs) => Value::IntOp(
                 op,
+                Box::new(lhs.coerce_default()),
+                Box::new(rhs.coerce_default()),
+            ),
+            GenericValue::LogEq(lhs, rhs) => Value::LogEq(
                 Box::new(lhs.coerce_default()),
                 Box::new(rhs.coerce_default()),
             ),
@@ -508,6 +527,14 @@ impl GenericValue {
                 Box::new(lhs.coerce(checker, vars, ty)?),
                 Box::new(rhs.coerce(checker, vars, ty)?),
             )),
+            (GenericValue::LogEq(lhs, rhs), Type::Bool) => {
+                let left = lhs.coerce_default();
+                let left_ty = left.ty(checker, vars);
+                Some(Value::LogEq(
+                    Box::new(left),
+                    Box::new(rhs.coerce(checker, vars, &left_ty).unwrap()),
+                ))
+            }
             _ => None,
         }
     }
@@ -521,6 +548,12 @@ pub enum Op {
     Mul,
     Div,
     Mod,
+}
+
+/// A logical comparison of two values.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Cmp {
+    Eq,
 }
 
 /// A value expression in an Amp module.
@@ -590,6 +623,9 @@ pub enum Value {
 
     /// Performs an integer operation.
     IntOp(Op, Box<Value>, Box<Value>),
+
+    /// Compares two values.
+    LogEq(Box<Value>, Box<Value>),
 }
 
 impl Value {
@@ -634,6 +670,7 @@ impl Value {
                 checker.structs[id.0].fields[*field].ty.value.clone(),
             )),
             Value::IntOp(_, left, _) => left.ty(checker, vars),
+            Value::LogEq(_, _) => Type::Bool,
         }
     }
 }
