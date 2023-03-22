@@ -1,15 +1,11 @@
-func printf(format: ~const u8, num: i32);
+func printf(format: ~const u8, arg: u16) -> i32;
 
-func Get1() -> i32 {
-    var i: i32 = 0;
+func Main() {
+    var i: u16 = 0;
 
     while i == 0 {
         i = i + 1;
     }
-
-    return i;
-}
-
-func Main() {
-    printf("%d\n", Get1());
+    
+    printf("%hu\n", i);
 }

@@ -28,7 +28,6 @@ fn build_path(file_id: FileId, files: &SimpleFiles<String, String>, input: &str)
     let mut parser = parser::Parser::new(scanner);
     let mut checker = Typechecker::new();
     if let Some(res) = parser.parse::<Source>() {
-        dbg!(&res);
         checker.check(&res?)?;
     };
 

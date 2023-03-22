@@ -155,6 +155,14 @@ impl Type {
         }
     }
 
+    /// Returns `true` if the type is a primitive type.
+    pub fn is_primitive(&self) -> bool {
+        match self {
+            Type::Struct(_) => false,
+            _ => true,
+        }
+    }
+
     /// Checks for a type in the given scope.
     ///
     /// TODO: check imports and declared types
