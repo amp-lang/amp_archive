@@ -1,7 +1,5 @@
-func Len(slice: []const u8) -> uint;
-func printf(format: ~const u8, arg: uint) -> i32;
+func printf(fmt: ~const u8);
 
-func Main() {
-    var my_str = "Hello, world!\n";
-    printf("%I64u", Len(my_str));
+func main() -> i32 {
+    printf("Hello, world!\n");
 }

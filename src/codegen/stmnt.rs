@@ -14,7 +14,7 @@ use crate::typechecker::{
     Typechecker,
 };
 
-use super::Codegen;
+use super::{types::compile_type, Codegen};
 
 pub fn compile_func_call(
     checker: &Typechecker,
@@ -186,9 +186,23 @@ pub fn compile_block(
             compile_statement(checker, codegen, builder, vars, signature, data, stmnt) || returns;
     }
 
-    // TODO: check if returned
-
     if !returns {
-        builder.ins().return_(&[]);
+        if let Some(returns) = &signature.returns {
+            if returns.is_big(checker, codegen.pointer_type.bytes() as usize) {
+                builder.ins().return_(&[]);
+            } else {
+                let ty = compile_type(codegen, checker, returns);
+
+                let value = if ty.is_int() {
+                    builder.ins().iconst(ty, 0)
+                } else {
+                    unreachable!();
+                };
+
+                builder.ins().return_(&[value]);
+            }
+        } else {
+            builder.ins().return_(&[]);
+        }
     }
 }

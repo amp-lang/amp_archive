@@ -241,18 +241,6 @@ pub enum Error {
         offending: Span,
     } = 29,
 
-    /// A function that was expected to return a value did not.
-    MissingReturn {
-        /// The original declaration.
-        decl: Span,
-
-        /// The name of the expected type.
-        name: String,
-
-        /// The offending area.
-        offending: Span,
-    } = 30,
-
     /// Expected the type of an array.
     ExpectedArrayType(Span) = 31,
 
@@ -364,6 +352,7 @@ pub enum Error {
         ty: Spanned<String>,
         offending: Span,
     } = 59,
+    // next error is 30
 }
 
 impl Error {
@@ -646,17 +635,6 @@ impl Error {
                 offending,
             } => {
                 diagnostic.message = format!("Expected '{}'", name);
-                diagnostic
-                    .labels
-                    .push(decl.secondary().with_message("Declared here"));
-                diagnostic.labels.push(offending.primary());
-            }
-            Self::MissingReturn {
-                decl,
-                name,
-                offending,
-            } => {
-                diagnostic.message = format!("Expected '{}', never returned a value", name);
                 diagnostic
                     .labels
                     .push(decl.secondary().with_message("Declared here"));
