@@ -363,9 +363,9 @@ pub fn compile_value(
                     let ty = compile_type(codegen, checker, field);
                     builder
                         .ins()
-                        .load(ty, cranelift::prelude::MemFlags::new(), ptr, 0)
+                        .load(ty, cranelift::prelude::MemFlags::new(), src, 0)
                 } else {
-                    ptr
+                    src
                 }
             }
         }

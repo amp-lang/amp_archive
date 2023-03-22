@@ -1,10 +1,7 @@
-struct MyStruct {
-    member: i32,
-}
-
-func printf(format: ~const u8, value: i32) -> i32;
+func Len(slice: []const u8) -> uint;
+func printf(format: ~const u8, arg: uint) -> i32;
 
 func Main() {
-    var my_struct = MyStruct .{ member = 42 };
-    printf("Hello, world! %d", my_struct.member % 2);
+    var my_str = "Hello, world!\n";
+    printf("%I64u", Len(my_str));
 }
