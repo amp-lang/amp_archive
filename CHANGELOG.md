@@ -9,6 +9,7 @@
 - [feat (#25): [typechecker, codegen] reference a struct field](https://github.com/amp-lang/amp/issues/25)
 - [feat (#26): [syntax/scanner, syntax/parser, typechecker, codegen] basic math](https://github.com/amp-lang/amp/issues/26)
 - [feat (#28): [syntax/scanner, syntax/parser, typechecker, codegen] `while` loops](https://github.com/amp-lang/amp/issues/28)
+- [feat (#30): [syntax/scanner, syntax/parser, typechecker, codegen] the `==` operator](https://github.com/amp-lang/amp/issues/30)
 
 ## Compiler
 - [feat (#23): implement multiple module linking](https://github.com/amp-lang/amp/issues/23)
