@@ -99,8 +99,8 @@ pub enum GenericValue {
     /// Outputs the address of a field of a struct.
     AddrOfField(Mutability, Box<GenericValue>, StructId, usize),
 
-    /// Multiplies two integers together.
-    IntMul(Box<GenericValue>, Box<GenericValue>),
+    /// Performs an integer operation.
+    IntOp(Op, Box<GenericValue>, Box<GenericValue>),
 }
 
 impl GenericValue {
@@ -189,12 +189,12 @@ impl GenericValue {
         let rhs = Self::check(checker, scope, vars, right)?;
 
         let lhs_ty = lhs.default_type(checker, vars);
-        let rhs_ty = rhs.default_type(checker, vars);
 
-        if !rhs_ty.is_equivalent(&lhs_ty) {
+        if let Some(_) = rhs.clone().coerce(checker, vars, &lhs_ty) {
+        } else {
             return Err(Error::InvalidExprTypes {
                 left: Spanned::new(left.span(), lhs_ty.name(checker)),
-                right: Spanned::new(right.span(), rhs_ty.name(checker)),
+                right: Spanned::new(right.span(), rhs.default_type(checker, vars).name(checker)),
                 offending: right.span(),
             });
         }
@@ -236,7 +236,7 @@ impl GenericValue {
                 let ty = checker.structs[id.0].fields[*field].ty.value.clone();
                 Type::Ptr(Ptr::new(*mutability, ty))
             }
-            Self::IntMul(lhs, _) => lhs.default_type(checker, vars),
+            Self::IntOp(_, lhs, _) => lhs.default_type(checker, vars),
         }
     }
 
@@ -349,14 +349,23 @@ impl GenericValue {
             }
             ast::Expr::Binary(ast::Binary {
                 span,
-                op: ast::BinaryOp::Mul,
+                op,
                 left,
                 right,
             }) => {
+                let op = match op {
+                    ast::BinaryOp::Add => Op::Add,
+                    ast::BinaryOp::Sub => Op::Sub,
+                    ast::BinaryOp::Mul => Op::Mul,
+                    ast::BinaryOp::Div => Op::Div,
+                    ast::BinaryOp::Mod => Op::Mod,
+                    _ => unreachable!("purposefully put last"),
+                };
+
                 let (lhs, rhs) = Self::check_math_expr(checker, scope, vars, left, right)?;
 
                 if lhs.is_int(checker, vars) {
-                    return Ok(GenericValue::IntMul(Box::new(lhs), Box::new(rhs)));
+                    return Ok(GenericValue::IntOp(op, Box::new(lhs), Box::new(rhs)));
                 } else {
                     return Err(Error::NonNumberMath {
                         ty: Spanned::new(
@@ -392,7 +401,8 @@ impl GenericValue {
             GenericValue::AddrOfField(mutability, value, id, field) => {
                 Value::AddrOfField(mutability, Box::new(value.coerce_default()), id, field)
             }
-            GenericValue::IntMul(lhs, rhs) => Value::IntMul(
+            GenericValue::IntOp(op, lhs, rhs) => Value::IntOp(
+                op,
                 Box::new(lhs.coerce_default()),
                 Box::new(rhs.coerce_default()),
             ),
@@ -493,13 +503,24 @@ impl GenericValue {
                     None
                 }
             }
-            (GenericValue::IntMul(lhs, rhs), ty) => Some(Value::IntMul(
+            (GenericValue::IntOp(op, lhs, rhs), ty) => Some(Value::IntOp(
+                op,
                 Box::new(lhs.coerce(checker, vars, ty)?),
                 Box::new(rhs.coerce(checker, vars, ty)?),
             )),
             _ => None,
         }
     }
+}
+
+/// An operation on a number.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Op {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
 }
 
 /// A value expression in an Amp module.
@@ -567,8 +588,8 @@ pub enum Value {
     /// Outputs the address of a field.
     AddrOfField(Mutability, Box<Value>, StructId, usize),
 
-    /// Multiplies two integers.
-    IntMul(Box<Value>, Box<Value>),
+    /// Performs an integer operation.
+    IntOp(Op, Box<Value>, Box<Value>),
 }
 
 impl Value {
@@ -612,7 +633,7 @@ impl Value {
                 *mutability,
                 checker.structs[id.0].fields[*field].ty.value.clone(),
             )),
-            Value::IntMul(left, _) => left.ty(checker, vars),
+            Value::IntOp(_, left, _) => left.ty(checker, vars),
         }
     }
 }

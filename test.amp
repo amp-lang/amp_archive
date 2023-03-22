@@ -1,9 +1,10 @@
-func printf(format: ~const u8, num: i32) -> i32;
-
-func Mul(left: i32, right: i32) -> i32 {
-    return left * right;
+struct MyStruct {
+    member: i32,
 }
 
+func printf(format: ~const u8, value: i32) -> i32;
+
 func Main() {
-    printf("%d\n", Mul(1, 4));
+    var my_struct = MyStruct .{ member = 42 };
+    printf("Hello, world! %d", my_struct.member % 2);
 }

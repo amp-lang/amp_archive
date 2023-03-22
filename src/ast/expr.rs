@@ -157,6 +157,18 @@ pub enum BinaryOp {
 
     /// `*`
     Mul,
+
+    /// `+`
+    Add,
+
+    /// `/`
+    Div,
+
+    /// `-`
+    Sub,
+
+    /// `%`
+    Mod,
 }
 
 impl BinaryOp {
@@ -166,6 +178,10 @@ impl BinaryOp {
             Token::Eq => Self::Eq,
             Token::Dot => Self::Dot,
             Token::Star => Self::Mul,
+            Token::Plus => Self::Add,
+            Token::Slash => Self::Div,
+            Token::Minus => Self::Sub,
+            Token::Percent => Self::Mod,
             _ => unreachable!("invalid token for binary operator"),
         }
     }
@@ -483,6 +499,7 @@ impl Expr {
                     parser.scanner_mut().next();
                     return Some(Err(Error::ExpectedExpression(parser.scanner().span())));
                 };
+
                 left = Expr::Binary(Binary {
                     span: Span::new(
                         parser.scanner().file_id(),
@@ -492,7 +509,7 @@ impl Expr {
                     op: BinaryOp::from_token(op),
                     left: Box::new(left),
                     right: Box::new(rhs),
-                }) // currently unreachable
+                });
             }
         }
 

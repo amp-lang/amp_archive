@@ -9,7 +9,7 @@ use cranelift_module::{DataContext, DataId, Module};
 use crate::typechecker::{
     func::FuncImpl,
     types::Type,
-    value::{FuncCall, Value},
+    value::{FuncCall, Op, Value},
     var::VarId,
     Typechecker,
 };
@@ -382,11 +382,27 @@ pub fn compile_value(
 
             builder.ins().iadd_imm(ptr, offset as i64)
         }
-        Value::IntMul(left, right) => {
-            let left = compile_value(checker, codegen, builder, left, vars, data, None).unwrap();
-            let right = compile_value(checker, codegen, builder, right, vars, data, None).unwrap();
+        Value::IntOp(op, left, right) => {
+            let lhs = compile_value(checker, codegen, builder, left, vars, data, None).unwrap();
+            let rhs = compile_value(checker, codegen, builder, right, vars, data, None).unwrap();
 
-            builder.ins().imul(left, right)
+            match op {
+                Op::Mul => builder.ins().imul(lhs, rhs),
+                Op::Add => builder.ins().iadd(lhs, rhs),
+                Op::Div => match left.ty(checker, &data.vars) {
+                    Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::Int => {
+                        builder.ins().sdiv(lhs, rhs)
+                    }
+                    _ => builder.ins().udiv(lhs, rhs),
+                },
+                Op::Mod => match left.ty(checker, &data.vars) {
+                    Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::Int => {
+                        builder.ins().srem(lhs, rhs)
+                    }
+                    _ => builder.ins().urem(lhs, rhs),
+                },
+                Op::Sub => builder.ins().isub(lhs, rhs),
+            }
         }
     };
 

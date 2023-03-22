@@ -103,6 +103,15 @@ pub enum Token {
     /// `*`
     Star,
 
+    /// `+`
+    Plus,
+
+    /// `/`
+    Slash,
+
+    /// `%`
+    Percent,
+
     /// `(`
     LParen,
 
@@ -248,6 +257,10 @@ impl Token {
             Token::Constructor => true,
             Token::Dot => true,
             Token::Star => true,
+            Token::Plus => true,
+            Token::Slash => true,
+            Token::Minus => true,
+            Token::Percent => true,
             _ => false,
         }
     }
@@ -267,11 +280,16 @@ impl Token {
     /// Panics if the token is not a binary operator.
     pub fn binding_power(&self) -> (u8, u8) {
         match self {
-            Token::Eq => (1, 0), // low binding power
-            Token::Star => (6, 5),
+            Token::Eq => (0, 1), // low binding power
+            Token::Plus => (4, 5),
+            Token::Minus => (4, 5),
+            Token::Star => (5, 6),
+            Token::Slash => (5, 6),
+            Token::Percent => (5, 6),
+            // cast expressions are (6, 7)
             Token::LParen => (8, 7),
             Token::Constructor => (8, 7),
-            Token::Dot => (7, 8),
+            Token::Dot => (8, 7),
             _ => unreachable!("Invalid operator."),
         }
     }
@@ -392,6 +410,7 @@ impl<'a> Scanner<'a> {
                     }
                 } else {
                     self.current_span = reset_span;
+                    break;
                 }
             } else {
                 break;
@@ -614,6 +633,9 @@ impl<'a> Iterator for Scanner<'a> {
             ';' => Token::Semi,
             '~' => Token::Tilde,
             '*' => Token::Star,
+            '/' => Token::Slash,
+            '%' => Token::Percent,
+            '+' => Token::Plus,
             '-' => {
                 if self.peek_char() == Some('>') {
                     self.next_char();

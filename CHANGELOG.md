@@ -8,6 +8,7 @@
 - [feat (#22): [syntax/scanner, syntax/parser, typechecker, codegen] implement struct field accessing](https://github.com/amp-lang/amp/issues/22)
 - [feat (#24): [typechecker, codegen] assign fields of struct references](https://github.com/amp-lang/amp/issues/24)
 - [feat (#25): [typechecker, codegen] reference a struct field](https://github.com/amp-lang/amp/issues/25)
+- [feat (#26): [syntax/scanner, syntax/parser, typechecker, codegen] basic math](https://github.com/amp-lang/amp/issues/26)
 
 ## v0.2.0-alpha
 
