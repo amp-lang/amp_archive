@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use cranelift::{
     codegen::ir::StackSlot,
-    prelude::{FunctionBuilder, InstBuilder, IntCC, StackSlotData, StackSlotKind},
+    prelude::{FunctionBuilder, InstBuilder, StackSlotData, StackSlotKind},
 };
 use cranelift_module::{DataContext, DataId, Module};
 

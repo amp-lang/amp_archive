@@ -222,6 +222,17 @@ pub enum Token {
     /// ```
     KWhile,
 
+    /// The `if` keyword.
+    ///
+    /// ```amp
+    /// if 1 == 1 {
+    ///     Print("Hello, world!");
+    /// } else {
+    ///     Print("Somehow you got 1 to equal something other than 1.");
+    /// }
+    /// ```
+    KIf,
+
     /// A normal, non-suspicious string literal.
     ///
     /// ```amp
@@ -653,6 +664,7 @@ impl<'a> Iterator for Scanner<'a> {
                 "mut" => Token::KMut,
                 "return" => Token::KReturn,
                 "while" => Token::KWhile,
+                "if" => Token::KIf,
                 "true" => Token::KTrue,
                 "false" => Token::KFalse,
                 _ => Token::Identifier,
