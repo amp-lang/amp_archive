@@ -1,0 +1,16 @@
+name: CLI Feature
+description: File a command line feature suggestion
+labels: ["feat-cli"]
+body:
+  - type: textarea
+    attributes:
+      label: Description
+      description: A description describing the feature.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Use Cases
+      description: Give an example (or multiple) of a use case for this feature.
+    validations:
+      required: false
