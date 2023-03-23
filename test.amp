@@ -1,14 +1,14 @@
-func printf(format: ~const u8, arg: bool) -> i32;
+func printf(format: ~const u8, arg: i16) -> i32;
 
-// func Test1() {
-//     var i: u16 = 0;
+func Test1() {
+    var i: i16 = 0;
 
-//     while i != 10 {
-//         i = i + 1;
-//     }
+    while i != 10 {
+        i = i + 1;
+    }
     
-//     printf("%hu\n", i);
-// }
+    printf("%hu\n", i);
+}
 
 struct Foo {
     member: i16,
@@ -23,10 +23,10 @@ func Test2() {
         // printf("%hu\n", foo1.member);
     }
 
-    printf("TEST %hu\n", foo1 == foo2);
+    printf("TEST %hu\n", foo1.member);
 }
 
 func Main() {
-    // Test1();
+    Test1();
     Test2();
 }
