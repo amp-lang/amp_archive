@@ -104,6 +104,9 @@ pub enum GenericValue {
 
     /// Compares two values for equality.
     LogEq(Box<GenericValue>, Box<GenericValue>),
+
+    /// Compares two values for inequality.
+    LogNe(Box<GenericValue>, Box<GenericValue>),
 }
 
 impl GenericValue {
@@ -241,6 +244,7 @@ impl GenericValue {
             }
             Self::IntOp(_, lhs, _) => lhs.default_type(checker, vars),
             Self::LogEq(_, _) => Type::Bool,
+            Self::LogNe(_, _) => Type::Bool,
         }
     }
 
@@ -362,6 +366,17 @@ impl GenericValue {
 
                 Ok(Self::LogEq(Box::new(lhs), Box::new(rhs)))
             }
+            // Comparison operators
+            ast::Expr::Binary(ast::Binary {
+                op: ast::BinaryOp::LogNe,
+                left,
+                right,
+                ..
+            }) => {
+                let (lhs, rhs) = Self::check_math_expr(checker, scope, vars, left, right)?;
+
+                Ok(Self::LogNe(Box::new(lhs), Box::new(rhs)))
+            }
             ast::Expr::Binary(ast::Binary {
                 span,
                 op,
@@ -422,6 +437,10 @@ impl GenericValue {
                 Box::new(rhs.coerce_default()),
             ),
             GenericValue::LogEq(lhs, rhs) => Value::LogEq(
+                Box::new(lhs.coerce_default()),
+                Box::new(rhs.coerce_default()),
+            ),
+            GenericValue::LogNe(lhs, rhs) => Value::LogNe(
                 Box::new(lhs.coerce_default()),
                 Box::new(rhs.coerce_default()),
             ),
@@ -535,6 +554,14 @@ impl GenericValue {
                     Box::new(rhs.coerce(checker, vars, &left_ty).unwrap()),
                 ))
             }
+            (GenericValue::LogNe(lhs, rhs), Type::Bool) => {
+                let left = lhs.coerce_default();
+                let left_ty = left.ty(checker, vars);
+                Some(Value::LogNe(
+                    Box::new(left),
+                    Box::new(rhs.coerce(checker, vars, &left_ty).unwrap()),
+                ))
+            }
             _ => None,
         }
     }
@@ -626,6 +653,9 @@ pub enum Value {
 
     /// Compares two values.
     LogEq(Box<Value>, Box<Value>),
+
+    /// Compares two values.
+    LogNe(Box<Value>, Box<Value>),
 }
 
 impl Value {
@@ -671,6 +701,7 @@ impl Value {
             )),
             Value::IntOp(_, left, _) => left.ty(checker, vars),
             Value::LogEq(_, _) => Type::Bool,
+            Value::LogNe(_, _) => Type::Bool,
         }
     }
 }

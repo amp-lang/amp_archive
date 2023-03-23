@@ -6,7 +6,7 @@ use crate::{
 
 use super::{
     scope::Scope,
-    stmnt::{Block, Stmnt},
+    stmnt::Block,
     types::Type,
     var::{Var, Vars},
     Typechecker,

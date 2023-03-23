@@ -97,6 +97,12 @@ pub enum Token {
     /// `=`
     Eq,
 
+    /// `!=`
+    BangEq,
+
+    /// `!`
+    Bang,
+
     /// `;`
     Semi,
 
@@ -267,6 +273,7 @@ impl Token {
             Token::LParen => true,
             Token::EqEq => true,
             Token::Eq => true,
+            Token::BangEq => true,
             Token::Constructor => true,
             Token::Dot => true,
             Token::Star => true,
@@ -293,8 +300,9 @@ impl Token {
     /// Panics if the token is not a binary operator.
     pub fn binding_power(&self) -> (u8, u8) {
         match self {
-            Token::Eq => (0, 1),   // low binding power
-            Token::EqEq => (1, 2), // low binding power
+            Token::Eq => (0, 1),
+            Token::EqEq => (1, 2),
+            Token::BangEq => (1, 2),
             Token::Plus => (4, 5),
             Token::Minus => (4, 5),
             Token::Star => (5, 6),
@@ -650,6 +658,14 @@ impl<'a> Iterator for Scanner<'a> {
                     Token::EqEq
                 } else {
                     Token::Eq
+                }
+            }
+            '!' => {
+                if self.peek_char() == Some('=') {
+                    self.next_char();
+                    Token::BangEq
+                } else {
+                    Token::Bang
                 }
             }
             ';' => Token::Semi,

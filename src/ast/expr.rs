@@ -172,6 +172,9 @@ pub enum BinaryOp {
 
     /// `==`
     LogEq,
+
+    /// `!=`
+    LogNe,
 }
 
 impl BinaryOp {
@@ -186,6 +189,7 @@ impl BinaryOp {
             Token::Minus => Self::Sub,
             Token::Percent => Self::Mod,
             Token::EqEq => Self::LogEq,
+            Token::BangEq => Self::LogNe,
             _ => unreachable!("invalid token for binary operator"),
         }
     }
