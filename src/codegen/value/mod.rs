@@ -2,13 +2,12 @@ use std::collections::HashMap;
 
 use cranelift::{
     codegen::ir::StackSlot,
-    prelude::{FunctionBuilder, InstBuilder, StackSlotData, StackSlotKind},
+    prelude::{FunctionBuilder, InstBuilder, IntCC, StackSlotData, StackSlotKind},
 };
 use cranelift_module::{DataContext, DataId, Module};
 
 use crate::typechecker::{
     func::FuncImpl,
-    struct_::Struct,
     types::Type,
     value::{FuncCall, Op, Value},
     var::VarId,
@@ -389,22 +388,82 @@ pub fn compile_value(
             let lhs = compile_value(checker, codegen, builder, left, vars, data, None).unwrap();
             let rhs = compile_value(checker, codegen, builder, right, vars, data, None).unwrap();
 
+            // Whether or not the integer values are signed.
+            let signed = match left.ty(checker, &data.vars) {
+                Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::Int => true,
+                _ => false,
+            };
+
             match op {
                 Op::Mul => builder.ins().imul(lhs, rhs),
                 Op::Add => builder.ins().iadd(lhs, rhs),
-                Op::Div => match left.ty(checker, &data.vars) {
-                    Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::Int => {
+                Op::Div => {
+                    if signed {
                         builder.ins().sdiv(lhs, rhs)
+                    } else {
+                        builder.ins().udiv(lhs, rhs)
                     }
-                    _ => builder.ins().udiv(lhs, rhs),
-                },
-                Op::Mod => match left.ty(checker, &data.vars) {
-                    Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::Int => {
+                }
+                Op::Mod => {
+                    if signed {
                         builder.ins().srem(lhs, rhs)
+                    } else {
+                        builder.ins().urem(lhs, rhs)
                     }
-                    _ => builder.ins().urem(lhs, rhs),
-                },
+                }
                 Op::Sub => builder.ins().isub(lhs, rhs),
+                Op::LtEq => {
+                    if signed {
+                        builder.ins().icmp(
+                            cranelift::prelude::IntCC::SignedLessThanOrEqual,
+                            lhs,
+                            rhs,
+                        )
+                    } else {
+                        builder.ins().icmp(
+                            cranelift::prelude::IntCC::UnsignedLessThanOrEqual,
+                            lhs,
+                            rhs,
+                        )
+                    }
+                }
+                Op::Lt => {
+                    if signed {
+                        builder
+                            .ins()
+                            .icmp(cranelift::prelude::IntCC::SignedLessThan, lhs, rhs)
+                    } else {
+                        builder
+                            .ins()
+                            .icmp(cranelift::prelude::IntCC::UnsignedLessThan, lhs, rhs)
+                    }
+                }
+                Op::GtEq => {
+                    if signed {
+                        builder.ins().icmp(
+                            cranelift::prelude::IntCC::SignedGreaterThanOrEqual,
+                            lhs,
+                            rhs,
+                        )
+                    } else {
+                        builder.ins().icmp(
+                            cranelift::prelude::IntCC::UnsignedGreaterThanOrEqual,
+                            lhs,
+                            rhs,
+                        )
+                    }
+                }
+                Op::Gt => {
+                    if signed {
+                        builder
+                            .ins()
+                            .icmp(cranelift::prelude::IntCC::SignedGreaterThan, lhs, rhs)
+                    } else {
+                        builder
+                            .ins()
+                            .icmp(cranelift::prelude::IntCC::UnsignedGreaterThan, lhs, rhs)
+                    }
+                }
             }
         }
         Value::LogEq(left, right) => {

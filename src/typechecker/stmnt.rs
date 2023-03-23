@@ -108,7 +108,7 @@ impl VarDecl {
                 decl.value.as_ref().expect("Cannot be none"),
             )?;
 
-            let value = value.coerce_default();
+            let value = value.coerce_default(checker, vars);
 
             (value.ty(checker, vars), Some(value))
         };
@@ -163,7 +163,7 @@ impl AssignDest {
                         _ => return Err(Error::InvalidDeref(unary.span)),
                     }
 
-                    Ok(Self::Deref(value.coerce_default()))
+                    Ok(Self::Deref(value.coerce_default(checker, vars)))
                 }
                 _ => Err(Error::InvalidAssignment(dest.span())),
             },
@@ -187,14 +187,14 @@ impl AssignDest {
                         if left.is_pointer(checker, vars) {
                             Ok(Self::StructField(
                                 // already a pointer
-                                left.coerce_default(),
+                                left.coerce_default(checker, vars),
                                 id,
                                 field_id,
                             ))
                         } else {
                             Ok(Self::StructField(
                                 // get address of value to assign to
-                                left.as_ref(Mutability::Mut).coerce_default(),
+                                left.as_ref(Mutability::Mut).coerce_default(checker, vars),
                                 id,
                                 field_id,
                             ))

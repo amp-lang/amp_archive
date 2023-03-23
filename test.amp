@@ -1,32 +1,10 @@
-func printf(format: ~const u8, arg: i16) -> i32;
-
-func Test1() {
-    var i: i16 = 0;
-
-    while i != 10 {
-        i = i + 1;
-    }
-    
-    printf("%hu\n", i);
-}
-
-struct Foo {
-    member: i16,
-}
-
-func Test2() {
-    var foo1 = Foo .{ member = 0 };
-    var foo2 = Foo .{ member = 10 };
-
-    while foo1 != foo2 {
-        foo1.member = foo1.member + 1;
-        // printf("%hu\n", foo1.member);
-    }
-
-    printf("TEST %hu\n", foo1.member);
-}
+func printf(format: ~const u8, args: i32);
 
 func Main() {
-    Test1();
-    Test2();
+    var i: i32 = 0;
+
+    while i <= 10 {
+        printf("%d\n", i);
+        i = i + 1;
+    }
 }

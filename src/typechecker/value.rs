@@ -389,6 +389,10 @@ impl GenericValue {
                     ast::BinaryOp::Mul => Op::Mul,
                     ast::BinaryOp::Div => Op::Div,
                     ast::BinaryOp::Mod => Op::Mod,
+                    ast::BinaryOp::LtEq => Op::LtEq,
+                    ast::BinaryOp::Lt => Op::Lt,
+                    ast::BinaryOp::GtEq => Op::GtEq,
+                    ast::BinaryOp::Gt => Op::Gt,
                     _ => unreachable!("purposefully put last"),
                 };
 
@@ -412,38 +416,50 @@ impl GenericValue {
     }
 
     /// Returns the default value type for this generic value.
-    pub fn coerce_default(self) -> Value {
+    pub fn coerce_default(self, checker: &Typechecker, vars: &Vars) -> Value {
         match self {
             GenericValue::Bool(bool) => Value::Bool(bool),
             GenericValue::Int(int) => Value::Int(int as i64),
             GenericValue::Str(str) => Value::Str(Mutability::Const, str),
             GenericValue::Var(var) => Value::Var(var),
             GenericValue::FuncCall(call) => Value::FuncCall(call),
-            GenericValue::Deref(val) => Value::Deref(Box::new(val.coerce_default())),
+            GenericValue::Deref(val) => Value::Deref(Box::new(val.coerce_default(checker, vars))),
             GenericValue::AddrOfVar(mutability, var) => Value::AddrOfVar(mutability, var),
             GenericValue::Store(mutability, var) => {
-                Value::Store(mutability, Box::new(var.coerce_default()))
+                Value::Store(mutability, Box::new(var.coerce_default(checker, vars)))
             }
             GenericValue::Constructor(struct_id, fields) => Value::Constructor(struct_id, fields),
             GenericValue::StructAccess(value, id, field) => {
-                Value::StructAccess(Box::new(value.coerce_default()), id, field)
+                Value::StructAccess(Box::new(value.coerce_default(checker, vars)), id, field)
             }
-            GenericValue::AddrOfField(mutability, value, id, field) => {
-                Value::AddrOfField(mutability, Box::new(value.coerce_default()), id, field)
+            GenericValue::AddrOfField(mutability, value, id, field) => Value::AddrOfField(
+                mutability,
+                Box::new(value.coerce_default(checker, vars)),
+                id,
+                field,
+            ),
+            GenericValue::IntOp(op, lhs, rhs) => {
+                let ty = lhs.default_type(checker, vars);
+                Value::IntOp(
+                    op,
+                    Box::new(lhs.coerce_default(checker, vars)),
+                    Box::new(rhs.coerce(checker, vars, &ty).expect("verified previously")),
+                )
             }
-            GenericValue::IntOp(op, lhs, rhs) => Value::IntOp(
-                op,
-                Box::new(lhs.coerce_default()),
-                Box::new(rhs.coerce_default()),
-            ),
-            GenericValue::LogEq(lhs, rhs) => Value::LogEq(
-                Box::new(lhs.coerce_default()),
-                Box::new(rhs.coerce_default()),
-            ),
-            GenericValue::LogNe(lhs, rhs) => Value::LogNe(
-                Box::new(lhs.coerce_default()),
-                Box::new(rhs.coerce_default()),
-            ),
+            GenericValue::LogEq(lhs, rhs) => {
+                let ty = lhs.default_type(checker, vars);
+                Value::LogEq(
+                    Box::new(lhs.coerce_default(checker, vars)),
+                    Box::new(rhs.coerce(checker, vars, &ty).expect("verified previously")),
+                )
+            }
+            GenericValue::LogNe(lhs, rhs) => {
+                let ty = lhs.default_type(checker, vars);
+                Value::LogNe(
+                    Box::new(lhs.coerce_default(checker, vars)),
+                    Box::new(rhs.coerce(checker, vars, &ty).expect("verified previously")),
+                )
+            }
         }
     }
 
@@ -487,7 +503,7 @@ impl GenericValue {
             (GenericValue::Deref(val), ty) => match val.default_type(checker, vars) {
                 Type::Ptr(ptr) => {
                     if ptr.ty.is_equivalent(ty) {
-                        Some(Value::Deref(Box::new(val.coerce_default())))
+                        Some(Value::Deref(Box::new(val.coerce_default(checker, vars))))
                     } else {
                         None
                     }
@@ -514,7 +530,7 @@ impl GenericValue {
 
                 if struct_decl.fields[field].ty.value.is_equivalent(ty) {
                     Some(Value::StructAccess(
-                        Box::new(value.coerce_default()),
+                        Box::new(value.coerce_default(checker, vars)),
                         id,
                         field,
                     ))
@@ -533,7 +549,7 @@ impl GenericValue {
                 {
                     Some(Value::AddrOfField(
                         mutability,
-                        Box::new(value.coerce_default()),
+                        Box::new(value.coerce_default(checker, vars)),
                         id,
                         field,
                     ))
@@ -541,13 +557,27 @@ impl GenericValue {
                     None
                 }
             }
-            (GenericValue::IntOp(op, lhs, rhs), ty) => Some(Value::IntOp(
-                op,
-                Box::new(lhs.coerce(checker, vars, ty)?),
-                Box::new(rhs.coerce(checker, vars, ty)?),
-            )),
+            (GenericValue::IntOp(op, lhs, rhs), ty) => match op {
+                Op::LtEq | Op::Lt | Op::GtEq | Op::Gt => {
+                    if ty == &Type::Bool {
+                        let ty = lhs.default_type(checker, vars);
+                        Some(Value::IntOp(
+                            op,
+                            Box::new(lhs.coerce_default(checker, vars)),
+                            Box::new(rhs.coerce(checker, vars, &ty).expect("verified previously")),
+                        ))
+                    } else {
+                        None
+                    }
+                }
+                _ => Some(Value::IntOp(
+                    op,
+                    Box::new(lhs.coerce(checker, vars, ty)?),
+                    Box::new(rhs.coerce(checker, vars, ty)?),
+                )),
+            },
             (GenericValue::LogEq(lhs, rhs), Type::Bool) => {
-                let left = lhs.coerce_default();
+                let left = lhs.coerce_default(checker, vars);
                 let left_ty = left.ty(checker, vars);
                 Some(Value::LogEq(
                     Box::new(left),
@@ -555,7 +585,7 @@ impl GenericValue {
                 ))
             }
             (GenericValue::LogNe(lhs, rhs), Type::Bool) => {
-                let left = lhs.coerce_default();
+                let left = lhs.coerce_default(checker, vars);
                 let left_ty = left.ty(checker, vars);
                 Some(Value::LogNe(
                     Box::new(left),
@@ -575,6 +605,10 @@ pub enum Op {
     Mul,
     Div,
     Mod,
+    LtEq,
+    Lt,
+    GtEq,
+    Gt,
 }
 
 /// A logical comparison of two values.
@@ -699,7 +733,10 @@ impl Value {
                 *mutability,
                 checker.structs[id.0].fields[*field].ty.value.clone(),
             )),
-            Value::IntOp(_, left, _) => left.ty(checker, vars),
+            Value::IntOp(op, left, _) => match op {
+                Op::LtEq | Op::Lt | Op::GtEq | Op::Gt => Type::Bool,
+                _ => left.ty(checker, vars),
+            },
             Value::LogEq(_, _) => Type::Bool,
             Value::LogNe(_, _) => Type::Bool,
         }

@@ -100,6 +100,18 @@ pub enum Token {
     /// `!=`
     BangEq,
 
+    /// `<=`
+    LtEq,
+
+    /// `<`
+    Lt,
+
+    /// `>=`
+    GtEq,
+
+    /// `>`
+    Gt,
+
     /// `!`
     Bang,
 
@@ -274,6 +286,10 @@ impl Token {
             Token::EqEq => true,
             Token::Eq => true,
             Token::BangEq => true,
+            Token::LtEq => true,
+            Token::Lt => true,
+            Token::GtEq => true,
+            Token::Gt => true,
             Token::Constructor => true,
             Token::Dot => true,
             Token::Star => true,
@@ -303,6 +319,10 @@ impl Token {
             Token::Eq => (0, 1),
             Token::EqEq => (1, 2),
             Token::BangEq => (1, 2),
+            Token::LtEq => (1, 2),
+            Token::Lt => (1, 2),
+            Token::GtEq => (1, 2),
+            Token::Gt => (1, 2),
             Token::Plus => (4, 5),
             Token::Minus => (4, 5),
             Token::Star => (5, 6),
@@ -666,6 +686,22 @@ impl<'a> Iterator for Scanner<'a> {
                     Token::BangEq
                 } else {
                     Token::Bang
+                }
+            }
+            '<' => {
+                if self.peek_char() == Some('=') {
+                    self.next_char();
+                    Token::LtEq
+                } else {
+                    Token::Lt
+                }
+            }
+            '>' => {
+                if self.peek_char() == Some('=') {
+                    self.next_char();
+                    Token::GtEq
+                } else {
+                    Token::Gt
                 }
             }
             ';' => Token::Semi,
