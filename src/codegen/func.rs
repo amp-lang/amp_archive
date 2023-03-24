@@ -13,6 +13,7 @@ use cranelift::{
 use cranelift_module::{Linkage, Module};
 
 use crate::typechecker::{
+    decl::Modifier,
     func::{Func, FuncId, FuncImpl, Signature},
     var::VarId,
     Typechecker,
@@ -69,7 +70,15 @@ pub fn declare_func(codegen: &mut Codegen, checker: &Typechecker, decl: &Func) -
 
     let cranelift_id = codegen
         .module
-        .declare_function(&decl.name.value, Linkage::Export, &signature)
+        .declare_function(
+            &decl.name.value,
+            if decl.modifiers.contains(&Modifier::Export) {
+                Linkage::Export
+            } else {
+                Linkage::Local
+            },
+            &signature,
+        )
         .unwrap();
 
     CraneliftFunc {

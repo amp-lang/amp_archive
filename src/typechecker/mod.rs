@@ -6,6 +6,7 @@ use self::{
     struct_::{Struct, StructId},
 };
 
+pub mod decl;
 pub mod func;
 pub mod scope;
 pub mod stmnt;

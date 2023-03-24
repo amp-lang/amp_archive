@@ -2,6 +2,8 @@
 
 ## v0.4.0-alpha
 
+### Language
+- [feat (#32): implement `export` modifier](https://github.com/amp-lang/amp/issues/32)
 
 ## v0.3.0-alpha
 

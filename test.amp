@@ -1,1 +1,5 @@
-export func main() -> i32 {}
+func printf(fmt: ~const u8) -> i32;
+
+export func main() -> i32 {
+    printf("Hello, world!\n");
+}

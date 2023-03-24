@@ -7,7 +7,7 @@ use crate::{
     typechecker::scope::TypeDecl,
 };
 
-use super::{scope::Scope, types::Type, Typechecker};
+use super::{decl::Modifier, scope::Scope, types::Type, Typechecker};
 
 /// A unique identifier for a struct.
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -26,6 +26,7 @@ pub struct Field {
 pub struct Struct {
     /// The location of the struct's declaration.
     pub span: Span,
+    pub modifiers: Vec<Modifier>,
     pub name: Spanned<String>,
     pub fields: Vec<Field>,
 }
@@ -105,6 +106,7 @@ pub fn check_struct_decl(
 ) -> Result<(), Error> {
     let struct_ = Struct {
         span: decl.span,
+        modifiers: decl.modifiers.iter().map(|m| Modifier::check(m)).collect(),
         name: Spanned::new(decl.name.span, decl.name.value.clone()),
         fields: Vec::new(),
     };

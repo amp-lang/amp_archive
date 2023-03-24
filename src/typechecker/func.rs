@@ -5,6 +5,7 @@ use crate::{
 };
 
 use super::{
+    decl::Modifier,
     scope::Scope,
     stmnt::Block,
     types::Type,
@@ -79,6 +80,9 @@ pub struct Func {
     /// The type signature of the function.
     pub signature: Signature,
 
+    /// A list of modifiers for the function.
+    pub modifiers: Vec<Modifier>,
+
     /// The name of the function.
     ///
     /// TODO: replace with some sort of namespace path type.
@@ -109,6 +113,7 @@ pub fn check_func_decl(
 
     let decl = Func {
         signature,
+        modifiers: decl.modifiers.iter().map(|m| Modifier::check(m)).collect(),
         name: Spanned::new(decl.name.span, decl.name.value.clone()),
         span: Span::new(
             decl.span.file_id,
@@ -149,24 +154,6 @@ pub fn check_func_def(
         }
 
         let block = Block::check(checker, scope, &mut vars, func, ast_block)?;
-
-        // check for return statement
-        // if let Some(value) = &func.signature.returns {
-        //     if !block.value.iter().any(|stmnt| match stmnt {
-        //         Stmnt::Return(_) => true,
-        //         _ => false,
-        //     }) {
-        //         return Err(Error::MissingReturn {
-        //             decl: func.span,
-        //             name: value.name(checker),
-        //             offending: Span::new(
-        //                 ast_block.span.file_id,
-        //                 ast_block.span.end - 1,
-        //                 ast_block.span.end,
-        //             ),
-        //         });
-        //     }
-        // }
 
         checker.funcs[item.0 as usize].func_impl = Some(FuncImpl { block, vars });
     }
