@@ -1,5 +1,7 @@
-func printf(fmt: ~const u8) -> i32;
+export import "Std";
 
-export func main() -> i32 {
-    printf("Hello, world!\n");
+func Print(str: []const u8);
+
+export func Main() {
+    Print("Hello, world!");
 }

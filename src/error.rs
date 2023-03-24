@@ -361,6 +361,9 @@ pub enum Error {
 
     /// Cannot compare two values of different types for equality.
     InvalidEq(Span) = 61,
+
+    /// Expected a module name to import.
+    ExpectedModuleName(Span) = 62,
 }
 
 impl Error {
@@ -847,6 +850,10 @@ impl Error {
             }
             Self::InvalidEq(span) => {
                 diagnostic.message = "Cannot compare two values of different types".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::ExpectedModuleName(span) => {
+                diagnostic.message = "Expected a module name to import".to_owned();
                 diagnostic.labels.push(span.primary());
             }
         }

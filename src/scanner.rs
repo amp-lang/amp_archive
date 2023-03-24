@@ -243,6 +243,9 @@ pub enum Token {
     /// ```
     KExport,
 
+    /// The `import` keyword.
+    KImport,
+
     /// A normal, non-suspicious string literal.
     ///
     /// ```amp
@@ -692,6 +695,7 @@ impl<'a> Iterator for Scanner<'a> {
                 "true" => Token::KTrue,
                 "false" => Token::KFalse,
                 "export" => Token::KExport,
+                "import" => Token::KImport,
                 _ => Token::Identifier,
             }));
         } else if first_char == '"' {

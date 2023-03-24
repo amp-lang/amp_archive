@@ -5,13 +5,37 @@ use crate::{
     span::Span,
 };
 
-use super::{Func, Struct};
+use super::{Func, Import, Struct};
 
 /// A modifier for a declaration.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Modifier {
     /// Makes a declaration public.
     Export(Span),
+}
+
+impl Modifier {
+    /// Returns the span of the modifier.
+    pub fn span(&self) -> Span {
+        match self {
+            Self::Export(span) => *span,
+        }
+    }
+
+    /// Returns the span of all modifiers in the provided list.
+    pub fn modifiers_span(modifiers: &Vec<Modifier>) -> Option<Span> {
+        if modifiers.is_empty() {
+            None
+        } else {
+            let start_span = modifiers.first().unwrap().span();
+            let end_span = modifiers.last().unwrap().span();
+            Some(Span::new(
+                start_span.file_id,
+                start_span.start,
+                end_span.end,
+            ))
+        }
+    }
 }
 
 impl Parse for Modifier {
@@ -33,11 +57,14 @@ impl Parse for Modifier {
 /// ```
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Decl {
-    /// A function declaration.
+    /// A `func`tion declaration.
     Func(Func),
 
-    /// A struct declaration.
+    /// A `struct` declaration.
     Struct(Struct),
+
+    /// An `import` statement.
+    Import(Import),
 }
 
 impl Parse for Decl {
@@ -64,6 +91,14 @@ impl Parse for Decl {
         } else if let Some(value) = parser.parse::<Struct>() {
             match value {
                 Ok(mut value) => Some(Ok(Self::Struct({
+                    value.modifiers = modifiers;
+                    value
+                }))),
+                Err(err) => Some(Err(err)),
+            }
+        } else if let Some(value) = parser.parse::<Import>() {
+            match value {
+                Ok(mut value) => Some(Ok(Self::Import({
                     value.modifiers = modifiers;
                     value
                 }))),
