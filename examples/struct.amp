@@ -14,7 +14,7 @@ struct Foo {
     member: i32,
 }
 
-func Main() {
+export func Main() {
     // initialize an instance of Foo
     var my_struct = Foo .{ member = 42 };
 

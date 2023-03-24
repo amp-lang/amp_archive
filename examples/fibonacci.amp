@@ -29,6 +29,6 @@ func Fibonacci(terms: int) {
     }
 }
 
-func Main() {
+export func Main() {
     Fibonacci(20);
 }

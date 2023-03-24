@@ -4,6 +4,6 @@
 
 func Print(str: []const u8);
 
-func Main() {
+export func Main() {
     Print("Hello, world!\n");
 }

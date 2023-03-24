@@ -4,7 +4,7 @@
 
 func printf(format: ~const u8, arg: i32) -> i32;
 
-func main() {
+export func main() {
     var i: i32 = 0;
 
     while i < 10 {
