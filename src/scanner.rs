@@ -236,6 +236,13 @@ pub enum Token {
     /// The `else` keyword.
     KElse,
 
+    /// The `export` keyword.
+    ///
+    /// ```amp
+    /// export func Main() {}
+    /// ```
+    KExport,
+
     /// A normal, non-suspicious string literal.
     ///
     /// ```amp
@@ -684,6 +691,7 @@ impl<'a> Iterator for Scanner<'a> {
                 "else" => Token::KElse,
                 "true" => Token::KTrue,
                 "false" => Token::KFalse,
+                "export" => Token::KExport,
                 _ => Token::Identifier,
             }));
         } else if first_char == '"' {

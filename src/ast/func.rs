@@ -5,7 +5,7 @@ use crate::{
     span::Span,
 };
 
-use super::{ArgList, Block, Iden, Type};
+use super::{ArgList, Block, Iden, Modifier, Type};
 
 /// An argument in a function declaration.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -79,6 +79,7 @@ impl Parse for FuncArg {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Func {
     pub span: Span,
+    pub modifiers: Vec<Modifier>,
     pub name: Iden,
     pub args: ArgList<FuncArg>,
     pub returns: Option<Type>,
@@ -201,6 +202,7 @@ impl Parse for Func {
                 start_pos,
                 parser.scanner().span().end,
             ),
+            modifiers: Vec::new(),
             name,
             args,
             returns,

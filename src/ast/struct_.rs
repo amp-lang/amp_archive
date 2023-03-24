@@ -5,7 +5,7 @@ use crate::{
     span::Span,
 };
 
-use super::{Iden, Type};
+use super::{Iden, Modifier, Type};
 
 /// A field in a [Struct] declaration.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -91,6 +91,7 @@ impl Parse for StructFieldList {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Struct {
     pub span: Span,
+    pub modifiers: Vec<Modifier>,
     pub name: Iden,
     pub fields: StructFieldList,
 }
@@ -125,6 +126,7 @@ impl Parse for Struct {
 
         Some(Ok(Self {
             span: Span::new(parser.scanner().file_id(), name.span.start, fields.span.end),
+            modifiers: Vec::new(),
             name,
             fields,
         }))
