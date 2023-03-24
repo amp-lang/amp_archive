@@ -2,7 +2,7 @@
 
 ## v0.3.0-alpha
 
-## Language
+### Language
 - [feat (#21): [syntax/scanner, syntax/parser, typechecker, codegen] implement struct types & constructors](https://github.com/amp-lang/amp/issues/21)
 - [feat (#22): [syntax/scanner, syntax/parser, typechecker, codegen] implement struct field accessing](https://github.com/amp-lang/amp/issues/22)
 - [feat (#24): [typechecker, codegen] assign fields of struct references](https://github.com/amp-lang/amp/issues/24)
@@ -14,7 +14,7 @@
 - [feat (#30): [syntax/scanner, syntax/parser, typechecker, codegen] `<=`, `<`, `>` and `=>` operators](https://github.com/amp-lang/amp/issues/30)
 - [feat (#27): [syntax/scanner, syntax/parser, typechecker, codegen] `if` statements](https://github.com/amp-lang/amp/issues/27)
 
-## Compiler
+### Compiler
 - [feat (#23): implement multiple module linking](https://github.com/amp-lang/amp/issues/23)
 - fix: don't return correct struct field
 - refactor: remove `unescaper` dependency
