@@ -1,0 +1,27 @@
+//! An example of structs being used.
+//!
+//! Requires linking with the runtime library and the C standard library:
+//!
+//! ```sh
+//! amp build examples/fibonacci.amp runtime/runtime.amp -o fibonacci
+//! ```
+
+/// `printf` from the C standard library.
+func printf(format: ~const u8, n: i32) -> i32;
+
+/// Just a struct with a single member.
+struct Foo {
+    member: i32,
+}
+
+func Main() {
+    // initialize an instance of Foo
+    var my_struct = Foo .{ member = 42 };
+
+    // Read a member of foo
+    printf("%d\n", my_struct.member);
+
+    // Change a member of foo
+    my_struct.member = 43;
+    printf("%d\n", my_struct.member);
+}
