@@ -1,10 +1,26 @@
-func printf(format: ~const u8, args: i32);
+func printf(format: ~const u8, args: int);
 
-func Main() {
-    var i: i32 = 0;
+// Calculate fibonacci sequence
+func fib(nterms: int) {
+    if nterms == 0 {
+        return;
+    } else if nterms == 1 {
+        printf("%d\n", 1);
+    } else {
+        var n1 = 0;
+        var n2 = 1;
+        var count = 0;
 
-    while i <= 10 {
-        printf("%d\n", i);
-        i = i + 1;
+        while count < nterms {
+            printf("%d\n", n1);
+            var nth = n1 + n2;
+            n1 = n2;
+            n2 = nth;
+            count = count + 1;
+        }
     }
+}
+
+func main() -> i32 {
+    fib(15);
 }

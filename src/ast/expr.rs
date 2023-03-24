@@ -361,6 +361,191 @@ impl Parse for While {
     }
 }
 
+/// An `else if` branch to an `if` statement.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct ElseIf {
+    pub span: Span,
+    pub cond: Box<Expr>,
+    pub body: Block,
+}
+
+impl Parse for ElseIf {
+    fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
+        let scanner_span = parser.scanner().span();
+
+        if parser.scanner_mut().peek()? == Ok(Token::KElse)
+            && parser.scanner_mut().peek_nth(1)? == Ok(Token::KIf)
+        {
+            parser.scanner_mut().nth(1);
+        } else {
+            return None;
+        }
+
+        let cond = if let Some(value) = Expr::parse(parser) {
+            match value {
+                Ok(expr) => Box::new(expr),
+                Err(err) => return Some(Err(err)),
+            }
+        } else {
+            parser.scanner_mut().next();
+            return Some(Err(Error::ExpectedExpression(parser.scanner().span())));
+        };
+
+        let body = if let Some(block) = Block::parse(parser) {
+            match block {
+                Ok(block) => block,
+                Err(err) => return Some(Err(err)),
+            }
+        } else {
+            parser.scanner_mut().next();
+            return Some(Err(Error::ExpectedBlock(parser.scanner().span())));
+        };
+
+        Some(Ok(Self {
+            span: Span::new(
+                parser.scanner().file_id(),
+                scanner_span.start,
+                body.span.end,
+            ),
+            cond,
+            body,
+        }))
+    }
+}
+
+/// An `else` branch to an `if` statement.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Else {
+    pub span: Span,
+    pub body: Block,
+}
+
+impl Parse for Else {
+    fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
+        let scanner_span = parser.scanner().span();
+
+        if parser.scanner_mut().peek()? == Ok(Token::KElse) {
+            parser.scanner_mut().next();
+        } else {
+            return None;
+        }
+
+        let body = if let Some(block) = Block::parse(parser) {
+            match block {
+                Ok(block) => block,
+                Err(err) => return Some(Err(err)),
+            }
+        } else {
+            parser.scanner_mut().next();
+            return Some(Err(Error::ExpectedBlock(parser.scanner().span())));
+        };
+
+        Some(Ok(Self {
+            span: Span::new(
+                parser.scanner().file_id(),
+                scanner_span.start,
+                body.span.end,
+            ),
+            body,
+        }))
+    }
+}
+
+/// A branch of an [If] statement.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum IfBranch {
+    ElseIf(ElseIf),
+    Else(Else),
+}
+
+impl Parse for IfBranch {
+    fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
+        if let Some(value) = ElseIf::parse(parser) {
+            match value {
+                Ok(expr) => Some(Ok(Self::ElseIf(expr))),
+                Err(err) => Some(Err(err)),
+            }
+        } else if let Some(value) = Else::parse(parser) {
+            match value {
+                Ok(expr) => Some(Ok(Self::Else(expr))),
+                Err(err) => Some(Err(err)),
+            }
+        } else {
+            None
+        }
+    }
+}
+
+/// An `if` statement.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct If {
+    pub span: Span,
+    pub cond: Box<Expr>,
+    pub body: Block,
+    pub branches: Vec<IfBranch>,
+}
+
+impl Parse for If {
+    fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
+        if let Ok(Token::KIf) = parser.scanner_mut().peek()? {
+            parser.scanner_mut().next();
+        } else {
+            return None;
+        }
+
+        let start = parser.scanner().span();
+
+        let cond = if let Some(value) = Expr::parse(parser) {
+            match value {
+                Ok(expr) => Box::new(expr),
+                Err(err) => return Some(Err(err)),
+            }
+        } else {
+            parser.scanner_mut().next();
+            return Some(Err(Error::ExpectedExpression(parser.scanner().span())));
+        };
+
+        let body = if let Some(block) = Block::parse(parser) {
+            match block {
+                Ok(block) => block,
+                Err(err) => return Some(Err(err)),
+            }
+        } else {
+            parser.scanner_mut().next();
+            return Some(Err(Error::ExpectedBlock(parser.scanner().span())));
+        };
+
+        let branches = {
+            let mut branches = Vec::new();
+
+            while let Some(item) = IfBranch::parse(parser) {
+                match item {
+                    Ok(branch) => branches.push(branch),
+                    Err(err) => return Some(Err(err)),
+                }
+            }
+
+            branches
+        };
+
+        Some(Ok(Self {
+            span: Span::new(
+                parser.scanner().file_id(),
+                start.start,
+                branches
+                    .last()
+                    .map_or(body.span.end, |branch| match branch {
+                        IfBranch::ElseIf(else_if) => else_if.span.end,
+                        IfBranch::Else(else_) => else_.span.end,
+                    }),
+            ),
+            cond,
+            body,
+            branches,
+        }))
+    }
+}
+
 /// An expression in Amp code.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Expr {
@@ -375,6 +560,7 @@ pub enum Expr {
     Unary(Unary),
     Constructor(Constructor),
     While(While),
+    If(If),
 }
 
 impl Expr {
@@ -392,6 +578,7 @@ impl Expr {
             Expr::Unary(unary) => unary.span,
             Expr::Constructor(constructor) => constructor.span,
             Expr::While(while_) => while_.span,
+            Expr::If(if_) => if_.span,
         }
     }
 
@@ -399,6 +586,7 @@ impl Expr {
     pub fn requires_semi(&self) -> bool {
         match self {
             Expr::While(_) => false,
+            Expr::If(_) => false,
             _ => true,
         }
     }
@@ -611,6 +799,11 @@ impl Parse for Expr {
         } else if let Some(res) = parser.parse::<While>() {
             match res {
                 Ok(while_) => Some(Ok(Expr::While(while_))),
+                Err(err) => Some(Err(err)),
+            }
+        } else if let Some(res) = parser.parse::<If>() {
+            match res {
+                Ok(if_) => Some(Ok(Expr::If(if_))),
                 Err(err) => Some(Err(err)),
             }
         } else {

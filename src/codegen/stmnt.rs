@@ -8,7 +8,7 @@ use cranelift_module::Module;
 
 use crate::typechecker::{
     func::{FuncImpl, Signature},
-    stmnt::{Assign, AssignDest, Block, Return, Stmnt, VarDecl},
+    stmnt::{Assign, AssignDest, Block, IfBranch, Return, Stmnt, VarDecl},
     value::FuncCall,
     var::VarId,
     Typechecker,
@@ -212,11 +212,137 @@ pub fn compile_statement(
                 builder.switch_to_block(end_block);
             }
         }
+        Stmnt::If(if_) => {
+            let cond_block = builder.create_block();
+            let body_block = builder.create_block();
+            let end_block = builder.create_block();
+
+            // create blocks for branches
+            let branch_blocks = {
+                let mut blocks = Vec::new();
+                for branch in &if_.branches {
+                    match branch {
+                        IfBranch::Else(_) => {
+                            blocks.push((builder.create_block(), builder.create_block()));
+                            break;
+                        }
+                        IfBranch::ElseIf(_) => {
+                            blocks.push((builder.create_block(), builder.create_block()));
+                        }
+                    }
+                }
+                blocks
+            };
+
+            // check condition
+            builder.ins().jump(cond_block, &[]);
+            builder.switch_to_block(cond_block);
+            let cond =
+                super::value::compile_value(checker, codegen, builder, &if_.cond, vars, data, None)
+                    .expect("no `to` provided");
+            builder.ins().brif(
+                cond,
+                body_block,
+                &[],
+                if let Some(next_branch) = branch_blocks.get(0) {
+                    // check the next condition...
+                    next_branch.0
+                } else {
+                    // ...or exit the if statement
+                    end_block
+                },
+                &[],
+            );
+
+            // compile body
+            builder.switch_to_block(body_block);
+
+            if !compile_block(
+                checker, codegen, builder, vars, signature, data, &if_.body, false,
+            ) {
+                builder.ins().jump(end_block, &[]);
+            }
+
+            // compile branches
+            let branches = branch_blocks.iter().enumerate();
+            for (idx, branch) in branches {
+                let (cond_block, body_block) = *branch;
+
+                // build condition block
+                builder.switch_to_block(cond_block);
+
+                let branch = &if_.branches[idx];
+                match branch {
+                    IfBranch::ElseIf(else_if) => {
+                        let cond = super::value::compile_value(
+                            checker,
+                            codegen,
+                            builder,
+                            &else_if.cond,
+                            vars,
+                            data,
+                            None,
+                        )
+                        .expect("no `to` provided");
+                        builder.ins().brif(
+                            cond,
+                            body_block,
+                            &[],
+                            if let Some(next_branch) = branch_blocks.get(idx + 1) {
+                                next_branch.0
+                            } else {
+                                end_block
+                            },
+                            &[],
+                        );
+                    }
+                    IfBranch::Else(_) => {
+                        builder.ins().jump(body_block, &[]);
+                    }
+                }
+
+                // build body
+                builder.switch_to_block(body_block);
+
+                match branch {
+                    IfBranch::ElseIf(else_if) => {
+                        if !compile_block(
+                            checker,
+                            codegen,
+                            builder,
+                            vars,
+                            signature,
+                            data,
+                            &else_if.body,
+                            false,
+                        ) {
+                            builder.ins().jump(end_block, &[]);
+                        }
+                    }
+                    IfBranch::Else(else_) => {
+                        if !compile_block(
+                            checker,
+                            codegen,
+                            builder,
+                            vars,
+                            signature,
+                            data,
+                            &else_.body,
+                            false,
+                        ) {
+                            builder.ins().jump(end_block, &[]);
+                        }
+                    }
+                }
+                builder.switch_to_block(end_block);
+            }
+        }
     }
 
     false
 }
 
+/// Returns `true` if the block is filled.
 pub fn compile_block(
     checker: &Typechecker,
     codegen: &mut Codegen,
@@ -226,14 +352,14 @@ pub fn compile_block(
     data: &FuncImpl,
     block: &Block,
     must_return: bool,
-) {
-    let mut returns = false;
+) -> bool {
+    let mut filled = false;
     for stmnt in &block.value {
-        returns =
-            compile_statement(checker, codegen, builder, vars, signature, data, stmnt) || returns;
+        filled =
+            compile_statement(checker, codegen, builder, vars, signature, data, stmnt) || filled;
     }
 
-    if !returns && must_return {
+    if !filled && must_return {
         if let Some(returns) = &signature.returns {
             if returns.is_big(checker, codegen.pointer_type.bytes() as usize) {
                 builder.ins().return_(&[]);
@@ -251,5 +377,8 @@ pub fn compile_block(
         } else {
             builder.ins().return_(&[]);
         }
+        filled = true;
     }
+
+    filled
 }

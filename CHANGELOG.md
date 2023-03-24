@@ -12,6 +12,7 @@
 - [feat (#30): [syntax/scanner, syntax/parser, typechecker, codegen] the `==` operator](https://github.com/amp-lang/amp/issues/30)
 - [feat (#30): [syntax/scanner, syntax/parser, typechecker, codegen] the `!=` operator](https://github.com/amp-lang/amp/issues/30)
 - [feat (#30): [syntax/scanner, syntax/parser, typechecker, codegen] `<=`, `<`, `>` and `=>` operators](https://github.com/amp-lang/amp/issues/30)
+- [feat (#27): [syntax/scanner, syntax/parser, typechecker, codegen] `if` statements](https://github.com/amp-lang/amp/issues/27)
 
 ## Compiler
 - [feat (#23): implement multiple module linking](https://github.com/amp-lang/amp/issues/23)

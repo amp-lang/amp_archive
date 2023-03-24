@@ -301,6 +301,105 @@ impl While {
     }
 }
 
+/// An `else if` statement.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ElseIf {
+    pub cond: Value,
+    pub body: Block,
+}
+
+impl ElseIf {
+    pub fn check(
+        checker: &Typechecker,
+        scope: &mut Scope,
+        vars: &mut Vars,
+        func: &Func,
+        ast: &ast::ElseIf,
+    ) -> Result<Self, Error> {
+        let cond = GenericValue::check(checker, scope, vars, &ast.cond)?
+            .coerce(checker, vars, &Type::Bool)
+            .ok_or(Error::InvalidCondition(ast.cond.span()))?;
+
+        let body = Block::check(checker, scope, vars, func, &ast.body)?;
+
+        Ok(Self { cond, body })
+    }
+}
+
+/// An else statement.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Else {
+    pub body: Block,
+}
+
+impl Else {
+    pub fn check(
+        checker: &Typechecker,
+        scope: &mut Scope,
+        vars: &mut Vars,
+        func: &Func,
+        ast: &ast::Else,
+    ) -> Result<Self, Error> {
+        let body = Block::check(checker, scope, vars, func, &ast.body)?;
+
+        Ok(Self { body })
+    }
+}
+
+/// A branch of an [If] statement.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum IfBranch {
+    ElseIf(ElseIf),
+    Else(Else),
+}
+
+/// An `if` statement.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct If {
+    pub cond: Value,
+    pub body: Block,
+    pub branches: Vec<IfBranch>,
+}
+
+impl If {
+    pub fn check(
+        checker: &Typechecker,
+        scope: &mut Scope,
+        vars: &mut Vars,
+        func: &Func,
+        ast: &ast::If,
+    ) -> Result<Self, Error> {
+        let cond = GenericValue::check(checker, scope, vars, &ast.cond)?
+            .coerce(checker, vars, &Type::Bool)
+            .ok_or(Error::InvalidCondition(ast.cond.span()))?;
+
+        let body = Block::check(checker, scope, vars, func, &ast.body)?;
+
+        let mut branches = Vec::new();
+
+        for branch in &ast.branches {
+            match branch {
+                ast::IfBranch::ElseIf(else_if) => {
+                    let else_if = ElseIf::check(checker, scope, vars, func, else_if)?;
+
+                    branches.push(IfBranch::ElseIf(else_if));
+                }
+                ast::IfBranch::Else(else_) => {
+                    let else_ = Else::check(checker, scope, vars, func, else_)?;
+
+                    branches.push(IfBranch::Else(else_));
+                }
+            }
+        }
+
+        Ok(Self {
+            cond,
+            body,
+            branches,
+        })
+    }
+}
+
 /// A statement of code.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Stmnt {
@@ -309,6 +408,7 @@ pub enum Stmnt {
     VarDecl(VarDecl),
     Assign(Assign),
     While(While),
+    If(If),
 }
 
 impl Stmnt {
@@ -348,6 +448,11 @@ impl Stmnt {
                 let while_ = While::check(checker, scope, vars, func, while_)?;
 
                 Ok(Stmnt::While(while_))
+            }
+            ast::Expr::If(if_) => {
+                let if_ = If::check(checker, scope, vars, func, if_)?;
+
+                Ok(Stmnt::If(if_))
             }
             _ => Err(Error::InvalidStatement(stmnt.span())),
         }

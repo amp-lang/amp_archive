@@ -233,6 +233,9 @@ pub enum Token {
     /// ```
     KIf,
 
+    /// The `else` keyword.
+    KElse,
+
     /// A normal, non-suspicious string literal.
     ///
     /// ```amp
@@ -642,6 +645,19 @@ impl<'a> Scanner<'a> {
         self.current_span = span;
         token
     }
+
+    /// Peeks the *nth* future token in the scanner.
+    pub fn peek_nth(&mut self, n: usize) -> Option<Result<Token, Error>> {
+        let span = self.current_span;
+
+        for _ in 0..n {
+            self.next();
+        }
+
+        let token = self.next();
+        self.current_span = span;
+        token
+    }
 }
 
 impl<'a> Iterator for Scanner<'a> {
@@ -665,6 +681,7 @@ impl<'a> Iterator for Scanner<'a> {
                 "return" => Token::KReturn,
                 "while" => Token::KWhile,
                 "if" => Token::KIf,
+                "else" => Token::KElse,
                 "true" => Token::KTrue,
                 "false" => Token::KFalse,
                 _ => Token::Identifier,
