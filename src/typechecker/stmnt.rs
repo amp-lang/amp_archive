@@ -294,7 +294,6 @@ impl While {
         } else {
             None
         };
-
         let body = Block::check(checker, scope, vars, func, &ast.body)?;
 
         Ok(Self { cond, body })
@@ -474,10 +473,11 @@ impl Block {
         func: &Func,
         block: &ast::Block,
     ) -> Result<Self, Error> {
+        let mut scope = Scope::new(Some(scope)); // the new scope for the block
         let mut value = Vec::new();
 
         for stmnt in &block.value {
-            let stmnt = Stmnt::check(checker, scope, vars, func, stmnt)?;
+            let stmnt = Stmnt::check(checker, &mut scope, vars, func, stmnt)?;
             value.push(stmnt);
         }
 
