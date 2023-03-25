@@ -1,0 +1,7 @@
+import "Slice";
+
+func printf(fmt: ~const u8, size: uint, str: ~const u8) -> i32;
+
+export func Print(str: []const u8) {
+    printf("%.*s", SliceLen(str), SliceAsPtr(str));
+}

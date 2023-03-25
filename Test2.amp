@@ -1,8 +1,0 @@
-import "Test";
-
-export func puts(format: ~const u8) -> i32;
-
-export struct Foo {}
-struct Foo2 {
-    member: Foo3,
-}

@@ -1,0 +1,5 @@
+/// Returns the length of a slice.
+export func SliceLen(slice: []const u8) -> uint;
+
+/// Converts a slice to a pointer type.
+export func SliceAsPtr(slice: []const u8) -> ~const u8;
