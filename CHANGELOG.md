@@ -5,6 +5,7 @@
 ### Language
 - [feat! (#32): implement `export` modifier](https://github.com/amp-lang/amp/issues/32)
 - [feat (#29): implement `import` statements](https://github.com/amp-lang/amp/issues/29)
+- [feat (#35): implement `namespace`s](https://github.com/amp-lang/amp/issues/35)
 
 ### Compiler
 - [fix! (#33): create new scope for each block](https://github.com/amp-lang/amp/issues/33)
