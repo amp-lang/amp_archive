@@ -1,8 +1,11 @@
 import "Slice";
 
-func printf(fmt: ~const u8, size: uint, str: ~const u8) -> i32;
 
 namespace Std;
+
+func printf(fmt: ~const u8, size: uint, str: ~const u8) -> i32;
+
+/// Writes a string directly to STDOUT.  Does not append a line break.
 export func Std.Print(str: []const u8) {
-    printf("%.*s", SliceLen(str), SliceAsPtr(str));
+    printf("%.*s", Std.SliceLen(str), Std.SliceAsPtr(str));
 }

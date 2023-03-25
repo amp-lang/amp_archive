@@ -1,5 +1,22 @@
+namespace Std;
+
 /// Returns the length of a slice.
-export func SliceLen(slice: []const u8) -> uint;
+func SliceLen(slice: []const u8) -> uint;
 
 /// Converts a slice to a pointer type.
-export func SliceAsPtr(slice: []const u8) -> ~const u8;
+func SliceAsPtr(slice: []const u8) -> ~mut u8;
+
+/// Returns the number of items in the provided slice.
+export func Std.SliceLen(slice: []const u8) -> uint {
+    return SliceLen(slice);
+}
+
+/// Converts a slice to a pointer.
+export func Std.SliceAsPtr(slice: []const u8) -> ~const u8 {
+    return SliceAsPtr(slice);
+}
+
+/// Converts a slice to a mutable pointer.
+export func Std.SliceAsPtrMut(slice: []mut u8) -> ~mut u8 {
+    return SliceAsPtr(slice);
+}
