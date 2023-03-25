@@ -112,7 +112,21 @@ impl Module {
                                 let decl = TypeDecl::Struct(*id);
                                 scope.define_type(struct_.name.value.clone(), decl);
                             }
-                            Export::Import(_) => unreachable!(),
+                            Export::Import(import) => {
+                                if imported_exported_modules.contains(import) {
+                                    continue;
+                                }
+
+                                imported_exported_modules.push(*import);
+                                let imported_module = modules[import.0].clone();
+
+                                imported_module.load_exports_into_scope(
+                                    checker,
+                                    scope,
+                                    modules,
+                                    imported_exported_modules,
+                                )
+                            }
                         }
                     }
                 }
@@ -186,6 +200,15 @@ impl Module {
                     let id =
                         Typechecker::resolve_module(modules, &parent, files, importer, import)?;
                     self.imports.push(id);
+
+                    // export import
+                    for item in &import.modifiers {
+                        match item {
+                            Modifier::Export(_) => {
+                                self.exports.push(Export::Import(id));
+                            }
+                        }
+                    }
                 }
                 _ => {}
             }

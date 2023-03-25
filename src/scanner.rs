@@ -246,6 +246,9 @@ pub enum Token {
     /// The `import` keyword.
     KImport,
 
+    /// The `namespace` keyword.
+    KNamespace,
+
     /// A normal, non-suspicious string literal.
     ///
     /// ```amp
@@ -696,6 +699,7 @@ impl<'a> Iterator for Scanner<'a> {
                 "false" => Token::KFalse,
                 "export" => Token::KExport,
                 "import" => Token::KImport,
+                "namespace" => Token::KNamespace,
                 _ => Token::Identifier,
             }));
         } else if first_char == '"' {

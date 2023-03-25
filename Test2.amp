@@ -1,0 +1,6 @@
+export import "Test";
+export import "Test2";
+
+export struct MyStruct {
+    member: i32,
+}

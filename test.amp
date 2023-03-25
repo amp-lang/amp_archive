@@ -1,5 +1,7 @@
 import "Std/Io";
+export import "Test2";
 
 export func Main() {
-    Print("Hello, world!\n");
+    var my_struct = MyStruct .{ member = 42 };
+    Print("Hello, world!");
 }
