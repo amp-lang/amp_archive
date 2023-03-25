@@ -5,7 +5,7 @@ use crate::{
     span::Span,
 };
 
-use super::{Func, Import, Struct};
+use super::{Func, Import, Namespace, Struct};
 
 /// A modifier for a declaration.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -65,6 +65,9 @@ pub enum Decl {
 
     /// An `import` statement.
     Import(Import),
+
+    /// A `namespace` declaration.
+    Namespace(Namespace),
 }
 
 impl Parse for Decl {
@@ -102,6 +105,15 @@ impl Parse for Decl {
                     value.modifiers = modifiers;
                     value
                 }))),
+                Err(err) => Some(Err(err)),
+            }
+        } else if let Some(value) = parser.parse::<Namespace>() {
+            if let Some(span) = Modifier::modifiers_span(&modifiers) {
+                return Some(Err(Error::NamespaceModifier(span)));
+            }
+
+            match value {
+                Ok(value) => Some(Ok(Self::Namespace(value))),
                 Err(err) => Some(Err(err)),
             }
         } else {

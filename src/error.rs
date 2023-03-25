@@ -370,6 +370,15 @@ pub enum Error {
 
     /// Cannot read the imported module.
     CannotReadImport(ast::Str) = 64,
+
+    /// Expected the name following the `namespace` keyword.
+    ExpectedNamespaceName(Span) = 65,
+
+    /// Namespaces cannot follow modifiers.
+    NamespaceModifier(Span) = 66,
+
+    /// Expected an item in a path.
+    ExpectedPathItem(Span) = 67,
 }
 
 impl Error {
@@ -870,6 +879,18 @@ impl Error {
                 diagnostic.message =
                     format!("Cannot read contents of imported module '{}'", import.value);
                 diagnostic.labels.push(import.span.primary());
+            }
+            Self::ExpectedNamespaceName(span) => {
+                diagnostic.message = "Expected the name of the namespace".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::NamespaceModifier(span) => {
+                diagnostic.message = "Cannot apply a modifier to a namespace".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::ExpectedPathItem(span) => {
+                diagnostic.message = "Expected a path item".to_owned();
+                diagnostic.labels.push(span.primary());
             }
         }
 

@@ -206,6 +206,7 @@ impl Module {
                         match item {
                             Modifier::Export(_) => {
                                 self.exports.push(Export::Import(id));
+                                break;
                             }
                         }
                     }
@@ -229,6 +230,7 @@ impl Module {
                         match item {
                             Modifier::Export(_) => {
                                 self.exports.push(Export::Struct(id));
+                                break;
                             }
                         }
                     }
@@ -279,6 +281,7 @@ impl Module {
                         match item {
                             Modifier::Export(_) => {
                                 self.exports.push(Export::Func(id));
+                                break;
                             }
                         }
                     }

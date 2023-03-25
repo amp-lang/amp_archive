@@ -250,3 +250,50 @@ impl Parse for Bool {
         }
     }
 }
+
+/// A namespace path.
+///
+/// ```amp
+/// MyName
+/// MyNamespace.MyName
+/// ```
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Path {
+    pub span: Span,
+    pub items: Vec<Iden>,
+}
+
+impl Parse for Path {
+    fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
+        let mut items = vec![match parser.parse::<Iden>()? {
+            Ok(item) => item,
+            Err(err) => return Some(Err(err)),
+        }];
+
+        loop {
+            match parser.scanner_mut().peek() {
+                Some(Ok(Token::Dot)) => {
+                    parser.scanner_mut().next();
+                }
+                Some(Err(err)) => return Some(Err(err)),
+                _ => break,
+            }
+
+            match parser.parse::<Iden>() {
+                Some(Ok(iden)) => {
+                    items.push(iden);
+                }
+                Some(Err(err)) => return Some(Err(err)),
+                None => {
+                    parser.scanner_mut().next();
+                    return Some(Err(Error::ExpectedPathItem(parser.scanner().span())));
+                }
+            }
+        }
+
+        Some(Ok(Self {
+            span: parser.scanner().span(),
+            items,
+        }))
+    }
+}

@@ -1,7 +1,10 @@
-import "Std/Io";
-export import "Test2";
+import "Std";
+
+namespace Test;
+export func Test.Test() {
+    Print("Test");
+}
 
 export func Main() {
-    var my_struct = MyStruct .{ member = 42 };
-    Print("Hello, world!");
+    Test.Test();
 }
