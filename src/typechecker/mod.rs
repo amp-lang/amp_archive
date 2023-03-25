@@ -14,6 +14,7 @@ use self::{
 pub mod decl;
 pub mod func;
 pub mod module;
+pub mod namespace;
 pub mod scope;
 pub mod stmnt;
 pub mod struct_;
@@ -136,6 +137,11 @@ impl Typechecker {
         // Resolve imports
         module.resolve_imports(&mut modules, files, importer)?;
         modules[0] = module;
+
+        // Check namespace declarations
+        for module in &mut modules {
+            module.declare_namespaces();
+        }
 
         // Check type declarations
         for module in &mut modules {

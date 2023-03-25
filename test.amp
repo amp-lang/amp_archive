@@ -1,10 +1,10 @@
 import "Std";
 
-namespace Test;
-export func Test.Test() {
-    Print("Test");
-}
+namespace Std;
+// export func Std.Test() {
+//     Print("Hello, world!\n");
+// }
 
 export func Main() {
-    Test.Test();
+    // Std.Test();
 }

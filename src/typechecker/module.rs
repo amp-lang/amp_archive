@@ -11,6 +11,7 @@ use crate::{
 
 use super::{
     func::{check_func_decl, check_func_def, FuncId},
+    namespace::Namespace,
     scope::Scope,
     struct_::{check_struct_decl, check_struct_def, StructId},
     Typechecker,
@@ -58,6 +59,9 @@ pub struct Module {
 
     /// A list of all functions declared in this module.
     pub funcs: Vec<FuncId>,
+
+    /// A list of namespace strings declared in the module.
+    pub namespaces: Vec<Namespace>,
 }
 
 impl Module {
@@ -71,6 +75,7 @@ impl Module {
             exports: Vec::new(),
             structs: Vec::new(),
             funcs: Vec::new(),
+            namespaces: Vec::new(),
         }
     }
 
@@ -182,6 +187,21 @@ impl Module {
         }
 
         scope
+    }
+
+    /// Declares the namespaces of a module.
+    pub fn declare_namespaces(&mut self) {
+        for decl in &self.ast.decls {
+            match decl {
+                ast::Decl::Namespace(namespace) => {
+                    self.namespaces.push(Namespace {
+                        span: namespace.span,
+                        name: namespace.name.value.clone(),
+                    });
+                }
+                _ => {}
+            }
+        }
     }
 
     /// Resolves the imports of a module.  Returns a list of imported modules.

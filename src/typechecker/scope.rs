@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::{func::FuncId, struct_::StructId, var::VarId};
+use super::{func::FuncId, namespace::NamespaceId, struct_::StructId, var::VarId};
 
 /// The a type declared in a scope.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -13,6 +13,7 @@ pub enum TypeDecl {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Scope<'a> {
     pub parent: Option<&'a Scope<'a>>,
+    pub namespaces: HashMap<String, Scope<'a>>,
     pub funcs: HashMap<String, FuncId>,
     pub vars: HashMap<String, VarId>,
     pub types: HashMap<String, TypeDecl>,
@@ -23,10 +24,17 @@ impl<'a> Scope<'a> {
     pub fn new(parent: Option<&'a Scope<'a>>) -> Self {
         Self {
             parent,
+            namespaces: HashMap::new(),
             funcs: HashMap::new(),
             vars: HashMap::new(),
             types: HashMap::new(),
         }
+    }
+
+    /// Declares a namespace in the current [Scope].
+    #[inline]
+    pub fn declare_namespace(&mut self, name: String) {
+        self.namespaces.insert(name, Scope::new(None));
     }
 
     /// Recursively searches for a function with the provided name, if any.
@@ -63,6 +71,9 @@ impl<'a> Scope<'a> {
     }
 
     /// Defines a function in this scope.
+    ///
+    /// TODO: check the path of the function and insert it into the appropriate namespace if
+    /// applicable.  Return a `Result` or similar if the function could not be inserted.
     pub fn define_func(&mut self, name: String, id: FuncId) {
         self.funcs.insert(name, id);
     }
