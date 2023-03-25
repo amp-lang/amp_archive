@@ -6,6 +6,7 @@ use crate::{
 
 use super::{
     decl::Modifier,
+    path::Path,
     scope::Scope,
     stmnt::Block,
     types::Type,
@@ -86,7 +87,7 @@ pub struct Func {
     /// The name of the function.
     ///
     /// TODO: replace with some sort of namespace path type.
-    pub name: Spanned<String>,
+    pub name: Spanned<Path>,
 
     /// The span of the declaration, from the `fn` keyword to the end of the return type, if any.
     pub span: Span,
@@ -114,7 +115,7 @@ pub fn check_func_decl(
     let decl = Func {
         signature,
         modifiers: decl.modifiers.iter().map(|m| Modifier::check(m)).collect(),
-        name: Spanned::new(decl.name.span, decl.name.value.clone()),
+        name: Spanned::new(decl.name.span, Path::check(&decl.name)),
         span: Span::new(
             decl.span.file_id,
             decl.span.start,
@@ -136,7 +137,7 @@ pub fn check_func_def(
 ) -> Result<(), Error> {
     if let Some(ast_block) = &ast.block {
         let item = scope
-            .resolve_func(&ast.name.value)
+            .resolve_func(&Path::check(&ast.name))
             .expect("Typechecker confirms this function exists");
         let func = &checker.funcs[item.0 as usize];
         let mut vars = Vars::new();

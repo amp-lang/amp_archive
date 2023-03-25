@@ -31,6 +31,24 @@ pub struct CraneliftFunc {
     pub signature: CraneliftSignature,
 }
 
+pub fn mangle_func(decl: &Func) -> String {
+    if decl.name.value.items.len() == 1 {
+        decl.name.value.items[0].to_string()
+    } else {
+        let mut name = String::new();
+
+        for (i, item) in decl.name.value.items.iter().enumerate() {
+            if i > 0 {
+                name.push('.');
+            }
+
+            name.push_str(item);
+        }
+
+        format!("${}", name)
+    }
+}
+
 /// Declares a function in the Cranelift context.
 pub fn declare_func(codegen: &mut Codegen, checker: &Typechecker, decl: &Func) -> CraneliftFunc {
     let mut signature = codegen.module.make_signature();
@@ -71,7 +89,7 @@ pub fn declare_func(codegen: &mut Codegen, checker: &Typechecker, decl: &Func) -
     let cranelift_id = codegen
         .module
         .declare_function(
-            &decl.name.value,
+            &mangle_func(decl),
             if decl.modifiers.contains(&Modifier::Export) {
                 Linkage::Export
             } else {

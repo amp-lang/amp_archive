@@ -379,6 +379,9 @@ pub enum Error {
 
     /// Expected an item in a path.
     ExpectedPathItem(Span) = 67,
+
+    /// An invalid path was found.
+    InvalidPath(Span) = 68,
 }
 
 impl Error {
@@ -890,6 +893,10 @@ impl Error {
             }
             Self::ExpectedPathItem(span) => {
                 diagnostic.message = "Expected a path item".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::InvalidPath(span) => {
+                diagnostic.message = "Invalid path".to_owned();
                 diagnostic.labels.push(span.primary());
             }
         }

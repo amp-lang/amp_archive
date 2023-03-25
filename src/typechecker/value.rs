@@ -9,6 +9,7 @@ use crate::{
 
 use super::{
     func::FuncId,
+    path::Path,
     scope::Scope,
     struct_::StructId,
     types::{self, Mutability, Ptr, Slice, Type},
@@ -32,17 +33,13 @@ impl FuncCall {
         call: &ast::Call,
     ) -> Result<Self, Error> {
         // TODO: make this code simpler somehow
-        let callee = match &*call.callee {
-            ast::Expr::Iden(iden) => {
-                let callee = scope
-                    .resolve_func(&iden.value)
-                    .ok_or(Error::UndeclaredFunction(Spanned::new(
-                        iden.span,
-                        iden.value.clone(),
-                    )))?;
-                callee
-            }
-            _ => return Err(Error::InvalidFunctionName(call.callee.span())),
+        let callee = {
+            let path = Path::check_path_expr(&call.callee)?;
+            let res = scope.resolve_func(&path);
+            res.ok_or(Error::UndeclaredFunction(Spanned::new(
+                call.callee.span(),
+                path.to_string(),
+            )))?
         };
 
         let func = &checker.funcs[callee.0 as usize];

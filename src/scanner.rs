@@ -356,9 +356,9 @@ impl Token {
             Token::Slash => (5, 6),
             Token::Percent => (5, 6),
             // cast expressions are (6, 7)
-            Token::LParen => (8, 7),
-            Token::Constructor => (8, 7),
-            Token::Dot => (8, 7),
+            Token::LParen => (7, 8),
+            Token::Constructor => (7, 8),
+            Token::Dot => (7, 8),
             _ => unreachable!("Invalid operator."),
         }
     }

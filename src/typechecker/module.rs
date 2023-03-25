@@ -139,12 +139,39 @@ impl Module {
         }
     }
 
+    fn declare_imported_namespaces(
+        &self,
+        imports_searched: &mut Vec<ModuleId>,
+        modules: &Vec<Module>,
+        scope: &mut Scope,
+    ) {
+        for import in &self.imports {
+            if imports_searched.contains(import) {
+                continue;
+            }
+            imports_searched.push(*import);
+            let imported_module = &modules[import.0];
+
+            for namespace in &imported_module.namespaces {
+                scope.declare_namespace(namespace.name.clone());
+            }
+
+            imported_module.declare_imported_namespaces(imports_searched, modules, scope);
+        }
+    }
+
     /// Creates the scope for a module to use.
     pub fn make_scope<'a>(&self, checker: &Typechecker, modules: &Vec<Module>) -> Scope<'a> {
         let mut scope = Scope::new(None);
 
         // a list of modules imported through an export
-        let mut imported_exported_modules = vec![self.id];
+
+        for namespace in &self.namespaces {
+            scope.declare_namespace(namespace.name.clone());
+        }
+
+        let mut imports_searched = vec![self.id];
+        self.declare_imported_namespaces(&mut imports_searched, modules, &mut scope);
 
         // Load structs into scope
         for id in &self.structs {
@@ -154,9 +181,11 @@ impl Module {
 
         // Load structs into scope
         for id in &self.funcs {
-            scope.define_func(checker.funcs[id.0].name.value.clone(), *id);
+            let res = scope.define_func(checker.funcs[id.0].name.value.clone(), *id);
+            debug_assert!(res);
         }
 
+        let mut imported_exported_modules = vec![self.id];
         for import in &self.imports {
             let imported_module = modules[import.0].clone();
 
@@ -164,7 +193,8 @@ impl Module {
                 match export {
                     Export::Func(id) => {
                         let func = &checker.funcs[id.0];
-                        scope.define_func(func.name.value.clone(), *id);
+                        let res = scope.define_func(func.name.value.clone(), *id);
+                        debug_assert!(res);
                     }
                     Export::Struct(id) => {
                         let struct_ = &checker.structs[id.0];

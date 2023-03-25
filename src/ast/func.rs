@@ -5,7 +5,7 @@ use crate::{
     span::Span,
 };
 
-use super::{ArgList, Block, Iden, Modifier, Type};
+use super::{ArgList, Block, Iden, Modifier, Path, Type};
 
 /// An argument in a function declaration.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -80,7 +80,7 @@ impl Parse for FuncArg {
 pub struct Func {
     pub span: Span,
     pub modifiers: Vec<Modifier>,
-    pub name: Iden,
+    pub name: Path,
     pub args: ArgList<FuncArg>,
     pub returns: Option<Type>,
     pub block: Option<Block>,
@@ -145,7 +145,7 @@ impl Parse for Func {
 
         // Parse the name of the function
         // TODO: parse optional namespace path
-        let name = if let Some(res) = parser.parse::<Iden>() {
+        let name = if let Some(res) = parser.parse::<Path>() {
             match res {
                 Ok(name) => name,
                 Err(err) => return Some(Err(err)),

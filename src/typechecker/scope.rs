@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::{func::FuncId, namespace::NamespaceId, struct_::StructId, var::VarId};
+use super::{func::FuncId, path::Path, struct_::StructId, var::VarId};
 
 /// The a type declared in a scope.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -37,15 +37,37 @@ impl<'a> Scope<'a> {
         self.namespaces.insert(name, Scope::new(None));
     }
 
+    /// Resolves a namespace in the current scope or parent scopes.
+    pub fn resolve_namespace(&self, name: &str) -> Option<&Scope> {
+        self.namespaces
+            .get(name)
+            .or_else(|| self.parent.and_then(|p| p.resolve_namespace(name)))
+    }
+
     /// Recursively searches for a function with the provided name, if any.
-    pub fn resolve_func(&self, name: &str) -> Option<FuncId> {
-        if let Some(id) = self.funcs.get(name) {
+    pub fn resolve_func(&self, name: &Path) -> Option<FuncId> {
+        if let Some(namespace) = name.namespace() {
+            if let Some(namespace) = self.resolve_namespace(namespace) {
+                let res = namespace.funcs.get(name.short_name()).copied();
+                res
+            } else {
+                None
+            }
+        } else if let Some(id) = self.funcs.get(name.short_name()) {
             Some(*id)
         } else if let Some(parent) = &self.parent {
             parent.resolve_func(name)
         } else {
             None
         }
+
+        // if let Some(id) = self.funcs.get(name) {
+        //     Some(*id)
+        // } else if let Some(parent) = &self.parent {
+        //     parent.resolve_func(name)
+        // } else {
+        //     None
+        // }
     }
 
     /// Recursively searches for a variable with the provided name, if any.
@@ -72,10 +94,19 @@ impl<'a> Scope<'a> {
 
     /// Defines a function in this scope.
     ///
-    /// TODO: check the path of the function and insert it into the appropriate namespace if
-    /// applicable.  Return a `Result` or similar if the function could not be inserted.
-    pub fn define_func(&mut self, name: String, id: FuncId) {
-        self.funcs.insert(name, id);
+    /// Returns `false` if the namespace for the function didn't exist.
+    pub fn define_func(&mut self, name: Path, id: FuncId) -> bool {
+        if let Some(namespace) = name.namespace() {
+            if let Some(scope) = self.namespaces.get_mut(namespace) {
+                scope.funcs.insert(name.short_name().to_string(), id);
+                true
+            } else {
+                false
+            }
+        } else {
+            self.funcs.insert(name.short_name().to_string(), id);
+            true
+        }
     }
 
     /// Defines a function in this scope.

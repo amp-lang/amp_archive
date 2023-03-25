@@ -2,7 +2,14 @@ use std::path::PathBuf;
 
 use codespan_reporting::files::SimpleFiles;
 
-use crate::{ast, error::Error, import::Importer, parser::Parser, scanner::Scanner, span::FileId};
+use crate::{
+    ast,
+    error::Error,
+    import::Importer,
+    parser::Parser,
+    scanner::Scanner,
+    span::{FileId, Spanned},
+};
 
 use self::{
     func::{Func, FuncId},
@@ -15,6 +22,7 @@ pub mod decl;
 pub mod func;
 pub mod module;
 pub mod namespace;
+pub mod path;
 pub mod scope;
 pub mod stmnt;
 pub mod struct_;
@@ -46,7 +54,7 @@ impl Typechecker {
         if let Some(id) = scope.resolve_func(&func.name.value) {
             return Err(Error::DuplicateSymbol {
                 original: self.funcs[id.0 as usize].span,
-                name: func.name.clone(),
+                name: Spanned::new(func.name.span, func.name.value.to_string()),
             });
         }
 
