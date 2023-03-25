@@ -10,7 +10,7 @@ use crate::{
 };
 
 use super::{
-    func::FuncId,
+    func::{check_func_decl, check_func_def, FuncId},
     scope::Scope,
     struct_::{check_struct_decl, check_struct_def, StructId},
     Typechecker,
@@ -55,6 +55,9 @@ pub struct Module {
 
     /// All structs declared in this module.
     pub structs: Vec<StructId>,
+
+    /// A list of all functions declared in this module.
+    pub funcs: Vec<FuncId>,
 }
 
 impl Module {
@@ -67,6 +70,7 @@ impl Module {
             imports: Vec::new(),
             exports: Vec::new(),
             structs: Vec::new(),
+            funcs: Vec::new(),
         }
     }
 
@@ -117,7 +121,7 @@ impl Module {
     }
 
     /// Creates the scope for a module to use.
-    pub fn make_scope(&self, checker: &Typechecker, modules: &mut Vec<Module>) -> Scope {
+    pub fn make_scope<'a>(&self, checker: &Typechecker, modules: &mut Vec<Module>) -> Scope<'a> {
         let mut scope = Scope::new(None);
 
         // a list of modules imported through an export
@@ -127,6 +131,11 @@ impl Module {
         for id in &self.structs {
             let decl = TypeDecl::Struct(*id);
             scope.define_type(checker.structs[id.0].name.value.clone(), decl);
+        }
+
+        // Load structs into scope
+        for id in &self.funcs {
+            scope.define_func(checker.funcs[id.0].name.value.clone(), *id);
         }
 
         for import in &self.imports {
@@ -222,6 +231,55 @@ impl Module {
             match decl {
                 ast::Decl::Struct(struct_) => {
                     check_struct_def(checker, &mut scope, struct_)?;
+                }
+                _ => {}
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Checks the function declarations in the module.
+    pub fn check_func_decls(
+        &mut self,
+        checker: &mut Typechecker,
+        modules: &mut Vec<Module>,
+    ) -> Result<(), Error> {
+        let mut scope = self.make_scope(checker, modules);
+
+        for decl in &self.ast.decls {
+            match decl {
+                ast::Decl::Func(func) => {
+                    let id = check_func_decl(checker, &mut scope, &func)?;
+
+                    for item in &func.modifiers {
+                        match item {
+                            Modifier::Export(_) => {
+                                self.exports.push(Export::Func(id));
+                            }
+                        }
+                    }
+
+                    self.funcs.push(id);
+                }
+                _ => {}
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn check_func_defs(
+        &self,
+        checker: &mut Typechecker,
+        modules: &mut Vec<Module>,
+    ) -> Result<(), Error> {
+        let mut scope = self.make_scope(checker, modules);
+
+        for decl in &self.ast.decls {
+            match decl {
+                ast::Decl::Func(func) => {
+                    check_func_def(checker, &mut scope, func)?;
                 }
                 _ => {}
             }

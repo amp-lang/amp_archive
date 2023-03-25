@@ -107,7 +107,7 @@ pub fn check_func_decl(
     checker: &mut Typechecker,
     scope: &mut Scope,
     decl: &ast::Func,
-) -> Result<(), Error> {
+) -> Result<FuncId, Error> {
     let signature = Signature::check(scope, decl)?;
     // TODO: implement function block
 
@@ -125,9 +125,7 @@ pub fn check_func_decl(
         func_impl: None,
     };
 
-    checker.declare_func(decl, scope)?;
-
-    Ok(())
+    checker.declare_func(decl, scope)
 }
 
 /// Checks a function declaration.

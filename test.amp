@@ -3,3 +3,7 @@ import "Test2";
 export struct Foo3 {
     member: Foo,
 }
+
+export func main() -> i32 {
+    puts("Hello, world!");
+}

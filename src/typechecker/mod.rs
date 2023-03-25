@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use codespan_reporting::files::SimpleFiles;
 
@@ -137,8 +137,6 @@ impl Typechecker {
         module.resolve_imports(&mut modules, files, importer)?;
         modules[0] = module;
 
-        dbg!(&modules);
-
         // Check type declarations
         for module in &mut modules {
             module.check_struct_decls(self)?;
@@ -152,7 +150,22 @@ impl Typechecker {
             i += 1;
         }
 
-        dbg!(&modules);
+        // Check function declarations
+        let mut i = 0;
+        while i < modules.len() {
+            let mut module = modules[i].clone();
+            module.check_func_decls(self, &mut modules)?;
+            modules[i] = module;
+            i += 1;
+        }
+
+        // Check function definitions
+        let mut i = 0;
+        while i < modules.len() {
+            let module = modules[i].clone();
+            module.check_func_defs(self, &mut modules)?;
+            i += 1;
+        }
 
         Ok(())
     }
