@@ -1,7 +1,5 @@
-export import "Std";
+import "Test2";
 
-func Print(str: []const u8);
-
-export func Main() {
-    Print("Hello, world!");
+export struct Foo3 {
+    member: Foo,
 }

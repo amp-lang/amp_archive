@@ -364,6 +364,12 @@ pub enum Error {
 
     /// Expected a module name to import.
     ExpectedModuleName(Span) = 62,
+
+    /// Cannot resolve the path of an imported module.
+    CannotResolveImport(ast::Str) = 63,
+
+    /// Cannot read the imported module.
+    CannotReadImport(ast::Str) = 64,
 }
 
 impl Error {
@@ -855,6 +861,15 @@ impl Error {
             Self::ExpectedModuleName(span) => {
                 diagnostic.message = "Expected a module name to import".to_owned();
                 diagnostic.labels.push(span.primary());
+            }
+            Self::CannotResolveImport(import) => {
+                diagnostic.message = format!("Cannot resolve import '{}'", import.value);
+                diagnostic.labels.push(import.span.primary());
+            }
+            Self::CannotReadImport(import) => {
+                diagnostic.message =
+                    format!("Cannot read contents of imported module '{}'", import.value);
+                diagnostic.labels.push(import.span.primary());
             }
         }
 

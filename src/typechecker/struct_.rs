@@ -99,11 +99,7 @@ impl Struct {
 }
 
 /// Checks a struct declaration, simply checks if the name is already defined in the current scope.
-pub fn check_struct_decl(
-    checker: &mut Typechecker,
-    scope: &mut Scope,
-    decl: &ast::Struct,
-) -> Result<(), Error> {
+pub fn check_struct_decl(decl: &ast::Struct) -> Result<Struct, Error> {
     let struct_ = Struct {
         span: decl.span,
         modifiers: decl.modifiers.iter().map(|m| Modifier::check(m)).collect(),
@@ -111,9 +107,7 @@ pub fn check_struct_decl(
         fields: Vec::new(),
     };
 
-    checker.declare_struct(struct_, scope)?;
-
-    Ok(())
+    Ok(struct_)
 }
 
 /// Checks the struct definition.

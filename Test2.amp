@@ -1,0 +1,6 @@
+import "Test";
+
+export struct Foo {}
+struct Foo2 {
+    member: Foo3,
+}

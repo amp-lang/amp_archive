@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::Parser;
 
 /// The command line arguments for Amp.
@@ -22,4 +24,8 @@ pub struct Build {
     /// Links the provided file to the executable.
     #[clap(short)]
     pub link: Vec<String>,
+
+    /// A list of directories which the compiler should search for modules.
+    #[clap(short = 'I')]
+    pub import_dirs: Vec<PathBuf>,
 }
