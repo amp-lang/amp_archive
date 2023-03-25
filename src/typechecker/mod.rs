@@ -143,28 +143,22 @@ impl Typechecker {
         }
 
         // Check type defintions
-        let mut i = 0;
-        while i < modules.len() {
-            let module = modules[i].clone();
-            module.check_struct_defs(self, &mut modules)?;
-            i += 1;
+        for module in &modules {
+            module.check_struct_defs(self, &modules)?;
         }
 
         // Check function declarations
         let mut i = 0;
         while i < modules.len() {
             let mut module = modules[i].clone();
-            module.check_func_decls(self, &mut modules)?;
+            module.check_func_decls(self, &modules)?;
             modules[i] = module;
             i += 1;
         }
 
         // Check function definitions
-        let mut i = 0;
-        while i < modules.len() {
-            let module = modules[i].clone();
-            module.check_func_defs(self, &mut modules)?;
-            i += 1;
+        for module in &modules {
+            module.check_func_defs(self, &modules)?;
         }
 
         Ok(())

@@ -79,7 +79,7 @@ impl Module {
         &self,
         checker: &Typechecker,
         scope: &mut Scope,
-        modules: &mut Vec<Module>,
+        modules: &Vec<Module>,
         imported_exported_modules: &mut Vec<ModuleId>,
     ) {
         for export in &self.exports {
@@ -121,7 +121,7 @@ impl Module {
     }
 
     /// Creates the scope for a module to use.
-    pub fn make_scope<'a>(&self, checker: &Typechecker, modules: &mut Vec<Module>) -> Scope<'a> {
+    pub fn make_scope<'a>(&self, checker: &Typechecker, modules: &Vec<Module>) -> Scope<'a> {
         let mut scope = Scope::new(None);
 
         // a list of modules imported through an export
@@ -223,7 +223,7 @@ impl Module {
     pub fn check_struct_defs(
         &self,
         checker: &mut Typechecker,
-        modules: &mut Vec<Module>,
+        modules: &Vec<Module>,
     ) -> Result<(), Error> {
         let mut scope = self.make_scope(checker, modules);
 
@@ -243,7 +243,7 @@ impl Module {
     pub fn check_func_decls(
         &mut self,
         checker: &mut Typechecker,
-        modules: &mut Vec<Module>,
+        modules: &Vec<Module>,
     ) -> Result<(), Error> {
         let mut scope = self.make_scope(checker, modules);
 
@@ -272,7 +272,7 @@ impl Module {
     pub fn check_func_defs(
         &self,
         checker: &mut Typechecker,
-        modules: &mut Vec<Module>,
+        modules: &Vec<Module>,
     ) -> Result<(), Error> {
         let mut scope = self.make_scope(checker, modules);
 
