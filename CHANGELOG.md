@@ -4,6 +4,7 @@
 
 ### Language
 - [feat! (#32): implement `export` modifier](https://github.com/amp-lang/amp/issues/32)
+- [feat (#29): implement `import` statements](https://github.com/amp-lang/amp/issues/29)
 
 ## v0.3.0-alpha
 
