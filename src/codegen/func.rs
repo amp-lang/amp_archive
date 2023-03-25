@@ -39,13 +39,13 @@ pub fn mangle_func(decl: &Func) -> String {
 
         for (i, item) in decl.name.value.items.iter().enumerate() {
             if i > 0 {
-                name.push('.');
+                name.push('_');
             }
 
             name.push_str(item);
         }
 
-        format!("${}", name)
+        format!("_amp_{}", name)
     }
 }
 

@@ -60,7 +60,12 @@ impl Typechecker {
 
         let id = FuncId(self.funcs.len());
 
-        scope.define_func(func.name.value.clone(), id);
+        if !scope.define_func(func.name.value.clone(), id) {
+            return Err(Error::UndeclaredNamespace(Spanned::new(
+                func.name.span,
+                func.name.value.namespace().unwrap().to_string(),
+            )));
+        }
         self.funcs.push(func);
 
         Ok(id)

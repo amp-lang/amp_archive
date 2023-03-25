@@ -110,7 +110,6 @@ pub fn check_func_decl(
     decl: &ast::Func,
 ) -> Result<FuncId, Error> {
     let signature = Signature::check(scope, decl)?;
-    // TODO: implement function block
 
     let decl = Func {
         signature,

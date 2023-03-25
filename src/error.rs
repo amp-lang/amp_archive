@@ -3,6 +3,7 @@ use codespan_reporting::diagnostic::{Diagnostic, Severity};
 use crate::{
     ast,
     span::{Span, Spanned},
+    typechecker::path::Path,
 };
 
 /// The radix of a number, for diagnostics.
@@ -382,6 +383,9 @@ pub enum Error {
 
     /// An invalid path was found.
     InvalidPath(Span) = 68,
+
+    /// A namespace was not found.
+    UndeclaredNamespace(Spanned<String>) = 69,
 }
 
 impl Error {
@@ -898,6 +902,10 @@ impl Error {
             Self::InvalidPath(span) => {
                 diagnostic.message = "Invalid path".to_owned();
                 diagnostic.labels.push(span.primary());
+            }
+            Self::UndeclaredNamespace(namespace) => {
+                diagnostic.message = format!("Undeclared namespace '{}'", namespace.value);
+                diagnostic.labels.push(namespace.span.primary());
             }
         }
 

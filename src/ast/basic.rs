@@ -269,6 +269,7 @@ impl Parse for Path {
             Ok(item) => item,
             Err(err) => return Some(Err(err)),
         }];
+        let start = parser.scanner().span().start;
 
         loop {
             match parser.scanner_mut().peek() {
@@ -292,7 +293,11 @@ impl Parse for Path {
         }
 
         Some(Ok(Self {
-            span: parser.scanner().span(),
+            span: Span::new(
+                parser.scanner().file_id(),
+                start,
+                parser.scanner().span().end,
+            ),
             items,
         }))
     }
