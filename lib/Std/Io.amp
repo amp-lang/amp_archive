@@ -9,3 +9,7 @@ func printf(fmt: ~const u8, size: uint, str: ~const u8) -> i32;
 export func Std.Print(str: []const u8) {
     printf("%.*s", Std.SliceLen(str), Std.SliceAsPtr(str));
 }
+
+export func Std.Println(str: []const u8) {
+    printf("%.*s\n", Std.SliceLen(str), Std.SliceAsPtr(str));
+}
