@@ -7,6 +7,9 @@
 - [feat (#29): implement `import` statements](https://github.com/amp-lang/amp/issues/29)
 - [feat (#35): implement `namespace`s](https://github.com/amp-lang/amp/issues/35)
 
+### Library
+- feat: implement standard library, I guess
+
 ### Compiler
 - [fix! (#33): create new scope for each block](https://github.com/amp-lang/amp/issues/33)
 

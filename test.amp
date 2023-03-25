@@ -1,15 +1,5 @@
 import "Std";
 
-namespace MyLib;
-export func MyLib.Test() {
-    Std.Print("Hello, world!\n");
-}
-
-export struct MyLib.MyStruct {
-    member: i32,
-}
-
 export func Main() {
-    var my_struct = MyLib.MyStruct .{ member = 42 };
-    MyLib.Test();
+    Std.Println("Hello, world!");
 }
