@@ -3,7 +3,7 @@
 //! Requires linking with the runtime library and the C standard library:
 //!
 //! ```sh
-//! amp build examples/fibonacci.amp runtime/runtime.amp -o fibonacci
+//! amp build examples/struct.amp runtime/runtime.amp -o struct
 //! ```
 
 /// `printf` from the C standard library.

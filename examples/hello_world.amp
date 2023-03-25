@@ -1,9 +1,9 @@
 //! Prints hello world to the console.
 //!
-//! Requires linking with the Runtime (`amp build examples/hello_world.amp runtime/runtime.amp -o hello_world`).
+//! Requires linking with the Runtime (`amp build examples/hello_world.amp runtime/intrinsic.amp runtime/runtime.amp -I lib -o hello_world`).
 
-func Print(str: []const u8);
+import "Std";
 
 export func Main() {
-    Print("Hello, world!\n");
+    Std.Println("Hello, world!");
 }

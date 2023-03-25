@@ -1,6 +1,7 @@
 # Changelog
 
 ## v0.4.0-alpha
+- fix: update examples to use the new standard library
 
 ### Language
 - [feat! (#32): implement `export` modifier](https://github.com/amp-lang/amp/issues/32)
