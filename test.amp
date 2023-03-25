@@ -1,9 +1,15 @@
 import "Std";
 
-export func Std.Test() {
+namespace MyLib;
+export func MyLib.Test() {
     Std.Print("Hello, world!\n");
 }
 
+export struct MyLib.MyStruct {
+    member: i32,
+}
+
 export func Main() {
-    Std.Test();
+    var my_struct = MyLib.MyStruct .{ member = 42 };
+    MyLib.Test();
 }

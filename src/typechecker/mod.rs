@@ -14,6 +14,7 @@ use crate::{
 use self::{
     func::{Func, FuncId},
     module::{Module, ModuleId},
+    path::Path,
     scope::{Scope, TypeDecl},
     struct_::{Struct, StructId},
 };
@@ -72,7 +73,7 @@ impl Typechecker {
     }
 
     /// Returns the type with the provided name, if any.
-    pub fn get_type_by_name(&self, name: &String) -> Option<TypeDecl> {
+    pub fn get_type_by_name(&self, name: &Path) -> Option<TypeDecl> {
         for (idx, struct_) in self.structs.iter().enumerate() {
             if &struct_.name.value == name {
                 return Some(TypeDecl::Struct(StructId(idx)));
@@ -88,7 +89,7 @@ impl Typechecker {
 
             return Err(Error::DuplicateSymbol {
                 original: self.structs[id.0 as usize].span,
-                name: struct_.name,
+                name: Spanned::new(struct_.name.span, struct_.name.value.to_string()),
             });
         }
 

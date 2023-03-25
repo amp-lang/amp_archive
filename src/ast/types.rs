@@ -5,7 +5,7 @@ use crate::{
     span::Span,
 };
 
-use super::{Iden, Int};
+use super::{Iden, Int, Path};
 
 /// The mutability of a pointer.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -243,7 +243,7 @@ pub enum Type {
     /// ```amp
     /// i32
     /// ```
-    Named(Iden),
+    Named(Path),
 
     /// A pointer type.
     ///
@@ -279,7 +279,7 @@ impl Parse for Type {
                 Ok(value) => value,
                 Err(err) => return Some(Err(err)),
             })))
-        } else if let Some(ty) = parser.parse::<Iden>() {
+        } else if let Some(ty) = parser.parse::<Path>() {
             Some(Ok(Self::Named(match ty {
                 Ok(value) => value,
                 Err(err) => return Some(Err(err)),

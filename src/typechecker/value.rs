@@ -286,8 +286,7 @@ impl GenericValue {
                 _ => todo!("implement bitwise not operator"),
             },
             ast::Expr::Constructor(constructor) => {
-                let ty = types::check_type_decl_path(scope, &*constructor.ty)
-                    .ok_or(Error::InvalidTypePath(constructor.ty.span()))?;
+                let ty = types::check_type_decl_path(scope, &*constructor.ty)?;
                 let TypeDecl::Struct(id) = ty;
 
                 let struct_decl = &checker.structs[id.0 as usize];

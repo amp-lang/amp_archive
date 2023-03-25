@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use super::{func::FuncId, path::Path, struct_::StructId, var::VarId};
 
 /// The a type declared in a scope.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TypeDecl {
     /// A `struct` type.
     Struct(StructId),
@@ -60,14 +60,6 @@ impl<'a> Scope<'a> {
         } else {
             None
         }
-
-        // if let Some(id) = self.funcs.get(name) {
-        //     Some(*id)
-        // } else if let Some(parent) = &self.parent {
-        //     parent.resolve_func(name)
-        // } else {
-        //     None
-        // }
     }
 
     /// Recursively searches for a variable with the provided name, if any.
@@ -82,9 +74,16 @@ impl<'a> Scope<'a> {
     }
 
     /// Recursively searches for a type with the provided name, if any.
-    pub fn resolve_type(&self, name: &str) -> Option<TypeDecl> {
-        if let Some(id) = self.types.get(name) {
-            Some(id.clone())
+    pub fn resolve_type(&self, name: &Path) -> Option<TypeDecl> {
+        if let Some(namespace) = name.namespace() {
+            if let Some(namespace) = self.resolve_namespace(namespace) {
+                let res = namespace.types.get(name.short_name()).copied();
+                res
+            } else {
+                None
+            }
+        } else if let Some(id) = self.types.get(name.short_name()) {
+            Some(*id)
         } else if let Some(parent) = &self.parent {
             parent.resolve_type(name)
         } else {
@@ -115,7 +114,19 @@ impl<'a> Scope<'a> {
     }
 
     /// Defines a type in this scope.
-    pub fn define_type(&mut self, name: String, id: TypeDecl) {
-        self.types.insert(name, id);
+    ///
+    /// Returns `false` if the type's namespace didn't exist.
+    pub fn define_type(&mut self, name: Path, id: TypeDecl) -> bool {
+        if let Some(namespace) = name.namespace() {
+            if let Some(scope) = self.namespaces.get_mut(namespace) {
+                scope.types.insert(name.short_name().to_string(), id);
+                true
+            } else {
+                false
+            }
+        } else {
+            self.types.insert(name.short_name().to_string(), id);
+            true
+        }
     }
 }

@@ -5,7 +5,7 @@ use crate::{
     span::Span,
 };
 
-use super::{Iden, Modifier, Type};
+use super::{Iden, Modifier, Path, Type};
 
 /// A field in a [Struct] declaration.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -92,7 +92,7 @@ impl Parse for StructFieldList {
 pub struct Struct {
     pub span: Span,
     pub modifiers: Vec<Modifier>,
-    pub name: Iden,
+    pub name: Path,
     pub fields: StructFieldList,
 }
 
@@ -104,7 +104,7 @@ impl Parse for Struct {
             return None;
         }
 
-        let name = if let Some(ty) = parser.parse::<Iden>() {
+        let name = if let Some(ty) = parser.parse::<Path>() {
             match ty {
                 Ok(ty) => ty,
                 Err(err) => return Some(Err(err)),

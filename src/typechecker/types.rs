@@ -1,6 +1,10 @@
-use crate::{ast, error::Error};
+use crate::{
+    ast::{self, Iden},
+    error::Error,
+};
 
 use super::{
+    path::Path,
     scope::{Scope, TypeDecl},
     struct_::StructId,
     Typechecker,
@@ -103,7 +107,7 @@ impl Type {
             Type::Uint => "uint".to_string(),
             Type::Ptr(ptr) => ptr.name(checker),
             Type::Slice(slice) => slice.name(checker),
-            Type::Struct(struct_) => checker.structs[struct_.0].name.value.clone(),
+            Type::Struct(struct_) => checker.structs[struct_.0].name.value.to_string(),
         }
     }
 
@@ -168,27 +172,46 @@ impl Type {
     /// TODO: check imports and declared types
     pub fn check(scope: &mut Scope, ty: &ast::Type) -> Result<Self, Error> {
         match ty {
-            ast::Type::Named(name) => match name.value.as_str() {
-                "bool" => Ok(Type::Bool),
-                "i8" => Ok(Type::I8),
-                "i16" => Ok(Type::I16),
-                "i32" => Ok(Type::I32),
-                "i64" => Ok(Type::I64),
-                "int" => Ok(Type::Int),
-                "u8" => Ok(Type::U8),
-                "u16" => Ok(Type::U16),
-                "u32" => Ok(Type::U32),
-                "u64" => Ok(Type::U64),
-                "uint" => Ok(Type::Uint),
-                str => {
+            ast::Type::Named(name) => {
+                let path = Path::check(name);
+                if let Some(_) = path.namespace() {
                     let value = scope
-                        .resolve_type(str)
-                        .ok_or(Error::UnknownNamedType(name.clone()))?;
+                        .resolve_type(&path)
+                        .ok_or(Error::UnknownNamedType(Iden {
+                            span: name.span,
+                            value: path.to_string(),
+                        }))?;
                     match value {
                         TypeDecl::Struct(struct_) => Ok(Type::Struct(struct_)),
                     }
+                } else {
+                    match path.short_name() {
+                        "bool" => Ok(Type::Bool),
+                        "i8" => Ok(Type::I8),
+                        "i16" => Ok(Type::I16),
+                        "i32" => Ok(Type::I32),
+                        "i64" => Ok(Type::I64),
+                        "int" => Ok(Type::Int),
+                        "u8" => Ok(Type::U8),
+                        "u16" => Ok(Type::U16),
+                        "u32" => Ok(Type::U32),
+                        "u64" => Ok(Type::U64),
+                        "uint" => Ok(Type::Uint),
+                        _ => {
+                            let value =
+                                scope
+                                    .resolve_type(&path)
+                                    .ok_or(Error::UnknownNamedType(Iden {
+                                        span: name.span,
+                                        value: path.to_string(),
+                                    }))?;
+                            match value {
+                                TypeDecl::Struct(struct_) => Ok(Type::Struct(struct_)),
+                            }
+                        }
+                    }
                 }
-            },
+            }
             ast::Type::Pointer(ptr) => {
                 let mutability = match ptr.mutability {
                     ast::PointerMutability::Const(_) => Mutability::Const,
@@ -243,11 +266,9 @@ impl Type {
 }
 
 /// Checks a type declaration path.
-pub fn check_type_decl_path(scope: &mut Scope, path: &ast::Expr) -> Option<TypeDecl> {
-    match path {
-        ast::Expr::Iden(iden) => scope.resolve_type(&iden.value),
-        _ => None,
-    }
-
-    // Ok(ty)
+pub fn check_type_decl_path(scope: &mut Scope, expr: &ast::Expr) -> Result<TypeDecl, Error> {
+    let path = Path::check_path_expr(expr)?;
+    scope
+        .resolve_type(&path)
+        .ok_or(Error::InvalidTypePath(expr.span()))
 }

@@ -3,7 +3,6 @@ use codespan_reporting::diagnostic::{Diagnostic, Severity};
 use crate::{
     ast,
     span::{Span, Spanned},
-    typechecker::path::Path,
 };
 
 /// The radix of a number, for diagnostics.

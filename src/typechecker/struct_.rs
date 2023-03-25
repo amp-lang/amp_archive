@@ -7,7 +7,7 @@ use crate::{
     typechecker::scope::TypeDecl,
 };
 
-use super::{decl::Modifier, scope::Scope, types::Type, Typechecker};
+use super::{decl::Modifier, path::Path, scope::Scope, types::Type, Typechecker};
 
 /// A unique identifier for a struct.
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -27,7 +27,7 @@ pub struct Struct {
     /// The location of the struct's declaration.
     pub span: Span,
     pub modifiers: Vec<Modifier>,
-    pub name: Spanned<String>,
+    pub name: Spanned<Path>,
     pub fields: Vec<Field>,
 }
 
@@ -103,7 +103,7 @@ pub fn check_struct_decl(decl: &ast::Struct) -> Result<Struct, Error> {
     let struct_ = Struct {
         span: decl.span,
         modifiers: decl.modifiers.iter().map(|m| Modifier::check(m)).collect(),
-        name: Spanned::new(decl.name.span, decl.name.value.clone()),
+        name: Spanned::new(decl.name.span, Path::check(&decl.name)),
         fields: Vec::new(),
     };
 
@@ -117,7 +117,7 @@ pub fn check_struct_def(
     ast: &ast::Struct,
 ) -> Result<(), Error> {
     let item = scope
-        .resolve_type(&ast.name.value)
+        .resolve_type(&Path::check(&ast.name))
         .expect("Typechecker confirms this type exists");
     let TypeDecl::Struct(id) = item;
     let struct_ = &mut checker.structs[id.0 as usize];
