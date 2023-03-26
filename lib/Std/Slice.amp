@@ -33,3 +33,30 @@ export func Std.SliceFromPtrMut(ptr: ~mut u8, len: uint) -> []mut u8 {
     };
     return *((~const slice) as ~const []mut u8);
 }
+
+
+/// Copies the source slice to the destination slice.
+///
+/// The source slice will be truncated to the length of the destination slice.
+///
+/// # Safety
+/// - The provided slices should not overlap.
+export func Std.Copy(dest: []mut u8, src: []const u8) {
+    var n: uint;
+
+    if Std.SliceLen(dest) < Std.SliceLen(src) {
+        n = Std.SliceLen(dest);
+    } else {
+        n = Std.SliceLen(src);
+    }
+
+    var dest = dest as ~mut u8;
+    var src = src as ~const u8;
+    
+    // Copy the data:
+    var i: uint = 0;
+    while i < n {
+        *((dest as uint + i) as ~mut u8) = *((src as uint + i) as ~const u8);
+        i = i + 1;
+    }
+}

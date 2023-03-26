@@ -11,7 +11,7 @@
 ### Library
 - feat: implement standard library, I guess
 - feat: implement `Std.Alloc`, `Std.Realloc` and `Std.Free`.
-- feat: implement `Std.MemCpy`.
+- feat: implement `Std.Copy`.
 - feat: implement `Std.SliceFromPtr` and `Std.SliceFromPtrMut`.
 
 ### Compiler
