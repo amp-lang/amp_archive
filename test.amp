@@ -2,7 +2,7 @@ import "Std";
 
 export func Main() {
     var ptr = Std.Alloc(14);
-    Std.MemCpy(ptr, "Hello, world!\n");
+    Std.Copy(ptr, "Hello, world!\n");
     Std.Print(ptr);
     Std.Free(ptr);
 }
