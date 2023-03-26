@@ -13,3 +13,8 @@ export func SliceLen(slice: Slice) -> uint {
 export func SliceAsPtr(slice: Slice) -> ~mut u8 {
     return slice.ptr;
 }
+
+/// Converts a pointer and a length to a slice.
+export func SliceFromPtr(ptr: ~mut u8, len: uint) -> Slice {
+    return Slice .{ ptr = ptr, len = len };
+}

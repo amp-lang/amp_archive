@@ -1,0 +1,24 @@
+import "Slice";
+
+namespace Std;
+
+// From the C standard library:
+func memcpy(dest: ~mut u8, src: ~const u8, n: uint);
+
+/// Copies the source slice to the destination slice.
+///
+/// The source slice will be truncated to the length of the destination slice.
+///
+/// # Safety
+/// - The provided slices should not overlap.
+export func Std.MemCpy(dest: []mut u8, src: []const u8) {
+    var n: uint;
+
+    if Std.SliceLen(dest) < Std.SliceLen(src) {
+        n = Std.SliceLen(dest);
+    } else {
+        n = Std.SliceLen(src);
+    }
+
+    memcpy(Std.SliceAsPtrMut(dest), Std.SliceAsPtr(src), n);
+}

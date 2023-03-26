@@ -1,2 +1,4 @@
+export import "Alloc";
 export import "Io";
+export import "Mem";
 export import "Slice";
