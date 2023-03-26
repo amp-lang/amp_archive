@@ -1,9 +1,7 @@
+import "Io";
 import "Slice";
 
 namespace Std;
-
-// From the C standard library:
-func memcpy(dest: ~mut u8, src: ~const u8, n: uint);
 
 /// Copies the source slice to the destination slice.
 ///
@@ -20,5 +18,13 @@ export func Std.MemCpy(dest: []mut u8, src: []const u8) {
         n = Std.SliceLen(src);
     }
 
-    memcpy(Std.SliceAsPtrMut(dest), Std.SliceAsPtr(src), n);
+    var dest = dest as ~mut u8;
+    var src = src as ~const u8;
+    
+    // Copy the data:
+    var i: uint = 0;
+    while i < n {
+        *((dest as uint + i) as ~mut u8) = *((src as uint + i) as ~const u8);
+        i = i + 1;
+    }
 }

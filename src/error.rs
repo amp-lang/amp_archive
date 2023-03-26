@@ -385,6 +385,19 @@ pub enum Error {
 
     /// A namespace was not found.
     UndeclaredNamespace(Spanned<String>) = 69,
+
+    /// Expected a closing parenthesis.
+    ExpectedClosingParen(Span) = 70,
+
+    /// Expected the type for an `as` conversion.
+    ExpectedAsType(Span) = 71,
+
+    /// Could not convert between two types.
+    InvalidConversion {
+        from: String,
+        to: String,
+        offending: Span,
+    } = 72,
 }
 
 impl Error {
@@ -905,6 +918,23 @@ impl Error {
             Self::UndeclaredNamespace(namespace) => {
                 diagnostic.message = format!("Undeclared namespace '{}'", namespace.value);
                 diagnostic.labels.push(namespace.span.primary());
+            }
+            Self::ExpectedClosingParen(span) => {
+                diagnostic.message = "Expected a closing parenthesis".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::ExpectedAsType(span) => {
+                diagnostic.message = "Expected a type to cast to".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::InvalidConversion {
+                from,
+                to,
+                offending,
+            } => {
+                diagnostic.message = format!("Cannot convert '{}' to '{}'", from, to);
+
+                diagnostic.labels.push(offending.primary());
             }
         }
 

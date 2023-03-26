@@ -153,6 +153,7 @@ impl AssignDest {
             ast::Expr::Unary(unary) => match unary.op {
                 ast::UnaryOp::Deref => {
                     let value = GenericValue::check(checker, scope, vars, &unary.expr)?;
+                    dbg!(&value);
 
                     match value.default_type(checker, vars) {
                         Type::Ptr(ptr) => {

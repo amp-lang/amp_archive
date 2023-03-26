@@ -546,6 +546,14 @@ impl Parse for If {
     }
 }
 
+/// An `as` conversion.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct As {
+    pub span: Span,
+    pub expr: Box<Expr>,
+    pub ty: Type,
+}
+
 /// An expression in Amp code.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Expr {
@@ -561,6 +569,7 @@ pub enum Expr {
     Constructor(Constructor),
     While(While),
     If(If),
+    As(As),
 }
 
 impl Expr {
@@ -579,6 +588,7 @@ impl Expr {
             Expr::Constructor(constructor) => constructor.span,
             Expr::While(while_) => while_.span,
             Expr::If(if_) => if_.span,
+            Expr::As(as_) => as_.span,
         }
     }
 
@@ -613,6 +623,27 @@ impl Expr {
                 Ok(int) => Some(Ok(Expr::Int(int))),
                 Err(err) => Some(Err(err)),
             }
+        } else if let Some(Ok(Token::LParen)) = parser.scanner_mut().peek() {
+            parser.scanner_mut().next();
+
+            let expr = if let Some(value) = Expr::parse(parser) {
+                match value {
+                    Ok(expr) => expr,
+                    Err(err) => return Some(Err(err)),
+                }
+            } else {
+                parser.scanner_mut().next();
+                return Some(Err(Error::ExpectedExpression(parser.scanner().span())));
+            };
+
+            if let Some(Ok(Token::RParen)) = parser.scanner_mut().peek() {
+                parser.scanner_mut().next();
+            } else {
+                parser.scanner_mut().next();
+                return Some(Err(Error::ExpectedClosingParen(parser.scanner().span())));
+            }
+
+            Some(Ok(expr))
         } else {
             None
         }
@@ -753,6 +784,25 @@ impl Expr {
                     ),
                     ty: Box::new(left),
                     fields,
+                });
+            } else if op == Token::KAs {
+                parser.scanner_mut().next();
+                let starts = parser.scanner().span();
+
+                let ty = match parser.parse::<Type>() {
+                    Some(Ok(ty)) => ty,
+                    Some(Err(err)) => return Some(Err(err)),
+                    None => return Some(Err(Error::ExpectedAsType(starts))),
+                };
+
+                left = Expr::As(As {
+                    span: Span::new(
+                        parser.scanner().file_id(),
+                        left.span().start,
+                        parser.scanner().span().end,
+                    ),
+                    expr: Box::new(left),
+                    ty,
                 });
             } else {
                 parser.scanner_mut().next();

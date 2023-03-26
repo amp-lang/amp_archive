@@ -249,6 +249,9 @@ pub enum Token {
     /// The `namespace` keyword.
     KNamespace,
 
+    /// The `as` conversion operator.
+    KAs,
+
     /// A normal, non-suspicious string literal.
     ///
     /// ```amp
@@ -324,6 +327,7 @@ impl Token {
             Token::Slash => true,
             Token::Minus => true,
             Token::Percent => true,
+            Token::KAs => true,
             _ => false,
         }
     }
@@ -355,7 +359,7 @@ impl Token {
             Token::Star => (5, 6),
             Token::Slash => (5, 6),
             Token::Percent => (5, 6),
-            // cast expressions are (6, 7)
+            Token::KAs => (6, 7),
             Token::LParen => (7, 8),
             Token::Constructor => (7, 8),
             Token::Dot => (7, 8),
@@ -700,6 +704,7 @@ impl<'a> Iterator for Scanner<'a> {
                 "export" => Token::KExport,
                 "import" => Token::KImport,
                 "namespace" => Token::KNamespace,
+                "as" => Token::KAs,
                 _ => Token::Identifier,
             }));
         } else if first_char == '"' {

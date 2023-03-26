@@ -104,6 +104,16 @@ pub enum GenericValue {
 
     /// Compares two values for inequality.
     LogNe(Box<GenericValue>, Box<GenericValue>),
+
+    /// Converts an integer to another integer type.
+    IntToInt(Box<GenericValue>, Type),
+
+    /// Converts a slice to a pointer type.
+    SliceToPtr(Box<GenericValue>, Type),
+
+    /// Converts a slice to a different slice type.  Basically a no-op, as slice types are only
+    /// used at compile time.
+    SliceToSlice(Box<GenericValue>, Type),
 }
 
 impl GenericValue {
@@ -242,6 +252,9 @@ impl GenericValue {
             Self::IntOp(_, lhs, _) => lhs.default_type(checker, vars),
             Self::LogEq(_, _) => Type::Bool,
             Self::LogNe(_, _) => Type::Bool,
+            Self::IntToInt(_, ty) => ty.clone(),
+            Self::SliceToPtr(_, ty) => ty.clone(),
+            Self::SliceToSlice(_, ty) => ty.clone(),
         }
     }
 
@@ -406,8 +419,42 @@ impl GenericValue {
                     });
                 }
             }
+            ast::Expr::As(as_) => {
+                let value = Self::check(checker, scope, vars, &as_.expr)?;
+
+                let ty = Type::check(scope, &as_.ty)?;
+
+                if value.clone().coerce(checker, vars, &ty).is_some() {
+                    Ok(value)
+                } else {
+                    Ok(value.clone().convert(checker, vars, &ty).ok_or(
+                        Error::InvalidConversion {
+                            from: value.default_type(checker, vars).name(checker),
+                            to: ty.name(checker),
+                            offending: as_.span,
+                        },
+                    )?)
+                }
+            }
 
             _ => return Err(Error::InvalidValue(expr.span())),
+        }
+    }
+
+    pub fn convert(self, checker: &Typechecker, vars: &Vars, to: &Type) -> Option<Self> {
+        // assume any basic conversions (i.e. bool => bool have already been covered.)
+        match (self.default_type(checker, vars), to) {
+            (left_ty, right_ty) if left_ty.is_int() && right_ty.is_int() => {
+                Some(Self::IntToInt(Box::new(self), right_ty.clone()))
+            }
+            (Type::Ptr(_), to) if to.is_int() => Some(Self::IntToInt(Box::new(self), to.clone())),
+            (ty, Type::Ptr(_)) if ty.is_int() => Some(Self::IntToInt(Box::new(self), to.clone())),
+            (Type::Ptr(_), Type::Ptr(_)) => Some(Self::IntToInt(Box::new(self), to.clone())),
+            (Type::Slice(_), Type::Ptr(_)) => Some(Self::SliceToPtr(Box::new(self), to.clone())),
+            (Type::Slice(_), Type::Slice(_)) => {
+                Some(Self::SliceToSlice(Box::new(self), to.clone()))
+            }
+            _ => None,
         }
     }
 
@@ -455,6 +502,15 @@ impl GenericValue {
                     Box::new(lhs.coerce_default(checker, vars)),
                     Box::new(rhs.coerce(checker, vars, &ty).expect("verified previously")),
                 )
+            }
+            GenericValue::IntToInt(from, ty) => {
+                Value::IntToInt(Box::new(from.coerce_default(checker, vars)), ty)
+            }
+            GenericValue::SliceToPtr(from, ty) => {
+                Value::SliceToPtr(Box::new(from.coerce_default(checker, vars)), ty)
+            }
+            GenericValue::SliceToSlice(from, ty) => {
+                Value::SliceToSlice(Box::new(from.coerce_default(checker, vars)), ty)
             }
         }
     }
@@ -588,6 +644,16 @@ impl GenericValue {
                     Box::new(rhs.coerce(checker, vars, &left_ty).unwrap()),
                 ))
             }
+            (GenericValue::IntToInt(val, ty), to) if ty.is_equivalent(to) => Some(Value::IntToInt(
+                Box::new(val.coerce_default(checker, vars)),
+                ty,
+            )),
+            (GenericValue::SliceToPtr(val, ty), to) if ty.is_equivalent(to) => Some(
+                Value::SliceToPtr(Box::new(val.coerce_default(checker, vars)), ty),
+            ),
+            (GenericValue::SliceToSlice(val, ty), to) if ty.is_equivalent(to) => Some(
+                Value::SliceToSlice(Box::new(val.coerce_default(checker, vars)), ty),
+            ),
             _ => None,
         }
     }
@@ -686,6 +752,15 @@ pub enum Value {
 
     /// Compares two values.
     LogNe(Box<Value>, Box<Value>),
+
+    /// Converts an integer type to another integer type.
+    IntToInt(Box<Value>, Type),
+
+    /// Converts a slice to a pointer
+    SliceToPtr(Box<Value>, Type),
+
+    /// Converts a slice to a different slice type.
+    SliceToSlice(Box<Value>, Type),
 }
 
 impl Value {
@@ -735,6 +810,9 @@ impl Value {
             },
             Value::LogEq(_, _) => Type::Bool,
             Value::LogNe(_, _) => Type::Bool,
+            Value::IntToInt(_, ty) => ty.clone(),
+            Value::SliceToPtr(_, ty) => ty.clone(),
+            Value::SliceToSlice(_, ty) => ty.clone(),
         }
     }
 }

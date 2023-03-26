@@ -26,7 +26,7 @@ export func Std.Alloc(size: uint) -> []mut u8 {
 /// - The provided memory block should not be used after it is reallocated, and the block that the
 ///   function returns should be used instead.
 export func Std.Realloc(ptr: []mut u8, size: uint) -> []mut u8 {
-    return Std.SliceFromPtrMut(realloc(Std.SliceAsPtrMut(ptr), size), size);
+    return Std.SliceFromPtrMut(realloc(ptr as ~mut u8, size), size);
 }
 
 /// Reallocates a block of memory with the requested size.
@@ -34,5 +34,5 @@ export func Std.Realloc(ptr: []mut u8, size: uint) -> []mut u8 {
 /// # Safety
 /// - The provided memory block must have been allocated with `Std.Alloc` or `Std.Realloc`.
 export func Std.Free(ptr: []mut u8) {
-    free(Std.SliceAsPtrMut(ptr));
+    free(ptr as ~mut u8);
 }

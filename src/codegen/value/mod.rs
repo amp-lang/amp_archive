@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use cranelift::{
     codegen::ir::StackSlot,
-    prelude::{FunctionBuilder, InstBuilder, StackSlotData, StackSlotKind},
+    prelude::{FunctionBuilder, InstBuilder, MemFlags, StackSlotData, StackSlotKind},
 };
 use cranelift_module::{DataContext, DataId, Module};
 
@@ -471,6 +471,40 @@ pub fn compile_value(
         }
         Value::LogNe(left, right) => {
             cmp::compile_eq(checker, codegen, builder, vars, data, left, right, true)
+        }
+        Value::IntToInt(value, ty) => {
+            let signed = match value.ty(checker, &data.vars) {
+                Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::Int => true,
+                _ => false,
+            };
+
+            let from = value.ty(checker, &data.vars);
+            let to = compile_type(codegen, checker, ty);
+            let value = compile_value(checker, codegen, builder, value, vars, data, None).unwrap();
+
+            if from.size(checker, codegen.pointer_type.bytes() as usize) < to.bytes() as usize {
+                if signed {
+                    builder.ins().sextend(to, value)
+                } else {
+                    builder.ins().uextend(to, value)
+                }
+            } else if from.size(checker, codegen.pointer_type.bytes() as usize)
+                > to.bytes() as usize
+            {
+                builder.ins().ireduce(to, value)
+            } else {
+                value
+            }
+        }
+        Value::SliceToPtr(value, _) => {
+            let ptr = compile_value(checker, codegen, builder, value, vars, data, None)
+                .expect("No `to` provided");
+            builder
+                .ins()
+                .load(codegen.pointer_type, MemFlags::new(), ptr, 0)
+        }
+        Value::SliceToSlice(value, _) => {
+            compile_value(checker, codegen, builder, value, vars, data, to)?
         }
     };
 

@@ -1,38 +1,35 @@
 namespace Std;
 
-func SliceLen(slice: []const u8) -> uint;
-func SliceAsPtr(slice: []const u8) -> ~mut u8;
-func SliceFromPtr(slice: ~const u8, len: uint) -> []mut u8;
+/// A basic slice type that can be used to get the length and pointer values of an Amp slice.
+struct BasicSlice {
+    ptr: ~const u8,
+    len: uint,
+}
 
 /// Returns the number of items in the provided slice.
 export func Std.SliceLen(slice: []const u8) -> uint {
-    return SliceLen(slice);
-}
-
-/// Converts a slice to a pointer.
-///
-/// NOTE: will be removed in future versions in favor of the `as` operator.
-export func Std.SliceAsPtr(slice: []const u8) -> ~const u8 {
-    return SliceAsPtr(slice);
-}
-
-/// Converts a slice to a mutable pointer.
-///
-/// NOTE: will be removed in future versions in favor of the `as` operator.
-export func Std.SliceAsPtrMut(slice: []mut u8) -> ~mut u8 {
-    return SliceAsPtr(slice);
+    var slice = (~const slice) as ~const BasicSlice;
+    return slice.len;
 }
 
 /// Creates a slice from the provided pointer value and length.
 ///
 /// NOTE: will be removed in future versions in favor of `ptr[0..len]`.
 export func Std.SliceFromPtr(ptr: ~const u8, len: uint) -> []const u8 {
-    return SliceFromPtr(ptr, len);
+    var slice = BasicSlice .{
+        ptr = ptr,
+        len = len,
+    };
+    return *((~const slice) as ~const []const u8);
 }
 
 /// Creates a mutable slice from the provided pointer value and length.
 ///
 /// NOTE: will be removed in future versions in favor of `ptr[0..len]`.
 export func Std.SliceFromPtrMut(ptr: ~mut u8, len: uint) -> []mut u8 {
-    return SliceFromPtr(ptr, len);
+    var slice = BasicSlice .{
+        ptr = ptr,
+        len = len,
+    };
+    return *((~const slice) as ~const []mut u8);
 }
