@@ -1,3 +1,5 @@
+//! Compiles comparisons between two different values.
+
 use std::collections::HashMap;
 
 use cranelift::{

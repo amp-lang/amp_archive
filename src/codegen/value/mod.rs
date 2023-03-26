@@ -4,7 +4,7 @@ use cranelift::{
     codegen::ir::StackSlot,
     prelude::{FunctionBuilder, InstBuilder, MemFlags, StackSlotData, StackSlotKind},
 };
-use cranelift_module::{DataContext, DataId, Module};
+use cranelift_module::Module;
 
 use crate::typechecker::{
     func::FuncImpl,
@@ -14,122 +14,19 @@ use crate::typechecker::{
     Typechecker,
 };
 
+use self::{
+    conv::compile_int_to_int,
+    str::{compile_string, compile_string_slice},
+};
+
 use super::{types::compile_type, Codegen};
 
 mod cmp;
-
-fn compile_string(codegen: &mut Codegen, str: &str, nullterm: bool) -> DataId {
-    let mut cx = DataContext::new();
-    let mut data = str.as_bytes().to_vec();
-
-    if nullterm {
-        data.push(0);
-    }
-
-    cx.define(data.into_boxed_slice());
-
-    let data_id = codegen.module.declare_anonymous_data(true, false).unwrap();
-    codegen.module.define_data(data_id, &cx).unwrap();
-    data_id
-}
-
-pub fn use_var(
-    codegen: &mut Codegen,
-    checker: &Typechecker,
-    builder: &mut FunctionBuilder,
-    vars: &HashMap<VarId, StackSlot>,
-    data: &FuncImpl,
-    var: VarId,
-    // the address to write the value to, if any.
-    to: Option<cranelift::prelude::Value>,
-) -> Option<cranelift::prelude::Value> {
-    let slot = vars[&var];
-    let ty = &data.vars.vars[var.0].ty;
-
-    match to {
-        Some(to) => {
-            let size = builder.ins().iconst(
-                codegen.pointer_type,
-                ty.size(checker, codegen.pointer_type.bytes() as usize) as i64,
-            );
-            let addr = builder.ins().stack_addr(codegen.pointer_type, slot, 0);
-            builder.call_memcpy(codegen.module.target_config(), to, addr, size);
-            return None;
-        }
-        None => {
-            if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
-                Some(builder.ins().stack_addr(codegen.pointer_type, slot, 0))
-            } else {
-                let ty = compile_type(codegen, checker, ty);
-                Some(builder.ins().stack_load(ty, slot, 0))
-            }
-        }
-    }
-}
-
-/// Compiles a function call as a Cranelift value.
-pub fn compile_func_call(
-    checker: &Typechecker,
-    codegen: &mut Codegen,
-    builder: &mut FunctionBuilder,
-    call: &FuncCall,
-    vars: &HashMap<VarId, StackSlot>,
-    data: &FuncImpl,
-    // the address to write the value to, if any.
-    to: Option<cranelift::prelude::Value>,
-) -> Option<cranelift::prelude::Value> {
-    let func = &checker.funcs[call.callee.0];
-    let cranelift_func = codegen
-        .module
-        .declare_func_in_func(codegen.funcs[&call.callee].cranelift_id, &mut builder.func);
-
-    let mut args = Vec::new();
-
-    let dest = if let Some(ty) = &func.signature.returns {
-        if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
-            if let Some(value) = to {
-                args.push(value);
-                Some(value)
-            } else {
-                let stack_slot = StackSlotData::new(
-                    StackSlotKind::ExplicitSlot,
-                    ty.size(checker, codegen.pointer_type.bytes() as usize) as u32,
-                );
-                let slot = builder.create_sized_stack_slot(stack_slot);
-                args.push(builder.ins().stack_addr(codegen.pointer_type, slot, 0));
-
-                Some(builder.ins().stack_addr(codegen.pointer_type, slot, 0))
-            }
-        } else {
-            to
-        }
-    } else {
-        None
-    };
-
-    for arg in &call.args {
-        args.push(compile_value(checker, codegen, builder, arg, vars, data, None).unwrap());
-    }
-
-    let inst = builder.ins().call(cranelift_func, &args);
-
-    if let Some(ty) = &func.signature.returns {
-        if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
-            if to == None {
-                Some(dest.unwrap())
-            } else {
-                None
-            }
-        } else {
-            Some(builder.inst_results(inst)[0])
-        }
-    } else {
-        None
-    }
-}
+mod conv;
+mod str;
 
 /// Compiles the provided value into a Cranelift value.  Always returns [Some] if the `to`
-/// parameter is [None].
+/// parameter is [None].  If the `to` parameter is [Some], then it always returns [None].
 pub fn compile_value(
     checker: &Typechecker,
     codegen: &mut Codegen,
@@ -170,55 +67,8 @@ pub fn compile_value(
             .ins()
             .iconst(cranelift::prelude::types::I64, *value as i64),
         Value::Int(value) => builder.ins().iconst(codegen.pointer_type, *value as i64),
-        Value::CStr(_, value) => {
-            let data_id = compile_string(codegen, value, true);
-
-            let data_ref = codegen
-                .module
-                .declare_data_in_func(data_id, &mut builder.func);
-
-            builder.ins().global_value(codegen.pointer_type, data_ref)
-        }
-        Value::Str(_, value) => {
-            // TODO: find better way to use big types as values
-            let data_id = compile_string(codegen, value, false);
-
-            let data_ref = codegen
-                .module
-                .declare_data_in_func(data_id, &mut builder.func);
-            let ptr = builder.ins().global_value(codegen.pointer_type, data_ref);
-            let len = builder
-                .ins()
-                .iconst(codegen.pointer_type, value.len() as i64);
-
-            match to {
-                Some(to) => {
-                    builder
-                        .ins()
-                        .store(cranelift::prelude::MemFlags::new(), ptr, to, 0);
-                    builder.ins().store(
-                        cranelift::prelude::MemFlags::new(),
-                        len,
-                        to,
-                        codegen.pointer_type.bytes() as i32,
-                    );
-                    return None;
-                }
-                None => {
-                    let stack_slot = StackSlotData::new(
-                        StackSlotKind::ExplicitSlot,
-                        codegen.pointer_type.bytes() as u32,
-                    );
-                    let slot = builder.create_sized_stack_slot(stack_slot);
-                    builder.ins().stack_store(ptr, slot, 0);
-                    builder
-                        .ins()
-                        .stack_store(len, slot, codegen.pointer_type.bytes() as i32);
-
-                    builder.ins().stack_addr(codegen.pointer_type, slot, 0)
-                }
-            }
-        }
+        Value::CStr(_, value) => compile_string(codegen, builder, value, true),
+        Value::Str(_, value) => return compile_string_slice(codegen, builder, value, to),
         Value::Var(var) => use_var(codegen, checker, builder, vars, data, *var, to)?,
         Value::FuncCall(call) => {
             compile_func_call(checker, codegen, builder, call, vars, data, to)?
@@ -473,28 +323,7 @@ pub fn compile_value(
             cmp::compile_eq(checker, codegen, builder, vars, data, left, right, true)
         }
         Value::IntToInt(value, ty) => {
-            let signed = match value.ty(checker, &data.vars) {
-                Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::Int => true,
-                _ => false,
-            };
-
-            let from = value.ty(checker, &data.vars);
-            let to = compile_type(codegen, checker, ty);
-            let value = compile_value(checker, codegen, builder, value, vars, data, None).unwrap();
-
-            if from.size(checker, codegen.pointer_type.bytes() as usize) < to.bytes() as usize {
-                if signed {
-                    builder.ins().sextend(to, value)
-                } else {
-                    builder.ins().uextend(to, value)
-                }
-            } else if from.size(checker, codegen.pointer_type.bytes() as usize)
-                > to.bytes() as usize
-            {
-                builder.ins().ireduce(to, value)
-            } else {
-                value
-            }
+            compile_int_to_int(checker, codegen, builder, value, ty, vars, data)
         }
         Value::SliceToPtr(value, _) => {
             let ptr = compile_value(checker, codegen, builder, value, vars, data, None)
@@ -515,5 +344,101 @@ pub fn compile_value(
         None
     } else {
         Some(value)
+    }
+}
+
+/// Uses a variable as a Cranelift value.
+pub fn use_var(
+    codegen: &mut Codegen,
+    checker: &Typechecker,
+    builder: &mut FunctionBuilder,
+    vars: &HashMap<VarId, StackSlot>,
+    data: &FuncImpl,
+    var: VarId,
+    // the address to write the value to, if any.
+    to: Option<cranelift::prelude::Value>,
+) -> Option<cranelift::prelude::Value> {
+    let slot = vars[&var];
+    let ty = &data.vars.vars[var.0].ty;
+
+    match to {
+        Some(to) => {
+            let size = builder.ins().iconst(
+                codegen.pointer_type,
+                ty.size(checker, codegen.pointer_type.bytes() as usize) as i64,
+            );
+            let addr = builder.ins().stack_addr(codegen.pointer_type, slot, 0);
+            builder.call_memcpy(codegen.module.target_config(), to, addr, size);
+            return None;
+        }
+        None => {
+            if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
+                Some(builder.ins().stack_addr(codegen.pointer_type, slot, 0))
+            } else {
+                let ty = compile_type(codegen, checker, ty);
+                Some(builder.ins().stack_load(ty, slot, 0))
+            }
+        }
+    }
+}
+
+/// Compiles a function call as a Cranelift value.
+pub fn compile_func_call(
+    checker: &Typechecker,
+    codegen: &mut Codegen,
+    builder: &mut FunctionBuilder,
+    call: &FuncCall,
+    vars: &HashMap<VarId, StackSlot>,
+    data: &FuncImpl,
+    // the address to write the value to, if any.
+    to: Option<cranelift::prelude::Value>,
+) -> Option<cranelift::prelude::Value> {
+    let func = &checker.funcs[call.callee.0];
+    let cranelift_func = codegen
+        .module
+        .declare_func_in_func(codegen.funcs[&call.callee].cranelift_id, &mut builder.func);
+
+    let mut args = Vec::new();
+
+    let dest = if let Some(ty) = &func.signature.returns {
+        if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
+            if let Some(value) = to {
+                args.push(value);
+                Some(value)
+            } else {
+                let stack_slot = StackSlotData::new(
+                    StackSlotKind::ExplicitSlot,
+                    ty.size(checker, codegen.pointer_type.bytes() as usize) as u32,
+                );
+                let slot = builder.create_sized_stack_slot(stack_slot);
+                args.push(builder.ins().stack_addr(codegen.pointer_type, slot, 0));
+
+                Some(builder.ins().stack_addr(codegen.pointer_type, slot, 0))
+            }
+        } else {
+            to
+        }
+    } else {
+        None
+    };
+
+    for arg in &call.args {
+        args.push(compile_value(checker, codegen, builder, arg, vars, data, None).unwrap());
+    }
+
+    let inst = builder.ins().call(cranelift_func, &args);
+
+    if let Some(ty) = &func.signature.returns {
+        if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
+            if to == None {
+                Some(dest.unwrap())
+            } else {
+                None
+            }
+        } else {
+            Some(builder.inst_results(inst)[0])
+        }
+    } else {
+        None
     }
 }

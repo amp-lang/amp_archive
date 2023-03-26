@@ -5,7 +5,7 @@ use crate::{
     span::Span,
 };
 
-use super::{Iden, Int, Path};
+use super::{Int, Path};
 
 /// The mutability of a pointer.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
