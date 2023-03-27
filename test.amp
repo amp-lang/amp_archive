@@ -1,11 +1,12 @@
 import "Std";
 
 export func Main() {
-    var hello_world = "Hello, world!";
-    var hello = hello_world[0..5];
-    var world = hello_world[7..12];
+    var hello_world = Std.Alloc(14);
+    Std.Copy(hello_world, "Hello, world!\n");
 
-    Std.Println(hello_world);
-    Std.Println(hello);
-    Std.Println(world);
+    var i = 0 as uint;
+    while i < Std.SliceLen(hello_world) {
+        Std.PrintAscii(hello_world[i]);
+        i = i + 1;
+    }
 }

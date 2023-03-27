@@ -13,7 +13,7 @@ namespace Std;
 /// - The provided *size* should not be zero.
 /// - The returned memory block must be freed with `Std.Free` to prevent memory leaks.
 export func Std.Alloc(size: uint) -> []mut u8 {
-    return Std.SliceFromPtrMut(malloc(size), size);
+    return malloc(size)[0..size];
 }
 
 /// Reallocates a block of memory to the requested size (in bytes).  The requested size may be
@@ -26,7 +26,7 @@ export func Std.Alloc(size: uint) -> []mut u8 {
 /// - The provided memory block should not be used after it is reallocated, and the block that the
 ///   function returns should be used instead.
 export func Std.Realloc(ptr: []mut u8, size: uint) -> []mut u8 {
-    return Std.SliceFromPtrMut(realloc(ptr as ~mut u8, size), size);
+    return realloc(ptr as ~mut u8, size)[0..size];
 }
 
 /// Reallocates a block of memory with the requested size.

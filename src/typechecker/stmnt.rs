@@ -40,7 +40,10 @@ impl Return {
                 });
             }
 
-            let value = GenericValue::check(checker, scope, vars, value)?
+            let generic_value = GenericValue::check(checker, scope, vars, value)?;
+            dbg!(&generic_value.default_type(checker, vars));
+
+            let value = generic_value
                 .coerce(checker, vars, &func.signature.returns.clone().unwrap())
                 .ok_or(Error::InvalidReturnValue {
                     decl: func.span,

@@ -901,14 +901,14 @@ impl GenericValue {
                     None
                 }
             }
-            (GenericValue::Subslice(ptr, start, end, ty), Type::Slice(_)) => {
+            (GenericValue::Subslice(ptr, start, end, item_ty), Type::Slice(_)) => {
                 let Type::Ptr(Ptr { mutability, .. }) = ptr.default_type(checker, vars) else { unreachable!() };
-                if Type::Slice(Slice::new(mutability, ty.clone())).is_equivalent(&ty) {
+                if Type::Slice(Slice::new(mutability, item_ty.clone())).is_equivalent(&ty) {
                     Some(Value::Subslice(
                         Box::new(ptr.coerce_default(checker, vars)),
                         Box::new(start.coerce(checker, vars, &Type::Uint)?),
                         Box::new(end.coerce(checker, vars, &Type::Uint)?),
-                        ty,
+                        item_ty,
                     ))
                 } else {
                     None
