@@ -824,7 +824,6 @@ impl Expr {
             } else if op == Token::LBrack {
                 parser.scanner_mut().next();
                 let started = parser.scanner().span();
-                dbg!(parser.scanner_mut().peek());
 
                 // Parse array indexing or subslicing
                 let index = match parser.parse::<Expr>() {

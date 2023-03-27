@@ -644,7 +644,6 @@ impl<'a> Scanner<'a> {
         let ty = self.scan_digits_radix(10, true)?;
 
         if let Some(next) = self.peek_char() {
-            dbg!(self.peek_nth(1));
             if next == '.' && self.peek() != Some(Ok(Token::DotDot)) && ty != Token::Float {
                 self.next_char();
 
