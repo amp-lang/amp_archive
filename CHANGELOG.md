@@ -13,6 +13,7 @@
 - feat: implement `Std.Alloc`, `Std.Realloc` and `Std.Free`.
 - feat: implement `Std.Copy`.
 - feat: implement `Std.SliceFromPtr` and `Std.SliceFromPtrMut`.
+- refactor!: remove `runtime/intrinsic.amp`
 
 ### Compiler
 - [fix! (#33): create new scope for each block](https://github.com/amp-lang/amp/issues/33)
