@@ -240,6 +240,10 @@ pub fn compile_statement(
                 builder.ins().jump(end_block, &[]);
             }
 
+            if branch_blocks.len() == 0 {
+                builder.switch_to_block(end_block);
+            }
+
             // compile branches
             let branches = branch_blocks.iter().enumerate();
             for (idx, branch) in branches {
