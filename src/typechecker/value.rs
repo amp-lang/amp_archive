@@ -129,6 +129,16 @@ pub enum GenericValue {
 
     /// Outputs the address of a pointer index.
     AddrOfPtrIdx(Mutability, Box<GenericValue>, Box<GenericValue>, Type),
+
+    /// Creates a "subslice" of a pointer.
+    ///
+    /// Subslice(pointer: ~const T, from: uint, to: uint, type)
+    Subslice(
+        Box<GenericValue>,
+        Box<GenericValue>,
+        Box<GenericValue>,
+        Type,
+    ),
 }
 
 impl GenericValue {
@@ -323,6 +333,11 @@ impl GenericValue {
             Self::AddrOfPtrIdx(mutability, _, _, ty) => {
                 Type::Ptr(Ptr::new(*mutability, ty.clone()))
             }
+            Self::Subslice(ptr, _, _, ty) => {
+                let Type::Ptr(Ptr { mutability, .. }) = ptr.default_type(checker, vars) else { unreachable!() };
+
+                Type::Slice(Slice::new(mutability, ty.clone()))
+            }
         }
     }
 
@@ -515,7 +530,44 @@ impl GenericValue {
                     .coerce(checker, vars, &Type::Uint)
                     .ok_or(Error::ExpectedUintIndex(idx.index.span()))?;
 
-                match value.default_type(checker, vars) {
+                if let Some(to) = &idx.to {
+                    let to_value = Self::check(checker, scope, vars, to)?;
+
+                    // check if `to` is a `uint`
+                    to_value
+                        .clone()
+                        .coerce(checker, vars, &Type::Uint)
+                        .ok_or(Error::ExpectedUintIndex(to.span()))?;
+
+                    let ty = value.default_type(checker, vars);
+                    let (ptr, item_ty) = match ty {
+                        Type::Slice(ty) => (
+                            Self::SliceToPtr(
+                                Box::new(value),
+                                Type::Ptr(Ptr::new(ty.mutability, ty.ty.as_ref().clone())),
+                            ),
+                            ty.ty.clone(),
+                        ),
+                        Type::Ptr(ty) => (value, ty.ty.clone()),
+                        _ => {
+                            return Err(Error::CannotIndex {
+                                ty: ty.name(checker),
+                                offending: idx.expr.span(),
+                            })
+                        }
+                    };
+
+                    return Ok(Self::Subslice(
+                        // get address of slice
+                        Box::new(ptr),
+                        Box::new(index),
+                        Box::new(to_value),
+                        item_ty.as_ref().clone(),
+                    ));
+                }
+
+                let ty = value.default_type(checker, vars);
+                match ty {
                     Type::Slice(ty) => Ok(Self::SliceIdx(
                         Box::new(value),
                         Box::new(index),
@@ -526,7 +578,12 @@ impl GenericValue {
                         Box::new(index),
                         ty.ty.as_ref().clone(),
                     )),
-                    _ => todo!(),
+                    _ => {
+                        return Err(Error::CannotIndex {
+                            ty: ty.name(checker),
+                            offending: idx.expr.span(),
+                        })
+                    }
                 }
             }
 
@@ -640,6 +697,19 @@ impl GenericValue {
                 Box::new(value.coerce_default(checker, vars)),
                 Box::new(
                     idx.coerce(checker, vars, &Type::Uint)
+                        .expect("verified earlier"),
+                ),
+                ty,
+            ),
+            GenericValue::Subslice(value, start, end, ty) => Value::Subslice(
+                Box::new(value.coerce_default(checker, vars)),
+                Box::new(
+                    start
+                        .coerce(checker, vars, &Type::Uint)
+                        .expect("verified earlier"),
+                ),
+                Box::new(
+                    end.coerce(checker, vars, &Type::Uint)
                         .expect("verified earlier"),
                 ),
                 ty,
@@ -831,6 +901,19 @@ impl GenericValue {
                     None
                 }
             }
+            (GenericValue::Subslice(ptr, start, end, ty), Type::Slice(_)) => {
+                let Type::Ptr(Ptr { mutability, .. }) = ptr.default_type(checker, vars) else { unreachable!() };
+                if Type::Slice(Slice::new(mutability, ty.clone())).is_equivalent(&ty) {
+                    Some(Value::Subslice(
+                        Box::new(ptr.coerce_default(checker, vars)),
+                        Box::new(start.coerce(checker, vars, &Type::Uint)?),
+                        Box::new(end.coerce(checker, vars, &Type::Uint)?),
+                        ty,
+                    ))
+                } else {
+                    None
+                }
+            }
             _ => None,
         }
     }
@@ -951,6 +1034,11 @@ pub enum Value {
 
     /// Outputs the address of an index in a pointer.
     AddrOfPtrIdx(Mutability, Box<Value>, Box<Value>, Type),
+
+    /// Creates a subslice of a slice.
+    ///
+    /// The first parameter is always a pointer.
+    Subslice(Box<Value>, Box<Value>, Box<Value>, Type),
 }
 
 impl Value {
@@ -1010,6 +1098,11 @@ impl Value {
             }
             Value::AddrOfPtrIdx(mutability, _, _, ty) => {
                 Type::Ptr(Ptr::new(*mutability, ty.clone()))
+            }
+            Value::Subslice(ptr, _, _, ty) => {
+                let Type::Ptr(Ptr { mutability, .. }) = ptr.ty(checker, vars) else { unreachable!() };
+
+                Type::Slice(Slice::new(mutability, ty.clone()))
             }
         }
     }

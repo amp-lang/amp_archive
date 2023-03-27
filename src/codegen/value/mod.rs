@@ -401,6 +401,31 @@ pub fn compile_value(
 
             builder.ins().iadd(ptr, offset)
         }
+        Value::Subslice(ptr, from_idx, to_idx, item_ty) => {
+            let ptr = compile_value(checker, codegen, builder, ptr, vars, data, None)
+                .expect("No `to` provided");
+
+            let from_idx =
+                compile_value(checker, codegen, builder, from_idx, vars, data, None).unwrap();
+
+            let to_idx =
+                compile_value(checker, codegen, builder, to_idx, vars, data, None).unwrap();
+
+            let from_offset = builder.ins().imul_imm(
+                from_idx,
+                item_ty.size(checker, codegen.pointer_type.bytes() as usize) as i64,
+            );
+
+            let to_offset = builder.ins().imul_imm(
+                to_idx,
+                item_ty.size(checker, codegen.pointer_type.bytes() as usize) as i64,
+            );
+
+            let ptr = builder.ins().iadd(ptr, from_offset);
+            let size = builder.ins().isub(to_offset, from_offset);
+
+            return create_slice(codegen, builder, ptr, size, to);
+        }
     };
 
     if let Some(to) = to {
@@ -549,5 +574,44 @@ pub fn compile_func_call(
         }
     } else {
         None
+    }
+}
+
+/// Creates a slice value.
+pub fn create_slice(
+    codegen: &mut Codegen,
+    builder: &mut FunctionBuilder,
+    ptr: cranelift::prelude::Value,
+    len: cranelift::prelude::Value,
+    // the address to write the value to, if any.
+    to: Option<cranelift::prelude::Value>,
+) -> Option<cranelift::prelude::Value> {
+    match to {
+        Some(to) => {
+            builder
+                .ins()
+                .store(cranelift::prelude::MemFlags::new(), ptr, to, 0);
+            builder.ins().store(
+                cranelift::prelude::MemFlags::new(),
+                len,
+                to,
+                codegen.pointer_type.bytes() as i32,
+            );
+
+            None
+        }
+        None => {
+            let stack_slot = StackSlotData::new(
+                StackSlotKind::ExplicitSlot,
+                codegen.pointer_type.bytes() as u32,
+            );
+            let slot = builder.create_sized_stack_slot(stack_slot);
+            builder.ins().stack_store(ptr, slot, 0);
+            builder
+                .ins()
+                .stack_store(len, slot, codegen.pointer_type.bytes() as i32);
+
+            Some(builder.ins().stack_addr(codegen.pointer_type, slot, 0))
+        }
     }
 }

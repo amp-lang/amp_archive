@@ -407,6 +407,9 @@ pub enum Error {
 
     /// An immutable value was referenced as mutable.
     CannotReferenceAsMut(Span) = 75,
+
+    /// Cannot index the provided type.
+    CannotIndex { ty: String, offending: Span } = 76,
 }
 
 impl Error {
@@ -959,6 +962,10 @@ impl Error {
             Self::CannotReferenceAsMut(span) => {
                 diagnostic.message = "Cannot reference an immutable value as mutable".to_owned();
                 diagnostic.labels.push(span.primary());
+            }
+            Self::CannotIndex { ty, offending } => {
+                diagnostic.message = "Cannot index a non-array type".to_owned();
+                diagnostic.labels.push(offending.primary().with_message(ty));
             }
         }
 

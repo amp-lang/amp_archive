@@ -3,10 +3,12 @@
 ## v0.4.0-alpha
 
 ### Language
-- [feat! (#32): implement `export` modifier](https://github.com/amp-lang/amp/issues/32)
-- [feat (#29): implement `import` statements](https://github.com/amp-lang/amp/issues/29)
-- [feat (#35): implement `namespace`s](https://github.com/amp-lang/amp/issues/35)
-- [feat (#37): `as` conversion operator](https://github.com/amp-lang/amp/issues/37)
+- [feat!: (#32) implement `export` modifier](https://github.com/amp-lang/amp/issues/32)
+- [feat: (#29) implement `import` statements](https://github.com/amp-lang/amp/issues/29)
+- [feat: (#35) implement `namespace`s](https://github.com/amp-lang/amp/issues/35)
+- [feat: (#37) `as` conversion operator](https://github.com/amp-lang/amp/issues/37)
+- [feat: (#38) index operator](https://github.com/amp-lang/amp/issues/37)
+- [feat: (#38) subslice operator](https://github.com/amp-lang/amp/issues/37)
 
 ### Library
 - feat: implement standard library, I guess

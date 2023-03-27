@@ -1,25 +1,11 @@
-func printf(str: ~const u8, char: u8);
-func strlen(str: ~const u8) -> u32;
-
-struct MyStruct {
-    member: i32,
-}
+import "Std";
 
 export func Main() {
-    var my_str: ~mut u8 = "Hello";
+    var hello_world = "Hello, world!";
+    var hello = hello_world[0..5];
+    var world = hello_world[7..12];
 
-    my_str = "Hello, world!";
-    my_str[1] = 0x42;
-    *my_str = 0x42;
-
-    var my_struct = MyStruct .{ member = 42 };
-    var my_struct = ~const my_struct;
-    (my_struct as ~mut MyStruct).member = 42;
-    
-    var i = 0 as uint;
-    var len = strlen(my_str) as uint;
-    while i < len {
-        printf("%c", my_str[i]);
-        i = i + 1;
-    }
+    Std.Println(hello_world);
+    Std.Println(hello);
+    Std.Println(world);
 }
