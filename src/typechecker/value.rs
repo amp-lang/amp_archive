@@ -123,6 +123,12 @@ pub enum GenericValue {
 
     /// Implicitly converts a value to the provided type.
     Coerce(Box<GenericValue>, Type),
+
+    /// Outputs the address of a slice index.
+    AddrOfSliceIdx(Mutability, Box<GenericValue>, Box<GenericValue>, Type),
+
+    /// Outputs the address of a pointer index.
+    AddrOfPtrIdx(Mutability, Box<GenericValue>, Box<GenericValue>, Type),
 }
 
 impl GenericValue {
@@ -182,22 +188,66 @@ impl GenericValue {
         mutability: Mutability,
         expr: &ast::Expr,
     ) -> Result<Self, Error> {
-        Ok(Self::check(checker, scope, vars, expr)?.as_ref(mutability))
+        Ok(Self::check(checker, scope, vars, expr)?
+            .as_ref(checker, vars, mutability)
+            .ok_or(Error::CannotReferenceAsMut(expr.span()))?)
     }
 
     /// Gets a reference to this value. If the value is an immediate value (for example, `~mut 8`),
-    /// it will be stored on the stack.
-    pub fn as_ref(&self, mutability: Mutability) -> Self {
-        match self {
+    /// it will be stored on the stack.  Returns `None` if the value cannot be referenced as
+    /// mutable.
+    pub fn as_ref(
+        &self,
+        checker: &Typechecker,
+        vars: &Vars,
+        mutability: Mutability,
+    ) -> Option<Self> {
+        Some(match self {
             Self::Var(var) => Self::AddrOfVar(mutability, *var),
-            Self::StructAccess(target, id, field) => Self::AddrOfField(
-                mutability,
-                Box::new(target.as_ref().as_ref(mutability)),
-                *id,
-                *field,
-            ),
+            Self::StructAccess(target, id, field) => {
+                let ty = target.default_type(checker, vars);
+
+                match ty {
+                    Type::Slice(slice) => {
+                        if mutability > slice.mutability {
+                            return None;
+                        }
+                    }
+                    Type::Ptr(ptr) => {
+                        if mutability > ptr.mutability {
+                            return None;
+                        }
+                    }
+                    _ => {}
+                }
+
+                Self::AddrOfField(
+                    mutability,
+                    Box::new(target.as_ref().as_ref(checker, vars, mutability)?),
+                    *id,
+                    *field,
+                )
+            }
+            Self::SliceIdx(target, index, ty) => {
+                let Type::Slice(slice) = target.default_type(checker, vars) else { unreachable!() };
+
+                if mutability > slice.mutability {
+                    return None;
+                }
+
+                Self::AddrOfSliceIdx(mutability, target.clone(), index.clone(), ty.clone())
+            }
+            Self::PtrIdx(target, index, ty) => {
+                let Type::Ptr(ptr) = target.default_type(checker, vars) else { unreachable!() };
+
+                if mutability > ptr.mutability {
+                    return None;
+                }
+
+                Self::AddrOfPtrIdx(mutability, target.clone(), index.clone(), ty.clone())
+            }
             value => Self::Store(mutability, Box::new(value.clone())),
-        }
+        })
     }
 
     pub fn check_math_expr(
@@ -267,6 +317,12 @@ impl GenericValue {
             Self::SliceIdx(_, _, ty) => ty.clone(),
             Self::PtrIdx(_, _, ty) => ty.clone(),
             Self::Coerce(_, ty) => ty.clone(),
+            Self::AddrOfSliceIdx(mutability, _, _, ty) => {
+                Type::Ptr(Ptr::new(*mutability, ty.clone()))
+            }
+            Self::AddrOfPtrIdx(mutability, _, _, ty) => {
+                Type::Ptr(Ptr::new(*mutability, ty.clone()))
+            }
         }
     }
 
@@ -367,7 +423,7 @@ impl GenericValue {
                         Box::new(if lhs.is_pointer(checker, vars) {
                             lhs
                         } else {
-                            lhs.as_ref(Mutability::Const)
+                            lhs.as_ref(checker, vars, Mutability::Const).unwrap()
                         }),
                         id,
                         field_id,
@@ -570,6 +626,24 @@ impl GenericValue {
             GenericValue::Coerce(value, ty) => {
                 value.coerce(checker, vars, &ty).expect("confirmed earlier")
             }
+            GenericValue::AddrOfSliceIdx(mutability, value, idx, ty) => Value::AddrOfSliceIdx(
+                mutability,
+                Box::new(value.coerce_default(checker, vars)),
+                Box::new(
+                    idx.coerce(checker, vars, &Type::Uint)
+                        .expect("verified earlier"),
+                ),
+                ty,
+            ),
+            GenericValue::AddrOfPtrIdx(mutability, value, idx, ty) => Value::AddrOfPtrIdx(
+                mutability,
+                Box::new(value.coerce_default(checker, vars)),
+                Box::new(
+                    idx.coerce(checker, vars, &Type::Uint)
+                        .expect("verified earlier"),
+                ),
+                ty,
+            ),
         }
     }
 
@@ -729,6 +803,34 @@ impl GenericValue {
             (GenericValue::Coerce(value, ty), to) if ty.is_equivalent(to) => {
                 value.coerce(checker, vars, to)
             }
+            (GenericValue::AddrOfSliceIdx(mutability, slice, idx, ty), to) => {
+                let ty = Type::Ptr(Ptr::new(mutability, ty.clone()));
+
+                if ty.is_equivalent(to) {
+                    Some(Value::AddrOfSliceIdx(
+                        mutability,
+                        Box::new(slice.coerce_default(checker, vars)),
+                        Box::new(idx.coerce(checker, vars, &Type::Uint)?),
+                        ty,
+                    ))
+                } else {
+                    None
+                }
+            }
+            (GenericValue::AddrOfPtrIdx(mutability, ptr, idx, ty), to) => {
+                let ty = Type::Ptr(Ptr::new(mutability, ty.clone()));
+
+                if ty.is_equivalent(to) {
+                    Some(Value::AddrOfPtrIdx(
+                        mutability,
+                        Box::new(ptr.coerce_default(checker, vars)),
+                        Box::new(idx.coerce(checker, vars, &Type::Uint)?),
+                        ty,
+                    ))
+                } else {
+                    None
+                }
+            }
             _ => None,
         }
     }
@@ -843,6 +945,12 @@ pub enum Value {
 
     /// Indexes into a pointer.
     PtrIdx(Box<Value>, Box<Value>, Type),
+
+    /// Outputs the address of an index in a slice.
+    AddrOfSliceIdx(Mutability, Box<Value>, Box<Value>, Type),
+
+    /// Outputs the address of an index in a pointer.
+    AddrOfPtrIdx(Mutability, Box<Value>, Box<Value>, Type),
 }
 
 impl Value {
@@ -897,6 +1005,12 @@ impl Value {
             Value::SliceToSlice(_, ty) => ty.clone(),
             Value::SliceIdx(_, _, ty) => ty.clone(),
             Value::PtrIdx(_, _, ty) => ty.clone(),
+            Value::AddrOfSliceIdx(mutability, _, _, ty) => {
+                Type::Ptr(Ptr::new(*mutability, ty.clone()))
+            }
+            Value::AddrOfPtrIdx(mutability, _, _, ty) => {
+                Type::Ptr(Ptr::new(*mutability, ty.clone()))
+            }
         }
     }
 }

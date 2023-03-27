@@ -8,13 +8,13 @@ use cranelift_module::Module;
 
 use crate::typechecker::{
     func::{FuncImpl, Signature},
-    stmnt::{Assign, AssignDest, Block, IfBranch, Return, Stmnt, VarDecl},
+    stmnt::{Assign, Block, IfBranch, Return, Stmnt, VarDecl},
     value::FuncCall,
     var::VarId,
     Typechecker,
 };
 
-use super::{types::compile_type, Codegen};
+use super::{types::compile_type, value::compile_value, Codegen};
 
 pub fn compile_func_call(
     checker: &Typechecker,
@@ -102,31 +102,8 @@ pub fn compile_assign(
     data: &FuncImpl,
     assign: &Assign,
 ) {
-    let dest = match &assign.dest {
-        AssignDest::Var(var) => {
-            let slot = vars[&var];
-            builder.ins().stack_addr(codegen.pointer_type, slot, 0)
-        }
-        AssignDest::Deref(deref) => {
-            super::value::compile_value(checker, codegen, builder, &deref, vars, data, None)
-                .expect("no `to` provided")
-        }
-        AssignDest::StructField(dest, ty, field) => {
-            // `dest` is always a reference to a struct
-            let ptr =
-                super::value::compile_value(checker, codegen, builder, &dest, vars, data, None)
-                    .expect("no `to` provided");
-
-            builder.ins().iadd_imm(
-                ptr,
-                checker.structs[ty.0].get_field_offset(
-                    checker,
-                    codegen.pointer_type.bytes() as usize,
-                    *field,
-                ) as i64,
-            )
-        }
-    };
+    let dest = compile_value(checker, codegen, builder, &assign.dest, vars, data, None)
+        .expect("no `to` provided");
 
     super::value::compile_value(
         checker,

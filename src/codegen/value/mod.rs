@@ -370,6 +370,37 @@ pub fn compile_value(
 
             return mem_load(checker, codegen, builder, final_ptr, ty, to);
         }
+        Value::AddrOfSliceIdx(_, slice, idx, ty) => {
+            let slice_ptr = compile_value(checker, codegen, builder, slice, vars, data, None)
+                .expect("No `to` provided");
+
+            // the pointer part of the slice
+            let ptr = builder
+                .ins()
+                .load(codegen.pointer_type, MemFlags::new(), slice_ptr, 0);
+
+            let idx = compile_value(checker, codegen, builder, idx, vars, data, None).unwrap();
+
+            let offset = builder.ins().imul_imm(
+                idx,
+                ty.size(checker, codegen.pointer_type.bytes() as usize) as i64,
+            );
+
+            builder.ins().iadd(ptr, offset)
+        }
+        Value::AddrOfPtrIdx(_, ptr, idx, ty) => {
+            let ptr = compile_value(checker, codegen, builder, ptr, vars, data, None)
+                .expect("No `to` provided");
+
+            let idx = compile_value(checker, codegen, builder, idx, vars, data, None).unwrap();
+
+            let offset = builder.ins().imul_imm(
+                idx,
+                ty.size(checker, codegen.pointer_type.bytes() as usize) as i64,
+            );
+
+            builder.ins().iadd(ptr, offset)
+        }
     };
 
     if let Some(to) = to {

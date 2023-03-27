@@ -1,9 +1,12 @@
-use crate::{ast, error::Error, span::Spanned, typechecker::var::Var};
+use crate::{
+    ast::{self},
+    error::Error,
+    typechecker::{types::Ptr, var::Var},
+};
 
 use super::{
     func::Func,
     scope::Scope,
-    struct_::StructId,
     types::{Mutability, Type},
     value::{FuncCall, GenericValue, Value},
     var::{VarId, Vars},
@@ -119,100 +122,10 @@ impl VarDecl {
     }
 }
 
-/// The destination of an assignment.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum AssignDest {
-    Var(VarId),
-    Deref(Value),
-
-    /// Assigns to a field of a struct.
-    StructField(Value, StructId, usize),
-}
-
-impl AssignDest {
-    /// Checks a destination to assign.
-    pub fn check(
-        checker: &Typechecker,
-        scope: &mut Scope,
-        vars: &mut Vars,
-        func: &Func,
-        dest: &ast::Expr,
-    ) -> Result<Self, Error> {
-        match &dest {
-            ast::Expr::Iden(name) => {
-                let var = scope
-                    .resolve_var(&name.value)
-                    .ok_or(Error::UndeclaredVariable(Spanned::new(
-                        name.span,
-                        name.value.clone(),
-                    )))?;
-
-                Ok(Self::Var(var))
-            }
-            ast::Expr::Unary(unary) => match unary.op {
-                ast::UnaryOp::Deref => {
-                    let value = GenericValue::check(checker, scope, vars, &unary.expr)?;
-
-                    match value.default_type(checker, vars) {
-                        Type::Ptr(ptr) => {
-                            if ptr.mutability != Mutability::Mut {
-                                return Err(Error::CannotChangeImmutable(unary.span));
-                            }
-                        }
-                        _ => return Err(Error::InvalidDeref(unary.span)),
-                    }
-
-                    Ok(Self::Deref(value.coerce_default(checker, vars)))
-                }
-                _ => Err(Error::InvalidAssignment(dest.span())),
-            },
-            ast::Expr::Binary(binary) => match binary.op {
-                ast::BinaryOp::Dot => {
-                    let left = GenericValue::check(checker, scope, vars, &binary.left)?;
-
-                    // get id of struct type
-                    let id = left
-                        .resolve_struct(checker, vars)
-                        .ok_or(Error::AccessNonStruct(binary.left.span()))?;
-
-                    let iden = match binary.right.as_ref() {
-                        ast::Expr::Iden(iden) => iden,
-                        _ => return Err(Error::ExpectedFieldName(dest.span())),
-                    };
-
-                    let struct_decl = &checker.structs[id.0];
-
-                    if let Some((field_id, _)) = struct_decl.get_field(&iden.value) {
-                        if left.is_pointer(checker, vars) {
-                            Ok(Self::StructField(
-                                // already a pointer
-                                left.coerce_default(checker, vars),
-                                id,
-                                field_id,
-                            ))
-                        } else {
-                            Ok(Self::StructField(
-                                // get address of value to assign to
-                                left.as_ref(Mutability::Mut).coerce_default(checker, vars),
-                                id,
-                                field_id,
-                            ))
-                        }
-                    } else {
-                        return Err(Error::UnknownStructField(iden.span));
-                    }
-                }
-                _ => Err(Error::InvalidAssignment(dest.span())),
-            },
-            _ => Err(Error::InvalidAssignment(dest.span())),
-        }
-    }
-}
-
 /// Assigns a value to a variable.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Assign {
-    pub dest: AssignDest,
+    pub dest: Value,
     pub value: Value,
 }
 
@@ -225,47 +138,47 @@ impl Assign {
         func: &Func,
         assign: &ast::Binary,
     ) -> Result<Self, Error> {
-        let dest = AssignDest::check(checker, scope, vars, func, &assign.left)?;
+        // get pointer to destination
+        let dest = match assign.left.as_ref() {
+            ast::Expr::Unary(ast::Unary {
+                op: ast::UnaryOp::Deref,
+                expr,
+                ..
+            }) => {
+                let value = GenericValue::check(checker, scope, vars, &expr)?;
+                let Type::Ptr(Ptr { mutability, .. }) = value.default_type(checker, vars) else {
+                    return Err(Error::InvalidDeref(expr.span()))
+                };
 
-        match &dest {
-            AssignDest::Var(var) => {
-                let value = GenericValue::check(checker, scope, vars, &assign.right)?
-                    .coerce(checker, vars, &vars.vars[var.0].ty)
-                    .ok_or(Error::CannotAssignType {
-                        decl: vars.vars[var.0].span,
-                        expected: vars.vars[var.0].ty.name(checker),
-                        offending: assign.right.span(),
-                    })?;
+                if mutability != Mutability::Mut {
+                    return Err(Error::CannotChangeImmutable(expr.span()));
+                }
 
-                Ok(Self { dest, value })
+                value.coerce_default(checker, vars)
             }
-            AssignDest::Deref(deref) => {
-                let Type::Ptr(ptr) = deref.ty(checker, vars) else { unreachable!() };
+            _ => GenericValue::check(checker, scope, vars, &assign.left)?
+                .as_ref(checker, vars, Mutability::Mut)
+                .ok_or(Error::CannotChangeImmutable(assign.left.span()))?
+                .coerce_default(checker, vars),
+        };
 
-                let value = GenericValue::check(checker, scope, vars, &assign.right)?
-                    .coerce(checker, vars, &ptr.ty)
-                    .ok_or(Error::CannotAssignType {
-                        decl: assign.right.span(),
-                        expected: ptr.ty.name(checker),
-                        offending: assign.right.span(),
-                    })?;
-
-                Ok(Self { dest, value })
-            }
-            AssignDest::StructField(_, id, field) => {
-                let struct_decl = &checker.structs[id.0];
-
-                let value = GenericValue::check(checker, scope, vars, &assign.right)?
-                    .coerce(checker, vars, &struct_decl.fields[*field].ty.value)
-                    .ok_or(Error::CannotAssignType {
-                        decl: assign.right.span(),
-                        expected: struct_decl.fields[*field].ty.value.name(checker),
-                        offending: assign.right.span(),
-                    })?;
-
-                Ok(Self { dest, value })
-            }
+        match dest {
+            Value::Store(_, _) => return Err(Error::InvalidAssignment(assign.span)),
+            _ => {}
         }
+
+        // get type of destination
+        let Type::Ptr(ptr) = dest.ty(checker, vars) else { unreachable!() };
+
+        let value = GenericValue::check(checker, scope, vars, &assign.right)?
+            .coerce(checker, vars, &ptr.ty)
+            .ok_or(Error::CannotAssignType {
+                decl: assign.right.span(),
+                expected: ptr.ty.name(checker),
+                offending: assign.right.span(),
+            })?;
+
+        Ok(Self { dest, value })
     }
 }
 

@@ -404,6 +404,9 @@ pub enum Error {
 
     /// Expected a `uint` for an array index.
     ExpectedUintIndex(Span) = 74,
+
+    /// An immutable value was referenced as mutable.
+    CannotReferenceAsMut(Span) = 75,
 }
 
 impl Error {
@@ -951,6 +954,10 @@ impl Error {
             }
             Self::ExpectedUintIndex(span) => {
                 diagnostic.message = "Expected an unsigned integer (`uint`) as index".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::CannotReferenceAsMut(span) => {
+                diagnostic.message = "Cannot reference an immutable value as mutable".to_owned();
                 diagnostic.labels.push(span.primary());
             }
         }
