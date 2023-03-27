@@ -109,6 +109,8 @@ impl VarDecl {
 
             let value = value.coerce_default(checker, vars);
 
+            dbg!(&value);
+
             (value.ty(checker, vars), Some(value))
         };
 

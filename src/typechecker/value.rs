@@ -120,6 +120,9 @@ pub enum GenericValue {
 
     /// Index a pointer.
     PtrIdx(Box<GenericValue>, Box<GenericValue>, Type),
+
+    /// Implicitly converts a value to the provided type.
+    Coerce(Box<GenericValue>, Type),
 }
 
 impl GenericValue {
@@ -263,6 +266,7 @@ impl GenericValue {
             Self::SliceToSlice(_, ty) => ty.clone(),
             Self::SliceIdx(_, _, ty) => ty.clone(),
             Self::PtrIdx(_, _, ty) => ty.clone(),
+            Self::Coerce(_, ty) => ty.clone(),
         }
     }
 
@@ -433,7 +437,7 @@ impl GenericValue {
                 let ty = Type::check(scope, &as_.ty)?;
 
                 if value.clone().coerce(checker, vars, &ty).is_some() {
-                    Ok(value)
+                    Ok(GenericValue::Coerce(Box::new(value), ty))
                 } else {
                     Ok(value.clone().convert(checker, vars, &ty).ok_or(
                         Error::InvalidConversion {
@@ -474,6 +478,8 @@ impl GenericValue {
         }
     }
 
+    /// Converts a value to a different type.  Assumes any non-conversions (for example,
+    /// `bool as bool`) have been checked.
     pub fn convert(self, checker: &Typechecker, vars: &Vars, to: &Type) -> Option<Self> {
         // assume any basic conversions (i.e. bool => bool have already been covered.)
         match (self.default_type(checker, vars), to) {
@@ -561,6 +567,9 @@ impl GenericValue {
                 ),
                 ty,
             ),
+            GenericValue::Coerce(value, ty) => {
+                value.coerce(checker, vars, &ty).expect("confirmed earlier")
+            }
         }
     }
 
@@ -716,6 +725,9 @@ impl GenericValue {
                     Box::new(idx.coerce(checker, vars, &Type::Uint)?),
                     ty,
                 ))
+            }
+            (GenericValue::Coerce(value, ty), to) if ty.is_equivalent(to) => {
+                value.coerce(checker, vars, to)
             }
             _ => None,
         }

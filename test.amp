@@ -1,13 +1,12 @@
-// import "Std";
-
 func printf(str: ~const u8, char: u8);
 func strlen(str: ~const u8) -> u32;
 
 export func Main() {
     var my_str: ~const u8 = "Hello, world!";
     
-    var i: uint = 0;
-    while i < strlen(my_str) as uint {
+    var i = 0 as uint;
+    var len = strlen(my_str) as uint;
+    while i < len {
         printf("%c", my_str[i]);
         i = i + 1;
     }

@@ -370,7 +370,6 @@ pub fn compile_value(
 
             return mem_load(checker, codegen, builder, final_ptr, ty, to);
         }
-        _ => todo!(),
     };
 
     if let Some(to) = to {
