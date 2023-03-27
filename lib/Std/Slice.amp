@@ -1,7 +1,7 @@
 namespace Std;
 
 /// A basic slice type that can be used to get the length and pointer values of an Amp slice.
-struct BasicSlice {
+struct Std.BasicSlice {
     ptr: ~const u8,
     len: uint,
 }
@@ -33,7 +33,6 @@ export func Std.SliceFromPtrMut(ptr: ~mut u8, len: uint) -> []mut u8 {
     };
     return *((~const slice) as ~const []mut u8);
 }
-
 
 /// Copies the source slice to the destination slice.
 ///

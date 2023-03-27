@@ -398,6 +398,12 @@ pub enum Error {
         to: String,
         offending: Span,
     } = 72,
+
+    /// Expected a closing `]`.
+    ExpectedClosingBrack { started: Span, offending: Span } = 73,
+
+    /// Expected a `uint` for an array index.
+    ExpectedUintIndex(Span) = 74,
 }
 
 impl Error {
@@ -935,6 +941,17 @@ impl Error {
                 diagnostic.message = format!("Cannot convert '{}' to '{}'", from, to);
 
                 diagnostic.labels.push(offending.primary());
+            }
+            Self::ExpectedClosingBrack { started, offending } => {
+                diagnostic.message = "Expected a closing bracket".to_owned();
+                diagnostic
+                    .labels
+                    .push(started.secondary().with_message("Opened here"));
+                diagnostic.labels.push(offending.primary());
+            }
+            Self::ExpectedUintIndex(span) => {
+                diagnostic.message = "Expected an unsigned integer (`uint`) as index".to_owned();
+                diagnostic.labels.push(span.primary());
             }
         }
 

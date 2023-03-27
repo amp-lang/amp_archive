@@ -1,8 +1,14 @@
-import "Std";
+// import "Std";
+
+func printf(str: ~const u8, char: u8);
+func strlen(str: ~const u8) -> u32;
 
 export func Main() {
-    var ptr = Std.Alloc(14);
-    Std.Copy(ptr, "Hello, world!\n");
-    Std.Print(ptr);
-    Std.Free(ptr);
+    var my_str: ~const u8 = "Hello, world!";
+    
+    var i: uint = 0;
+    while i < strlen(my_str) as uint {
+        printf("%c", my_str[i]);
+        i = i + 1;
+    }
 }

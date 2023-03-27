@@ -88,6 +88,9 @@ pub enum Token {
     /// `,`
     Comma,
 
+    /// `..`
+    DotDot,
+
     /// `.`
     Dot,
 
@@ -328,6 +331,7 @@ impl Token {
             Token::Minus => true,
             Token::Percent => true,
             Token::KAs => true,
+            Token::LBrack => true, // Index operator
             _ => false,
         }
     }
@@ -363,6 +367,7 @@ impl Token {
             Token::LParen => (7, 8),
             Token::Constructor => (7, 8),
             Token::Dot => (7, 8),
+            Token::LBrack => (7, 8),
             _ => unreachable!("Invalid operator."),
         }
     }
@@ -639,7 +644,8 @@ impl<'a> Scanner<'a> {
         let ty = self.scan_digits_radix(10, true)?;
 
         if let Some(next) = self.peek_char() {
-            if next == '.' && ty != Token::Float {
+            dbg!(self.peek_nth(1));
+            if next == '.' && self.peek() != Some(Ok(Token::DotDot)) && ty != Token::Float {
                 self.next_char();
 
                 if let Some(next) = self.peek_char() {
@@ -772,6 +778,9 @@ impl<'a> Iterator for Scanner<'a> {
                 if self.peek_char() == Some('{') {
                     self.next_char();
                     Token::Constructor
+                } else if self.peek_char() == Some('.') {
+                    self.next_char();
+                    Token::DotDot
                 } else {
                     Token::Dot
                 }

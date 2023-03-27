@@ -114,6 +114,12 @@ pub enum GenericValue {
     /// Converts a slice to a different slice type.  Basically a no-op, as slice types are only
     /// used at compile time.
     SliceToSlice(Box<GenericValue>, Type),
+
+    /// Index a slice.
+    SliceIdx(Box<GenericValue>, Box<GenericValue>, Type),
+
+    /// Index a pointer.
+    PtrIdx(Box<GenericValue>, Box<GenericValue>, Type),
 }
 
 impl GenericValue {
@@ -255,6 +261,8 @@ impl GenericValue {
             Self::IntToInt(_, ty) => ty.clone(),
             Self::SliceToPtr(_, ty) => ty.clone(),
             Self::SliceToSlice(_, ty) => ty.clone(),
+            Self::SliceIdx(_, _, ty) => ty.clone(),
+            Self::PtrIdx(_, _, ty) => ty.clone(),
         }
     }
 
@@ -436,6 +444,31 @@ impl GenericValue {
                     )?)
                 }
             }
+            ast::Expr::Idx(idx) => {
+                let value = Self::check(checker, scope, vars, &idx.expr)?;
+
+                let index = Self::check(checker, scope, vars, &idx.index)?;
+
+                // check if `index` is a `uint`
+                index
+                    .clone()
+                    .coerce(checker, vars, &Type::Uint)
+                    .ok_or(Error::ExpectedUintIndex(idx.index.span()))?;
+
+                match value.default_type(checker, vars) {
+                    Type::Slice(ty) => Ok(Self::SliceIdx(
+                        Box::new(value),
+                        Box::new(index),
+                        ty.ty.as_ref().clone(),
+                    )),
+                    Type::Ptr(ty) => Ok(Self::PtrIdx(
+                        Box::new(value),
+                        Box::new(index),
+                        ty.ty.as_ref().clone(),
+                    )),
+                    _ => todo!(),
+                }
+            }
 
             _ => return Err(Error::InvalidValue(expr.span())),
         }
@@ -512,6 +545,22 @@ impl GenericValue {
             GenericValue::SliceToSlice(from, ty) => {
                 Value::SliceToSlice(Box::new(from.coerce_default(checker, vars)), ty)
             }
+            GenericValue::SliceIdx(slice, idx, ty) => Value::SliceIdx(
+                Box::new(slice.coerce_default(checker, vars)),
+                Box::new(
+                    idx.coerce(checker, vars, &Type::Uint)
+                        .expect("verified earlier"),
+                ),
+                ty,
+            ),
+            GenericValue::PtrIdx(ptr, idx, ty) => Value::PtrIdx(
+                Box::new(ptr.coerce_default(checker, vars)),
+                Box::new(
+                    idx.coerce(checker, vars, &Type::Uint)
+                        .expect("verified earlier"),
+                ),
+                ty,
+            ),
         }
     }
 
@@ -654,6 +703,20 @@ impl GenericValue {
             (GenericValue::SliceToSlice(val, ty), to) if ty.is_equivalent(to) => Some(
                 Value::SliceToSlice(Box::new(val.coerce_default(checker, vars)), ty),
             ),
+            (GenericValue::SliceIdx(slice, idx, ty), to) if ty.is_equivalent(to) => {
+                Some(Value::SliceIdx(
+                    Box::new(slice.coerce_default(checker, vars)),
+                    Box::new(idx.coerce(checker, vars, &Type::Uint)?),
+                    ty,
+                ))
+            }
+            (GenericValue::PtrIdx(slice, idx, ty), to) if ty.is_equivalent(to) => {
+                Some(Value::PtrIdx(
+                    Box::new(slice.coerce_default(checker, vars)),
+                    Box::new(idx.coerce(checker, vars, &Type::Uint)?),
+                    ty,
+                ))
+            }
             _ => None,
         }
     }
@@ -739,6 +802,7 @@ pub enum Value {
     /// Creates a new struct valuie
     Constructor(StructId, HashMap<usize, Value>),
 
+    /// Accesses a field in a struct.
     StructAccess(Box<Value>, StructId, usize),
 
     /// Outputs the address of a field.
@@ -761,6 +825,12 @@ pub enum Value {
 
     /// Converts a slice to a different slice type.
     SliceToSlice(Box<Value>, Type),
+
+    /// Indexes into a slice.
+    SliceIdx(Box<Value>, Box<Value>, Type),
+
+    /// Indexes into a pointer.
+    PtrIdx(Box<Value>, Box<Value>, Type),
 }
 
 impl Value {
@@ -813,6 +883,8 @@ impl Value {
             Value::IntToInt(_, ty) => ty.clone(),
             Value::SliceToPtr(_, ty) => ty.clone(),
             Value::SliceToSlice(_, ty) => ty.clone(),
+            Value::SliceIdx(_, _, ty) => ty.clone(),
+            Value::PtrIdx(_, _, ty) => ty.clone(),
         }
     }
 }

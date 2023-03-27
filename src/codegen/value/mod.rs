@@ -335,6 +335,42 @@ pub fn compile_value(
         Value::SliceToSlice(value, _) => {
             compile_value(checker, codegen, builder, value, vars, data, to)?
         }
+        Value::SliceIdx(slice, idx, ty) => {
+            let slice_ptr = compile_value(checker, codegen, builder, slice, vars, data, None)
+                .expect("No `to` provided");
+
+            // the pointer part of the slice
+            let ptr = builder
+                .ins()
+                .load(codegen.pointer_type, MemFlags::new(), slice_ptr, 0);
+
+            let idx = compile_value(checker, codegen, builder, idx, vars, data, None).unwrap();
+
+            let offset = builder.ins().imul_imm(
+                idx,
+                ty.size(checker, codegen.pointer_type.bytes() as usize) as i64,
+            );
+
+            let final_ptr = builder.ins().iadd(ptr, offset);
+
+            return mem_load(checker, codegen, builder, final_ptr, ty, to);
+        }
+        Value::PtrIdx(ptr, idx, ty) => {
+            let ptr = compile_value(checker, codegen, builder, ptr, vars, data, None)
+                .expect("No `to` provided");
+
+            let idx = compile_value(checker, codegen, builder, idx, vars, data, None).unwrap();
+
+            let offset = builder.ins().imul_imm(
+                idx,
+                ty.size(checker, codegen.pointer_type.bytes() as usize) as i64,
+            );
+
+            let final_ptr = builder.ins().iadd(ptr, offset);
+
+            return mem_load(checker, codegen, builder, final_ptr, ty, to);
+        }
+        _ => todo!(),
     };
 
     if let Some(to) = to {
@@ -344,6 +380,49 @@ pub fn compile_value(
         None
     } else {
         Some(value)
+    }
+}
+
+/// Loads a value from the specified address
+pub fn mem_load(
+    checker: &Typechecker,
+    codegen: &mut Codegen,
+    builder: &mut FunctionBuilder,
+    addr: cranelift::prelude::Value,
+    ty: &Type,
+    // the address to write the value to, if any.
+    to: Option<cranelift::prelude::Value>,
+) -> Option<cranelift::prelude::Value> {
+    if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
+        let size = ty.size(checker, codegen.pointer_type.bytes() as usize);
+        let stack_slot = builder
+            .create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, size as u32));
+
+        let dest = if let Some(to) = to {
+            to
+        } else {
+            builder
+                .ins()
+                .stack_addr(codegen.pointer_type, stack_slot, 0)
+        };
+        let size = builder.ins().iconst(codegen.pointer_type, size as i64);
+        builder.call_memcpy(codegen.module.target_config(), dest, addr, size);
+
+        if to == None {
+            Some(dest)
+        } else {
+            None
+        }
+    } else {
+        let ty = compile_type(codegen, checker, ty);
+        let value = builder.ins().load(ty, MemFlags::new(), addr, 0);
+
+        if let Some(to) = to {
+            builder.ins().store(MemFlags::new(), value, to, 0);
+            None
+        } else {
+            Some(value)
+        }
     }
 }
 

@@ -554,6 +554,21 @@ pub struct As {
     pub ty: Type,
 }
 
+/// An index operation.
+///
+/// ```amp
+/// my_array[0]
+/// ```
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Idx {
+    pub span: Span,
+    pub expr: Box<Expr>,
+    pub index: Box<Expr>,
+
+    /// The `..to` part of the index, if any.
+    pub to: Option<Box<Expr>>,
+}
+
 /// An expression in Amp code.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Expr {
@@ -570,6 +585,7 @@ pub enum Expr {
     While(While),
     If(If),
     As(As),
+    Idx(Idx),
 }
 
 impl Expr {
@@ -589,6 +605,7 @@ impl Expr {
             Expr::While(while_) => while_.span,
             Expr::If(if_) => if_.span,
             Expr::As(as_) => as_.span,
+            Expr::Idx(idx) => idx.span,
         }
     }
 
@@ -803,6 +820,54 @@ impl Expr {
                     ),
                     expr: Box::new(left),
                     ty,
+                });
+            } else if op == Token::LBrack {
+                parser.scanner_mut().next();
+                let started = parser.scanner().span();
+                dbg!(parser.scanner_mut().peek());
+
+                // Parse array indexing or subslicing
+                let index = match parser.parse::<Expr>() {
+                    Some(Ok(index)) => index,
+                    Some(Err(err)) => return Some(Err(err)),
+                    None => {
+                        return Some(Err(Error::ExpectedExpression(parser.scanner().span())));
+                    }
+                };
+
+                // Check for `..` operator
+                let to = if let Some(Ok(Token::DotDot)) = parser.scanner_mut().peek() {
+                    parser.scanner_mut().next();
+
+                    match parser.parse::<Expr>() {
+                        Some(Ok(to)) => Some(to),
+                        Some(Err(err)) => return Some(Err(err)),
+                        None => {
+                            return Some(Err(Error::ExpectedExpression(parser.scanner().span())))
+                        }
+                    }
+                } else {
+                    None
+                };
+
+                // check for closing brace
+                if let Some(Ok(Token::RBrack)) = parser.scanner_mut().next() {
+                } else {
+                    return Some(Err(Error::ExpectedClosingBrack {
+                        started,
+                        offending: parser.scanner().span(),
+                    }));
+                }
+
+                left = Expr::Idx(Idx {
+                    span: Span::new(
+                        parser.scanner().file_id(),
+                        left.span().start,
+                        parser.scanner().span().end,
+                    ),
+                    expr: Box::new(left),
+                    index: Box::new(index),
+                    to: to.map(Box::new),
                 });
             } else {
                 parser.scanner_mut().next();

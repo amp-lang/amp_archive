@@ -11,7 +11,6 @@ use super::{
 };
 
 /// A return statement.
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Return {
     pub value: Option<Value>,
