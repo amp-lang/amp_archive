@@ -19,12 +19,19 @@ impl Parse for Source {
         let mut decls = Vec::new();
 
         loop {
+            if parser.scanner_mut().peek().is_none() {
+                break;
+            }
+
             let decl = match parser.parse::<Decl>() {
                 Some(res) => match res {
                     Ok(decl) => decl,
                     Err(err) => return Some(Err(err)),
                 },
-                None => break,
+                None => {
+                    parser.scanner_mut().next();
+                    return Some(Err(Error::ExpectedDeclaration(parser.scanner().span())));
+                }
             };
 
             decls.push(decl);

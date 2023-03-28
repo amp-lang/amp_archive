@@ -419,6 +419,9 @@ pub enum Error {
 
     /// A variadic argument was found in an Amp function.
     NonExternVariadic(Span) = 79,
+
+    /// Expected a declaration in the root of the module.
+    ExpectedDeclaration(Span) = 80,
 }
 
 impl Error {
@@ -987,6 +990,10 @@ impl Error {
             }
             Self::NonExternVariadic(span) => {
                 diagnostic.message = "Variadic functions must be external".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::ExpectedDeclaration(span) => {
+                diagnostic.message = "Expected a declaration".to_owned();
                 diagnostic.labels.push(span.primary());
             }
         }
