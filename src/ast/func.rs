@@ -17,12 +17,11 @@ pub struct FuncArg {
 
 impl Parse for FuncArg {
     fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
-        let start_pos = parser.scanner().span().start;
-
         let name = match parser.parse::<Iden>()? {
             Ok(name) => name,
             Err(err) => return Some(Err(err)),
         };
+        let start_pos = parser.scanner().span().start;
         let name_span = name.span;
 
         match parser.scanner_mut().peek() {

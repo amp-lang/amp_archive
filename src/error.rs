@@ -425,6 +425,15 @@ pub enum Error {
 
     /// Expected a declaration after one or more modifiers.
     ExpectedDeclarationAfterModifier { modifier: Span, offending: Span } = 81,
+
+    /// A private type was exposed by a public function
+    ExposedPrivateType {
+        /// The name of the type.
+        name: Spanned<String>,
+
+        /// The offending area.
+        offending: Span,
+    } = 82,
 }
 
 impl Error {
@@ -1005,6 +1014,12 @@ impl Error {
             } => {
                 diagnostic.message = format!("Expected a declaration after modifier(s)");
                 diagnostic.labels.push(modifier.secondary());
+                diagnostic.labels.push(offending.primary());
+            }
+            Self::ExposedPrivateType { name, offending } => {
+                diagnostic.message =
+                    format!("Exported function exposes private type '{}'", name.value);
+                diagnostic.labels.push(name.span.secondary());
                 diagnostic.labels.push(offending.primary());
             }
         }

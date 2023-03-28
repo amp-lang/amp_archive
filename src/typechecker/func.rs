@@ -57,7 +57,11 @@ impl Signature {
     }
 
     /// Checks the type signature of a function declaration.
-    pub fn check(scope: &mut Scope, decl: &ast::Func) -> Result<Self, Error> {
+    pub fn check(
+        checker: &Typechecker,
+        scope: &mut Scope,
+        decl: &ast::Func,
+    ) -> Result<Self, Error> {
         let mut args = Vec::new();
         let mut variadic = false;
 
@@ -66,6 +70,21 @@ impl Signature {
             match arg {
                 ast::FuncArgOrVariadic::FuncArg(arg) => {
                     let ty = Type::check(scope, &arg.ty)?;
+
+                    match ty {
+                        Type::Struct(struct_ty) => {
+                            let ty = &checker.structs[struct_ty.0];
+
+                            if !ty.modifiers.contains(&Modifier::Export) {
+                                return Err(Error::ExposedPrivateType {
+                                    name: Spanned::new(ty.name.span, ty.name.value.to_string()),
+                                    offending: arg.span,
+                                });
+                            }
+                        }
+                        _ => {}
+                    }
+
                     args.push(Spanned::new(
                         arg.span,
                         FuncArg {
@@ -85,7 +104,23 @@ impl Signature {
         }
 
         let returns = match &decl.returns {
-            Some(ty) => Some(Type::check(scope, ty)?),
+            Some(returns) => Some({
+                let ty = Type::check(scope, returns)?;
+                match ty {
+                    Type::Struct(struct_ty) => {
+                        let ty = &checker.structs[struct_ty.0];
+
+                        if !ty.modifiers.contains(&Modifier::Export) {
+                            return Err(Error::ExposedPrivateType {
+                                name: Spanned::new(ty.name.span, ty.name.value.to_string()),
+                                offending: returns.span(),
+                            });
+                        }
+                    }
+                    _ => {}
+                }
+                ty
+            }),
             None => None,
         };
 
@@ -134,7 +169,7 @@ pub fn check_func_decl(
     scope: &mut Scope,
     decl: &ast::Func,
 ) -> Result<FuncId, Error> {
-    let signature = Signature::check(scope, decl)?;
+    let signature = Signature::check(checker, scope, decl)?;
 
     if signature.variadic && decl.block != None {
         return Err(Error::NonExternVariadic(decl.span));

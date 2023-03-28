@@ -26,6 +26,7 @@
 - fix: local struct variables were always constant
 - [fix! (#46): throw error when invalid syntax is found in root](https://github.com/amp-lang/amp/issues/46)
 - [fix! (#47): throw error when modifiers are before EOF](https://github.com/amp-lang/amp/issues/47)
+- [fix! (#42): ](https://github.com/amp-lang/amp/issues/42)
 
 ## v0.3.0-alpha
 

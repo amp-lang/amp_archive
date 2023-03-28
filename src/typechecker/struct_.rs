@@ -120,7 +120,6 @@ pub fn check_struct_def(
         .resolve_type(&Path::check(&ast.name))
         .expect("Typechecker confirms this type exists");
     let TypeDecl::Struct(id) = item;
-    let struct_ = &mut checker.structs[id.0 as usize];
 
     let mut field_names = HashSet::new();
     for item in &ast.fields.fields {
@@ -132,10 +131,29 @@ pub fn check_struct_def(
             )));
         }
         field_names.insert(&item.name.value);
-        struct_.fields.push(Field {
+
+        let ty = Type::check(scope, &item.ty)?;
+
+        // Make sure field isn't exposing a private type
+        // TODO: check if field is private
+        match ty {
+            Type::Struct(struct_ty) => {
+                let ty = &checker.structs[struct_ty.0];
+
+                if !ty.modifiers.contains(&Modifier::Export) {
+                    return Err(Error::ExposedPrivateType {
+                        name: Spanned::new(ty.name.span, ty.name.value.to_string()),
+                        offending: item.span,
+                    });
+                }
+            }
+            _ => {}
+        }
+
+        checker.structs[id.0 as usize].fields.push(Field {
             span: item.span,
             name: Spanned::new(item.name.span, item.name.value.clone()),
-            ty: Spanned::new(item.ty.span(), Type::check(scope, &item.ty)?),
+            ty: Spanned::new(item.ty.span(), ty),
         });
     }
 
