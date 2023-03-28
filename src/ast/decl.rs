@@ -117,6 +117,15 @@ impl Parse for Decl {
                 Err(err) => Some(Err(err)),
             }
         } else {
+            if modifiers.len() > 0 {
+                parser.scanner_mut().next();
+                let span = Modifier::modifiers_span(&modifiers).unwrap();
+                return Some(Err(Error::ExpectedDeclarationAfterModifier {
+                    modifier: span,
+                    offending: parser.scanner().span(),
+                }));
+            }
+
             None
         }
     }

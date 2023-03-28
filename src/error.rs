@@ -422,6 +422,9 @@ pub enum Error {
 
     /// Expected a declaration in the root of the module.
     ExpectedDeclaration(Span) = 80,
+
+    /// Expected a declaration after one or more modifiers.
+    ExpectedDeclarationAfterModifier { modifier: Span, offending: Span } = 81,
 }
 
 impl Error {
@@ -995,6 +998,14 @@ impl Error {
             Self::ExpectedDeclaration(span) => {
                 diagnostic.message = "Expected a declaration".to_owned();
                 diagnostic.labels.push(span.primary());
+            }
+            Self::ExpectedDeclarationAfterModifier {
+                modifier,
+                offending,
+            } => {
+                diagnostic.message = format!("Expected a declaration after modifier(s)");
+                diagnostic.labels.push(modifier.secondary());
+                diagnostic.labels.push(offending.primary());
             }
         }
 
