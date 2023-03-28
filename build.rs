@@ -1,7 +1,7 @@
 use std::{env, path::PathBuf};
 
 fn main() {
-    // println!("cargo:rerun-if-changed=lib");
+    println!("cargo:rerun-if-changed=lib");
 
     // Copy libraries to the output directory
     let profile = env::var("PROFILE").unwrap();
