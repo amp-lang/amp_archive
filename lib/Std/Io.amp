@@ -15,5 +15,5 @@ export func Std.Println(str: []const u8) {
 
 /// Prints a single ASCII character directly to STDOUT.
 export func Std.PrintAscii(char: u8) {
-    C.Putchar(char);
+    C.Putchar(char as i32);
 }
