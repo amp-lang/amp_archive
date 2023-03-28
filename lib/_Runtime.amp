@@ -1,3 +1,5 @@
+//! The runtime for Amp programs.
+
 /// The entry point of the program.
 func Main();
 
