@@ -440,6 +440,9 @@ pub enum Error {
 
     /// Expected the value of a type alias.
     ExpectedTypeAliasValue(Span) = 84,
+
+    /// Expected a struct type to construct.
+    CannotConstructNonStruct(Span) = 85,
 }
 
 impl Error {
@@ -1034,6 +1037,10 @@ impl Error {
             }
             Self::ExpectedTypeAliasValue(span) => {
                 diagnostic.message = "Expected a value for the type alias".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::CannotConstructNonStruct(span) => {
+                diagnostic.message = "Cannot construct a non-struct type".to_owned();
                 diagnostic.labels.push(span.primary());
             }
         }

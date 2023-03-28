@@ -1,8 +1,6 @@
-import "Std/Io";
-
-type Int = i32;
+import "C";
+import "C/Stdio";
 
 export func Main() {
-    var my_var: Int = 42;
-    Std.Println("Hello, world!");
+    C.Printf("%d\n\0" as ~const C.Char, 42 as C.Int);
 }

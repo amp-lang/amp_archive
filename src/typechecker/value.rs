@@ -4,7 +4,6 @@ use crate::{
     ast::{self},
     error::Error,
     span::Spanned,
-    typechecker::scope::TypeDecl,
 };
 
 use super::{
@@ -177,7 +176,7 @@ impl GenericValue {
 
     /// Returns `true` if this is an integer value.
     pub fn is_int(&self, checker: &Typechecker, vars: &Vars) -> bool {
-        self.default_type(checker, vars).is_int()
+        self.default_type(checker, vars).is_int(checker)
     }
 
     /// Checks a dereference expression (`*{value}`).
@@ -293,7 +292,7 @@ impl GenericValue {
         Ok((lhs, rhs))
     }
 
-    /// Returns the default type for a generic value.
+    /// Returns the default type for a generic value.  Never returns [Type::TypeAlias]
     pub fn default_type(&self, checker: &Typechecker, vars: &Vars) -> Type {
         match self {
             Self::Bool(_) => Type::Bool,
@@ -347,7 +346,7 @@ impl GenericValue {
 
                 Type::Slice(Slice::new(mutability, ty.clone()))
             }
-        }
+        }.resolve_aliases(checker)
     }
 
     /// Converts an ast value into a generic value, if it is a value.
@@ -392,7 +391,9 @@ impl GenericValue {
             },
             ast::Expr::Constructor(constructor) => {
                 let ty = types::check_type_decl_path(scope, &*constructor.ty)?;
-                let TypeDecl::Struct(id) = ty;
+                let id = ty
+                    .get_struct_id(checker)
+                    .ok_or(Error::CannotConstructNonStruct(constructor.ty.span()))?;
 
                 let struct_decl = &checker.structs[id.0 as usize];
 
@@ -595,7 +596,6 @@ impl GenericValue {
                     }
                 }
             }
-
             _ => return Err(Error::InvalidValue(expr.span())),
         }
     }
@@ -604,12 +604,19 @@ impl GenericValue {
     /// `bool as bool`) have been checked.
     pub fn convert(self, checker: &Typechecker, vars: &Vars, to: &Type) -> Option<Self> {
         // assume any basic conversions (i.e. bool => bool have already been covered.)
-        match (self.default_type(checker, vars), to) {
-            (left_ty, right_ty) if left_ty.is_int() && right_ty.is_int() => {
+        match (
+            self.default_type(checker, vars),
+            to.clone().resolve_aliases(checker),
+        ) {
+            (left_ty, right_ty) if left_ty.is_int(checker) && right_ty.is_int(checker) => {
                 Some(Self::IntToInt(Box::new(self), right_ty.clone()))
             }
-            (Type::Ptr(_), to) if to.is_int() => Some(Self::IntToInt(Box::new(self), to.clone())),
-            (ty, Type::Ptr(_)) if ty.is_int() => Some(Self::IntToInt(Box::new(self), to.clone())),
+            (Type::Ptr(_), to) if to.is_int(checker) => {
+                Some(Self::IntToInt(Box::new(self), to.clone()))
+            }
+            (ty, Type::Ptr(_)) if ty.is_int(checker) => {
+                Some(Self::IntToInt(Box::new(self), to.clone()))
+            }
             (Type::Ptr(_), Type::Ptr(_)) => Some(Self::IntToInt(Box::new(self), to.clone())),
             (Type::Slice(_), Type::Ptr(_)) => Some(Self::SliceToPtr(Box::new(self), to.clone())),
             (Type::Slice(_), Type::Slice(_)) => {
@@ -728,7 +735,7 @@ impl GenericValue {
 
     /// Attempts to coerce this generic value into a value of the specified type.
     pub fn coerce(self, checker: &Typechecker, vars: &Vars, ty: &Type) -> Option<Value> {
-        match (self, ty) {
+        match (self, &ty.clone().resolve_aliases(checker)) {
             (GenericValue::Bool(bool), Type::Bool) => Some(Value::Bool(bool)),
             (GenericValue::Int(int), Type::I8) => Some(Value::I8(int as i8)),
             (GenericValue::Int(int), Type::I16) => Some(Value::I16(int as i16)),
@@ -749,7 +756,7 @@ impl GenericValue {
                 _ => None,
             },
             (GenericValue::Var(var), ty) => {
-                if vars.vars[var.0].ty.is_equivalent(ty) {
+                if vars.vars[var.0].ty.is_equivalent(checker, ty) {
                     Some(Value::Var(var))
                 } else {
                     None
@@ -757,7 +764,13 @@ impl GenericValue {
             }
             (GenericValue::FuncCall(call), ty) => {
                 let func = &checker.funcs[call.callee.0 as usize];
-                if func.signature.returns.as_ref().unwrap().is_equivalent(ty) {
+                if func
+                    .signature
+                    .returns
+                    .as_ref()
+                    .unwrap()
+                    .is_equivalent(checker, ty)
+                {
                     Some(Value::FuncCall(call))
                 } else {
                     None
@@ -765,7 +778,7 @@ impl GenericValue {
             }
             (GenericValue::Deref(val), ty) => match val.default_type(checker, vars) {
                 Type::Ptr(ptr) => {
-                    if ptr.ty.is_equivalent(ty) {
+                    if ptr.ty.is_equivalent(checker, ty) {
                         Some(Value::Deref(Box::new(val.coerce_default(checker, vars))))
                     } else {
                         None
@@ -774,7 +787,7 @@ impl GenericValue {
                 _ => unreachable!(),
             },
             (GenericValue::AddrOfVar(mut_, var), Type::Ptr(ptr)) => {
-                if vars.vars[var.0].ty.is_equivalent(&*ptr.ty) {
+                if vars.vars[var.0].ty.is_equivalent(checker, &*ptr.ty) {
                     Some(Value::AddrOfVar(mut_, var))
                 } else {
                     None
@@ -791,7 +804,11 @@ impl GenericValue {
             (GenericValue::StructAccess(value, id, field), ty) => {
                 let struct_decl = &checker.structs[id.0];
 
-                if struct_decl.fields[field].ty.value.is_equivalent(ty) {
+                if struct_decl.fields[field]
+                    .ty
+                    .value
+                    .is_equivalent(checker, ty)
+                {
                     Some(Value::StructAccess(
                         Box::new(value.coerce_default(checker, vars)),
                         id,
@@ -808,7 +825,7 @@ impl GenericValue {
                     mutability,
                     struct_decl.fields[field].ty.value.clone(),
                 ))
-                .is_equivalent(ty)
+                .is_equivalent(checker, ty)
                 {
                     Some(Value::AddrOfField(
                         mutability,
@@ -822,7 +839,7 @@ impl GenericValue {
             }
             (GenericValue::IntOp(op, lhs, rhs), ty) => match op {
                 Op::LtEq | Op::Lt | Op::GtEq | Op::Gt => {
-                    if ty == &Type::Bool {
+                    if ty.is_equivalent(checker, &Type::Bool) {
                         let ty = lhs.default_type(checker, vars);
                         Some(Value::IntOp(
                             op,
@@ -855,37 +872,36 @@ impl GenericValue {
                     Box::new(rhs.coerce(checker, vars, &left_ty).unwrap()),
                 ))
             }
-            (GenericValue::IntToInt(val, ty), to) if ty.is_equivalent(to) => Some(Value::IntToInt(
-                Box::new(val.coerce_default(checker, vars)),
-                ty,
-            )),
-            (GenericValue::SliceToPtr(val, ty), to) if ty.is_equivalent(to) => Some(
+            (GenericValue::IntToInt(val, ty), to) if ty.is_equivalent(checker, to) => Some(
+                Value::IntToInt(Box::new(val.coerce_default(checker, vars)), ty),
+            ),
+            (GenericValue::SliceToPtr(val, ty), to) if ty.is_equivalent(checker, to) => Some(
                 Value::SliceToPtr(Box::new(val.coerce_default(checker, vars)), ty),
             ),
-            (GenericValue::SliceToSlice(val, ty), to) if ty.is_equivalent(to) => Some(
+            (GenericValue::SliceToSlice(val, ty), to) if ty.is_equivalent(checker, to) => Some(
                 Value::SliceToSlice(Box::new(val.coerce_default(checker, vars)), ty),
             ),
-            (GenericValue::SliceIdx(slice, idx, ty), to) if ty.is_equivalent(to) => {
+            (GenericValue::SliceIdx(slice, idx, ty), to) if ty.is_equivalent(checker, to) => {
                 Some(Value::SliceIdx(
                     Box::new(slice.coerce_default(checker, vars)),
                     Box::new(idx.coerce(checker, vars, &Type::Uint)?),
                     ty,
                 ))
             }
-            (GenericValue::PtrIdx(slice, idx, ty), to) if ty.is_equivalent(to) => {
+            (GenericValue::PtrIdx(slice, idx, ty), to) if ty.is_equivalent(checker, to) => {
                 Some(Value::PtrIdx(
                     Box::new(slice.coerce_default(checker, vars)),
                     Box::new(idx.coerce(checker, vars, &Type::Uint)?),
                     ty,
                 ))
             }
-            (GenericValue::Coerce(value, ty), to) if ty.is_equivalent(to) => {
+            (GenericValue::Coerce(value, ty), to) if ty.is_equivalent(checker, to) => {
                 value.coerce(checker, vars, to)
             }
             (GenericValue::AddrOfSliceIdx(mutability, slice, idx, ty), to) => {
                 let ty = Type::Ptr(Ptr::new(mutability, ty.clone()));
 
-                if ty.is_equivalent(to) {
+                if ty.is_equivalent(checker, to) {
                     Some(Value::AddrOfSliceIdx(
                         mutability,
                         Box::new(slice.coerce_default(checker, vars)),
@@ -899,7 +915,7 @@ impl GenericValue {
             (GenericValue::AddrOfPtrIdx(mutability, ptr, idx, ty), to) => {
                 let ty = Type::Ptr(Ptr::new(mutability, ty.clone()));
 
-                if ty.is_equivalent(to) {
+                if ty.is_equivalent(checker, to) {
                     Some(Value::AddrOfPtrIdx(
                         mutability,
                         Box::new(ptr.coerce_default(checker, vars)),
@@ -912,7 +928,8 @@ impl GenericValue {
             }
             (GenericValue::Subslice(ptr, start, end, item_ty), Type::Slice(_)) => {
                 let Type::Ptr(Ptr { mutability, .. }) = ptr.default_type(checker, vars) else { unreachable!() };
-                if Type::Slice(Slice::new(mutability, item_ty.clone())).is_equivalent(&ty) {
+                if Type::Slice(Slice::new(mutability, item_ty.clone())).is_equivalent(checker, &ty)
+                {
                     Some(Value::Subslice(
                         Box::new(ptr.coerce_default(checker, vars)),
                         Box::new(start.coerce(checker, vars, &Type::Uint)?),
@@ -1113,6 +1130,6 @@ impl Value {
 
                 Type::Slice(Slice::new(mutability, ty.clone()))
             }
-        }
+        }.resolve_aliases(checker)
     }
 }

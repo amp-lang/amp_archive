@@ -1,0 +1,15 @@
+//! C FFI types.
+
+namespace C;
+
+/// The Amp equivalent to the C `char` type.
+export type C.Char = i8; /// The Amp equivalent to the C char type.
+
+/// The Amp equivalent to the C `int` type.
+export type C.Int = i32;
+
+/// The Amp equivalent to the C `size_t` type.
+export type C.SizeT = uint;
+
+/// The Amp equivalent to the C `va_list` type.
+export type C.VaList = ~mut u8;

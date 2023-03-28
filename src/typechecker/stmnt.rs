@@ -98,7 +98,11 @@ impl VarDecl {
             if let Some(value) = &decl.value {
                 let value = GenericValue::check(checker, scope, vars, value)?
                     .coerce(checker, vars, &ty)
-                    .ok_or(Error::InvalidValue(value.span()))?; // TODO: make special variable value error
+                    .ok_or(Error::CannotAssignType {
+                        decl: decl.span,
+                        expected: ty.name(checker),
+                        offending: value.span(),
+                    })?;
 
                 (ty, Some(value))
             } else {

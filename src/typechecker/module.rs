@@ -14,6 +14,7 @@ use super::{
     namespace::Namespace,
     scope::Scope,
     struct_::{check_struct_decl, check_struct_def, StructId},
+    type_alias::{check_type_alias_decl, check_type_alias_def, TypeAliasId},
     Typechecker,
 };
 
@@ -27,6 +28,7 @@ pub struct ModuleId(pub usize);
 pub enum Export {
     Func(FuncId),
     Struct(StructId),
+    TypeAlias(TypeAliasId),
 
     /// A module that was imported, for example:
     ///
@@ -60,6 +62,9 @@ pub struct Module {
     /// A list of all functions declared in this module.
     pub funcs: Vec<FuncId>,
 
+    /// A list of type aliases declared in the module.
+    pub type_aliases: Vec<TypeAliasId>,
+
     /// A list of namespace strings declared in the module.
     pub namespaces: Vec<Namespace>,
 }
@@ -75,6 +80,7 @@ impl Module {
             exports: Vec::new(),
             structs: Vec::new(),
             funcs: Vec::new(),
+            type_aliases: Vec::new(),
             namespaces: Vec::new(),
         }
     }
@@ -98,6 +104,11 @@ impl Module {
                     let decl = TypeDecl::Struct(*id);
                     scope.define_type(struct_.name.value.clone(), decl);
                 }
+                Export::TypeAlias(id) => {
+                    let type_alias = &checker.type_aliases[id.0];
+                    let decl = TypeDecl::TypeAlias(*id);
+                    scope.define_type(type_alias.name.value.clone(), decl);
+                }
                 Export::Import(id) => {
                     if imported_exported_modules.contains(id) {
                         continue;
@@ -116,6 +127,11 @@ impl Module {
                                 let struct_ = &checker.structs[id.0];
                                 let decl = TypeDecl::Struct(*id);
                                 scope.define_type(struct_.name.value.clone(), decl);
+                            }
+                            Export::TypeAlias(id) => {
+                                let type_alias = &checker.type_aliases[id.0];
+                                let decl = TypeDecl::TypeAlias(*id);
+                                scope.define_type(type_alias.name.value.clone(), decl);
                             }
                             Export::Import(import) => {
                                 if imported_exported_modules.contains(import) {
@@ -185,6 +201,15 @@ impl Module {
             debug_assert!(res);
         }
 
+        // Load type aliases into scope
+        for id in &self.type_aliases {
+            let res = scope.define_type(
+                checker.type_aliases[id.0].name.value.clone(),
+                TypeDecl::TypeAlias(*id),
+            );
+            debug_assert!(res);
+        }
+
         let mut imported_exported_modules = vec![self.id];
         for import in &self.imports {
             let imported_module = modules[import.0].clone();
@@ -200,6 +225,11 @@ impl Module {
                         let struct_ = &checker.structs[id.0];
                         let decl = TypeDecl::Struct(*id);
                         scope.define_type(struct_.name.value.clone(), decl);
+                    }
+                    Export::TypeAlias(id) => {
+                        let type_alias = &checker.type_aliases[id.0];
+                        let decl = TypeDecl::TypeAlias(*id);
+                        scope.define_type(type_alias.name.value.clone(), decl);
                     }
                     Export::Import(id) => {
                         imported_exported_modules.push(*id);
@@ -268,8 +298,8 @@ impl Module {
         Ok(imported)
     }
 
-    /// Checks the struct declarations of a module.
-    pub fn check_struct_decls(&mut self, checker: &mut Typechecker) -> Result<(), Error> {
+    /// Checks the type declarations of a module.
+    pub fn check_type_decls(&mut self, checker: &mut Typechecker) -> Result<(), Error> {
         for decl in &self.ast.decls {
             match decl {
                 ast::Decl::Struct(struct_) => {
@@ -287,6 +317,21 @@ impl Module {
 
                     self.structs.push(id);
                 }
+                ast::Decl::TypeAlias(ty) => {
+                    let decl = check_type_alias_decl(ty)?;
+                    let id = checker.declare_type_alias(decl.clone())?;
+
+                    for item in &ty.modifiers {
+                        match item {
+                            Modifier::Export(_) => {
+                                self.exports.push(Export::TypeAlias(id));
+                                break;
+                            }
+                        }
+                    }
+
+                    self.type_aliases.push(id);
+                }
                 _ => {}
             }
         }
@@ -294,8 +339,8 @@ impl Module {
         Ok(())
     }
 
-    /// Checks the struct definitions in the module.
-    pub fn check_struct_defs(
+    /// Checks the type definitions in the module.
+    pub fn check_type_defs(
         &self,
         checker: &mut Typechecker,
         modules: &Vec<Module>,
@@ -306,6 +351,9 @@ impl Module {
             match decl {
                 ast::Decl::Struct(struct_) => {
                     check_struct_def(checker, &mut scope, struct_)?;
+                }
+                ast::Decl::TypeAlias(ty) => {
+                    check_type_alias_def(checker, &mut scope, ty)?;
                 }
                 _ => {}
             }

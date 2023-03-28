@@ -17,6 +17,7 @@ use self::{
     path::Path,
     scope::{Scope, TypeDecl},
     struct_::{Struct, StructId},
+    type_alias::{TypeAlias, TypeAliasId},
 };
 
 pub mod decl;
@@ -27,6 +28,7 @@ pub mod path;
 pub mod scope;
 pub mod stmnt;
 pub mod struct_;
+pub mod type_alias;
 pub mod types;
 pub mod value;
 pub mod var;
@@ -39,6 +41,9 @@ pub struct Typechecker {
 
     /// The structs declared by all modules.
     pub structs: Vec<Struct>,
+
+    /// The type aliases declared by all modules.
+    pub type_aliases: Vec<TypeAlias>,
 }
 
 impl Typechecker {
@@ -47,6 +52,7 @@ impl Typechecker {
         Self {
             funcs: Vec::new(),
             structs: Vec::new(),
+            type_aliases: Vec::new(),
         }
     }
 
@@ -85,10 +91,13 @@ impl Typechecker {
 
     pub fn declare_struct(&mut self, struct_: Struct) -> Result<StructId, Error> {
         if let Some(id) = self.get_type_by_name(&struct_.name.value) {
-            let TypeDecl::Struct(id) = id;
+            let span = match id {
+                TypeDecl::Struct(id) => self.structs[id.0 as usize].span,
+                TypeDecl::TypeAlias(id) => self.type_aliases[id.0 as usize].span,
+            };
 
             return Err(Error::DuplicateSymbol {
-                original: self.structs[id.0 as usize].span,
+                original: span,
                 name: Spanned::new(struct_.name.span, struct_.name.value.to_string()),
             });
         }
@@ -139,6 +148,21 @@ impl Typechecker {
         Ok(module_id)
     }
 
+    /// Declares a type alias in this [Typechecker] context.
+    pub fn declare_type_alias(&mut self, type_alias: TypeAlias) -> Result<TypeAliasId, Error> {
+        if self.get_type_by_name(&type_alias.name.value).is_some() {
+            return Err(Error::DuplicateSymbol {
+                original: type_alias.span,
+                name: Spanned::new(type_alias.span, type_alias.name.value.to_string()),
+            });
+        }
+
+        let id = TypeAliasId(self.type_aliases.len());
+        self.type_aliases.push(type_alias);
+
+        Ok(id)
+    }
+
     /// Checks the modules in the [Typechecker] for validity.
     pub fn check(
         &mut self,
@@ -159,13 +183,15 @@ impl Typechecker {
 
         // Check type declarations
         for module in &mut modules {
-            module.check_struct_decls(self)?;
+            module.check_type_decls(self)?;
         }
 
-        // Check type defintions
+        // Check type definitions
         for module in &modules {
-            module.check_struct_defs(self, &modules)?;
+            module.check_type_defs(self, &modules)?;
         }
+
+        // TODO: check if type sizes are used
 
         // Check function declarations
         let mut i = 0;

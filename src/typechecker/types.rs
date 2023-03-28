@@ -7,6 +7,7 @@ use super::{
     path::Path,
     scope::{Scope, TypeDecl},
     struct_::StructId,
+    type_alias::TypeAliasId,
     Typechecker,
 };
 
@@ -88,12 +89,33 @@ pub enum Type {
     Ptr(Ptr),
     Slice(Slice),
     Struct(StructId),
+    TypeAlias(TypeAliasId),
 }
 
 impl Type {
+    /// Resolves the aliases of this type.  Guarantees that this type is not [TypeAlias]
+    pub fn resolve_aliases(self, checker: &Typechecker) -> Self {
+        match self {
+            Type::TypeAlias(ty) => checker.type_aliases[ty.0]
+                .value
+                .clone()
+                .unwrap()
+                .resolve_aliases(checker),
+            Type::Ptr(ptr) => Type::Ptr(Ptr {
+                mutability: ptr.mutability,
+                ty: Box::new(ptr.ty.resolve_aliases(checker)),
+            }),
+            Type::Slice(slice) => Type::Slice(Slice {
+                mutability: slice.mutability,
+                ty: Box::new(slice.ty.resolve_aliases(checker)),
+            }),
+            _ => self,
+        }
+    }
+
     /// Returns the visualized name of type.
     pub fn name(&self, checker: &Typechecker) -> String {
-        match self {
+        match self.clone().resolve_aliases(checker) {
             Type::Bool => "bool".to_string(),
             Type::I8 => "i8".to_string(),
             Type::I16 => "i16".to_string(),
@@ -108,23 +130,29 @@ impl Type {
             Type::Ptr(ptr) => ptr.name(checker),
             Type::Slice(slice) => slice.name(checker),
             Type::Struct(struct_) => checker.structs[struct_.0].name.value.to_string(),
+            _ => unreachable!(),
         }
     }
 
     /// Returns `true` if this type needs to be passed through a pointer rather than by value.
     pub fn is_big(&self, checker: &Typechecker, ptr_size: usize) -> bool {
-        match self {
+        match self.clone().resolve_aliases(checker) {
             // slice is always ptr_size * 2, so it's guaranteed a big type
             Self::Slice(_) => true,
             // for C abi
             Self::Struct(struct_) => checker.structs[struct_.0].size(checker, ptr_size) > ptr_size,
+            // Self::TypeAlias(alias) => checker.type_aliases[alias.0]
+            //     .value
+            //     .as_ref()
+            //     .unwrap()
+            //     .is_big(checker, ptr_size),
             _ => false,
         }
     }
 
     /// Returns `true` if this value is an integer type.
-    pub fn is_int(&self) -> bool {
-        match self {
+    pub fn is_int(&self, checker: &Typechecker) -> bool {
+        match self.clone().resolve_aliases(checker) {
             Type::I8
             | Type::I16
             | Type::I32
@@ -135,13 +163,18 @@ impl Type {
             | Type::U32
             | Type::U64
             | Type::Uint => true,
+            // Type::TypeAlias(ty) => checker.type_aliases[ty.0]
+            //     .value
+            //     .as_ref()
+            //     .unwrap()
+            //     .is_int(checker),
             _ => false,
         }
     }
 
     /// Returns the size of the type in bytes.
     pub fn size(&self, checker: &Typechecker, ptr_size: usize) -> usize {
-        match self {
+        match self.clone().resolve_aliases(checker) {
             Type::Bool => 1,
             Type::I8 => 1,
             Type::I16 => 2,
@@ -156,13 +189,24 @@ impl Type {
             Type::Ptr(_) => ptr_size,
             Type::Slice(_) => ptr_size * 2,
             Type::Struct(struct_) => checker.structs[struct_.0].size(checker, ptr_size),
+            // Type::TypeAlias(ty) => checker.type_aliases[ty.0]
+            //     .value
+            //     .as_ref()
+            //     .unwrap()
+            //     .size(checker, ptr_size),
+            _ => unreachable!(),
         }
     }
 
     /// Returns `true` if the type is a primitive type.
-    pub fn is_primitive(&self) -> bool {
-        match self {
+    pub fn is_primitive(&self, checker: &Typechecker) -> bool {
+        match self.clone().resolve_aliases(checker) {
             Type::Struct(_) => false,
+            // Type::TypeAlias(ty) => checker.type_aliases[ty.0]
+            //     .value
+            //     .as_ref()
+            //     .unwrap()
+            //     .is_primitive(checker),
             _ => true,
         }
     }
@@ -183,6 +227,7 @@ impl Type {
                         }))?;
                     match value {
                         TypeDecl::Struct(struct_) => Ok(Type::Struct(struct_)),
+                        TypeDecl::TypeAlias(struct_) => Ok(Type::TypeAlias(struct_)),
                     }
                 } else {
                     match path.short_name() {
@@ -207,6 +252,7 @@ impl Type {
                                     }))?;
                             match value {
                                 TypeDecl::Struct(struct_) => Ok(Type::Struct(struct_)),
+                                TypeDecl::TypeAlias(ty) => Ok(Type::TypeAlias(ty)),
                             }
                         }
                     }
@@ -240,7 +286,7 @@ impl Type {
 
     /// Returns `true` if the two types are equivalent (i.e, are represented the same in memory and
     /// have the same function).
-    pub fn is_equivalent(&self, other: &Self) -> bool {
+    pub fn is_equivalent(&self, checker: &Typechecker, other: &Self) -> bool {
         match (self, other) {
             (Type::Bool, Type::Bool) => true,
             (Type::I8, Type::I8) => true,
@@ -254,13 +300,57 @@ impl Type {
             (Type::U64, Type::U64) => true,
             (Type::Uint, Type::Uint) => true,
             (Type::Ptr(ptr), Type::Ptr(other)) => {
-                ptr.ty == other.ty && ptr.mutability >= other.mutability
+                ptr.ty.is_equivalent(checker, &other.ty) && ptr.mutability >= other.mutability
             }
             (Type::Slice(slice), Type::Slice(other)) => {
-                slice.ty == other.ty && slice.mutability >= other.mutability
+                slice.ty.is_equivalent(checker, &other.ty) && slice.mutability >= other.mutability
             }
             (Type::Struct(struct_), Type::Struct(other)) => struct_ == other,
+            (Type::TypeAlias(ty), other) => checker.type_aliases[ty.0]
+                .value
+                .as_ref()
+                .unwrap()
+                .is_equivalent(checker, other),
             _ => false,
+        }
+    }
+
+    /// Returns the ID of the provided struct type, if it is a struct type.
+    pub fn get_struct_id(&self, checker: &Typechecker) -> Option<StructId> {
+        match self {
+            Type::Struct(struct_) => Some(*struct_),
+            Type::TypeAlias(ty) => checker.type_aliases[ty.0]
+                .value
+                .as_ref()
+                .unwrap()
+                .get_struct_id(checker),
+            _ => None,
+        }
+    }
+
+    /// Returns the pointer value of the provided type, if it is a pointer type.
+    pub fn get_pointer(&self, checker: &Typechecker) -> Option<Ptr> {
+        match self {
+            Type::Ptr(ptr) => Some(ptr.clone()),
+            Type::TypeAlias(ty) => checker.type_aliases[ty.0]
+                .value
+                .as_ref()
+                .unwrap()
+                .get_pointer(checker),
+            _ => None,
+        }
+    }
+
+    /// Returns the slice value of the provided type, if it is a slice type.
+    pub fn get_slice(&self, checker: &Typechecker) -> Option<Slice> {
+        match self {
+            Type::Slice(slice) => Some(slice.clone()),
+            Type::TypeAlias(ty) => checker.type_aliases[ty.0]
+                .value
+                .as_ref()
+                .unwrap()
+                .get_slice(checker),
+            _ => None,
         }
     }
 }

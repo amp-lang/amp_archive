@@ -1,12 +1,32 @@
 use std::collections::HashMap;
 
-use super::{func::FuncId, path::Path, struct_::StructId, var::VarId};
+use super::{
+    func::FuncId, path::Path, struct_::StructId, type_alias::TypeAliasId, var::VarId, Typechecker,
+};
 
 /// The a type declared in a scope.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TypeDecl {
     /// A `struct` type.
     Struct(StructId),
+
+    /// A type alias.
+    TypeAlias(TypeAliasId),
+}
+
+impl TypeDecl {
+    /// Gets the [StructId] of this [TypeDecl] if it is a `struct`.
+    pub fn get_struct_id(&self, checker: &Typechecker) -> Option<StructId> {
+        match self {
+            Self::Struct(id) => Some(*id),
+            Self::TypeAlias(id) => checker.type_aliases[id.0]
+                .value
+                .as_ref()
+                .unwrap()
+                .get_struct_id(checker),
+            _ => None,
+        }
+    }
 }
 
 /// A scope of symbols and variables.

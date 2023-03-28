@@ -119,7 +119,7 @@ pub fn check_struct_def(
     let item = scope
         .resolve_type(&Path::check(&ast.name))
         .expect("Typechecker confirms this type exists");
-    let TypeDecl::Struct(id) = item;
+    let TypeDecl::Struct(id) = item else { unreachable!("Typechecker confirms this is a struct") };
 
     let mut field_names = HashSet::new();
     for item in &ast.fields.fields {

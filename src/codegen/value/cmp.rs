@@ -35,7 +35,7 @@ pub fn compile_struct_comparison(
         let offset =
             struct_decl.get_field_offset(checker, codegen.pointer_type.bytes() as usize, i) as i64;
 
-        if field.ty.value.is_primitive() {
+        if field.ty.value.is_primitive(checker) {
             let left_ptr = builder.ins().iadd_imm(left, offset);
             let right_ptr = builder.ins().iadd_imm(right, offset);
 
@@ -125,7 +125,7 @@ pub fn compile_eq(
 ) -> cranelift::prelude::Value {
     let ty = left.ty(checker, &data.vars);
 
-    if ty.is_primitive() {
+    if ty.is_primitive(checker) {
         let lhs = compile_value(checker, codegen, builder, left, vars, data, None).unwrap();
         let rhs = compile_value(checker, codegen, builder, right, vars, data, None).unwrap();
 

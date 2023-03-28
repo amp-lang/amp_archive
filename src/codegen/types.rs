@@ -29,6 +29,11 @@ pub fn compile_type(
             .expect("struct must not be big");
             ty
         }
+        Type::TypeAlias(alias) => compile_type(
+            codegen,
+            checker,
+            &checker.type_aliases[alias.0].value.as_ref().unwrap(),
+        ),
         _ => unreachable!("compile_type: {:?}", ty),
     }
 }
