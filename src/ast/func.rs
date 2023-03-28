@@ -5,7 +5,7 @@ use crate::{
     span::Span,
 };
 
-use super::{ArgList, Block, Iden, Modifier, Path, Type};
+use super::{ArgList, Block, Iden, Modifier, Path, Str, Type};
 
 /// An argument in a function declaration.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -80,6 +80,7 @@ impl Parse for FuncArg {
 pub struct Func {
     pub span: Span,
     pub modifiers: Vec<Modifier>,
+    pub extern_name: Option<Str>,
     pub name: Path,
     pub args: ArgList<FuncArg>,
     pub returns: Option<Type>,
@@ -143,8 +144,29 @@ impl Parse for Func {
         let start_pos = parser.scanner().span().start;
         let func_keyword = parser.scanner().span();
 
+        let extern_name = if let Some(res) = parser.parse::<Str>() {
+            let extern_name = match res {
+                Ok(name) => Some(name),
+                Err(err) => return Some(Err(err)),
+            };
+
+            // check for `as` keyword
+            match parser.scanner_mut().next() {
+                Some(Ok(token)) => {
+                    if token != Token::KAs {
+                        return Some(Err(Error::ExpectedAs(parser.scanner().span())));
+                    }
+                }
+                Some(Err(err)) => return Some(Err(err)),
+                None => return Some(Err(Error::ExpectedAs(parser.scanner().span()))),
+            }
+
+            extern_name
+        } else {
+            None
+        };
+
         // Parse the name of the function
-        // TODO: parse optional namespace path
         let name = if let Some(res) = parser.parse::<Path>() {
             match res {
                 Ok(name) => name,
@@ -203,6 +225,7 @@ impl Parse for Func {
                 parser.scanner().span().end,
             ),
             modifiers: Vec::new(),
+            extern_name,
             name,
             args,
             returns,

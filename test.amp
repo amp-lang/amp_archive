@@ -1,10 +1,5 @@
-import "Std";
+import "C";
 
 export func Main() {
-    var buffer = Std.Buffer();
-    Std.BufferWriteBytes(~mut buffer, "Hello, world!\n");
-    Std.Print(Std.BufferFlushToSlice(~mut buffer));
-    Std.BufferWriteBytes(~mut buffer, "Hello, world, again!\n");
-    Std.Print(Std.BufferFlushToSlice(~mut buffer));
-    Std.BufferFree(~mut buffer);
+    C.Printf("Hello, world!\n");
 }

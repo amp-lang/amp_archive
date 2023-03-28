@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Write};
 
 use cranelift::{
     codegen::{
@@ -31,21 +31,26 @@ pub struct CraneliftFunc {
     pub signature: CraneliftSignature,
 }
 
+/// Mangles the name of a function.
 pub fn mangle_func(decl: &Func) -> String {
+    if let Some(extern_name) = &decl.extern_name {
+        return extern_name.clone();
+    }
+
     if decl.name.value.items.len() == 1 {
-        decl.name.value.items[0].to_string()
+        format!(
+            "__f_{}{}",
+            decl.name.value.short_name().len(),
+            decl.name.value.short_name()
+        )
     } else {
         let mut name = String::new();
 
-        for (i, item) in decl.name.value.items.iter().enumerate() {
-            if i > 0 {
-                name.push('_');
-            }
-
-            name.push_str(item);
+        for (_, item) in decl.name.value.items.iter().enumerate() {
+            write!(name, "_{}{}", item.len(), item).unwrap();
         }
 
-        format!("_amp_{}", name)
+        format!("__n_{}", name)
     }
 }
 

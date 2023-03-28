@@ -84,6 +84,9 @@ pub struct Func {
     /// A list of modifiers for the function.
     pub modifiers: Vec<Modifier>,
 
+    /// The name that the function should be linked with, if any.
+    pub extern_name: Option<String>,
+
     /// The name of the function.
     ///
     /// TODO: replace with some sort of namespace path type.
@@ -114,6 +117,7 @@ pub fn check_func_decl(
     let decl = Func {
         signature,
         modifiers: decl.modifiers.iter().map(|m| Modifier::check(m)).collect(),
+        extern_name: decl.extern_name.as_ref().map(|s| s.value.clone()),
         name: Spanned::new(decl.name.span, Path::check(&decl.name)),
         span: Span::new(
             decl.span.file_id,

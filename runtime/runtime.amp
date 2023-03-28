@@ -2,6 +2,6 @@
 func Main();
 
 /// Runtime's entry point.  Must be linked with the C standard library to be functional.
-export func main() -> i32 {
+export func "main" as main() -> i32 {
     Main();
 }

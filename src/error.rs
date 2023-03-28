@@ -410,6 +410,9 @@ pub enum Error {
 
     /// Cannot index the provided type.
     CannotIndex { ty: String, offending: Span } = 76,
+
+    /// Expected `as` after source name.
+    ExpectedAs(Span) = 77,
 }
 
 impl Error {
@@ -966,6 +969,10 @@ impl Error {
             Self::CannotIndex { ty, offending } => {
                 diagnostic.message = "Cannot index a non-array type".to_owned();
                 diagnostic.labels.push(offending.primary().with_message(ty));
+            }
+            Self::ExpectedAs(span) => {
+                diagnostic.message = "Expected `as` after external name".to_owned();
+                diagnostic.labels.push(span.primary());
             }
         }
 

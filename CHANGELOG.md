@@ -9,6 +9,7 @@
 - [feat: (#37) `as` conversion operator](https://github.com/amp-lang/amp/issues/37)
 - [feat: (#38) index operator](https://github.com/amp-lang/amp/issues/37)
 - [feat: (#38) subslice operator](https://github.com/amp-lang/amp/issues/37)
+- [feat: (#40) external names for functions](https://github.com/amp-lang/amp/issues/40)
 
 ### Library
 - feat: implement standard library, I guess
