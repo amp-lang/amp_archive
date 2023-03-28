@@ -10,6 +10,7 @@ mod import;
 mod namespace;
 mod source;
 mod struct_;
+mod type_alias;
 mod types;
 
 pub use arg_list::*;
@@ -22,4 +23,5 @@ pub use import::*;
 pub use namespace::*;
 pub use source::*;
 pub use struct_::*;
+pub use type_alias::*;
 pub use types::*;

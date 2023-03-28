@@ -5,7 +5,7 @@ use crate::{
     span::Span,
 };
 
-use super::{Func, Import, Namespace, Struct};
+use super::{Func, Import, Namespace, Struct, TypeAlias};
 
 /// A modifier for a declaration.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -68,6 +68,9 @@ pub enum Decl {
 
     /// A `namespace` declaration.
     Namespace(Namespace),
+
+    /// A `type` alias.
+    TypeAlias(TypeAlias),
 }
 
 impl Parse for Decl {
@@ -114,6 +117,14 @@ impl Parse for Decl {
 
             match value {
                 Ok(value) => Some(Ok(Self::Namespace(value))),
+                Err(err) => Some(Err(err)),
+            }
+        } else if let Some(value) = parser.parse::<TypeAlias>() {
+            match value {
+                Ok(mut value) => Some(Ok(Self::TypeAlias({
+                    value.modifiers = modifiers;
+                    value
+                }))),
                 Err(err) => Some(Err(err)),
             }
         } else {

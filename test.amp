@@ -1,5 +1,8 @@
-import "Std";
+import "Std/Io";
+
+type Int = i32;
 
 export func Main() {
+    var my_var: Int = 42;
     Std.Println("Hello, world!");
 }

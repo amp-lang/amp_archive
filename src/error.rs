@@ -434,6 +434,12 @@ pub enum Error {
         /// The offending area.
         offending: Span,
     } = 82,
+
+    /// Expected a type alias name.
+    ExpectedTypeAliasName(Span) = 83,
+
+    /// Expected the value of a type alias.
+    ExpectedTypeAliasValue(Span) = 84,
 }
 
 impl Error {
@@ -1021,6 +1027,14 @@ impl Error {
                     format!("Exported function exposes private type '{}'", name.value);
                 diagnostic.labels.push(name.span.secondary());
                 diagnostic.labels.push(offending.primary());
+            }
+            Self::ExpectedTypeAliasName(span) => {
+                diagnostic.message = "Expected a name for the type alias".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::ExpectedTypeAliasValue(span) => {
+                diagnostic.message = "Expected a value for the type alias".to_owned();
+                diagnostic.labels.push(span.primary());
             }
         }
 

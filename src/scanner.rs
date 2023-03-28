@@ -258,6 +258,13 @@ pub enum Token {
     /// The `as` conversion operator.
     KAs,
 
+    /// The `type` keyword.
+    ///
+    /// ```amp
+    /// type MyType = i32;
+    /// ```
+    KType,
+
     /// A normal, non-suspicious string literal.
     ///
     /// ```amp
@@ -713,6 +720,7 @@ impl<'a> Iterator for Scanner<'a> {
                 "import" => Token::KImport,
                 "namespace" => Token::KNamespace,
                 "as" => Token::KAs,
+                "type" => Token::KType,
                 _ => Token::Identifier,
             }));
         } else if first_char == '"' {
