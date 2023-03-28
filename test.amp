@@ -1,5 +1,5 @@
-import "C";
+import "C/Stdio";
 
 export func Main() {
-    C.Printf("Hello, world!\n");
+    C.Printf("%.*s\n", 5, "Hello, World!" as ~const u8);
 }

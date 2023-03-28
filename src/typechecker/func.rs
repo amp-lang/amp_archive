@@ -33,17 +33,22 @@ pub struct Signature {
 
     /// The return type of the function, if any.
     pub returns: Option<Type>,
+
+    /// Whether the function has variadic arguments after the last argument in the argument list.
+    pub variadic: bool,
 }
 
 impl Signature {
+    /// Renders the type signature as a human-readable type string.
     pub fn name(&self, checker: &Typechecker) -> String {
         format!(
-            "func({}){}",
+            "func({}{}){}",
             self.args
                 .iter()
                 .map(|arg| arg.value.ty.name(checker))
                 .collect::<Vec<_>>()
                 .join(", "),
+            if self.variadic { ", ..." } else { "" },
             self.returns
                 .as_ref()
                 .map(|ty| format!(" -> {}", ty.name(checker)))
@@ -54,16 +59,29 @@ impl Signature {
     /// Checks the type signature of a function declaration.
     pub fn check(scope: &mut Scope, decl: &ast::Func) -> Result<Self, Error> {
         let mut args = Vec::new();
+        let mut variadic = false;
 
-        for arg in &decl.args.args {
-            let ty = Type::check(scope, &arg.ty)?;
-            args.push(Spanned::new(
-                arg.span,
-                FuncArg {
-                    name: arg.name.value.clone(),
-                    ty,
-                },
-            ));
+        let mut decl_args = decl.args.args.iter();
+        while let Some(arg) = decl_args.next() {
+            match arg {
+                ast::FuncArgOrVariadic::FuncArg(arg) => {
+                    let ty = Type::check(scope, &arg.ty)?;
+                    args.push(Spanned::new(
+                        arg.span,
+                        FuncArg {
+                            name: arg.name.value.clone(),
+                            ty,
+                        },
+                    ));
+                }
+                ast::FuncArgOrVariadic::Variadic(span) => {
+                    variadic = true;
+
+                    if let Some(bad_arg) = decl_args.next() {
+                        return Err(Error::ArgCannotFollowVariadic(bad_arg.span()));
+                    }
+                }
+            }
         }
 
         let returns = match &decl.returns {
@@ -71,7 +89,11 @@ impl Signature {
             None => None,
         };
 
-        Ok(Self { args, returns })
+        Ok(Self {
+            args,
+            returns,
+            variadic,
+        })
     }
 }
 
@@ -113,6 +135,10 @@ pub fn check_func_decl(
     decl: &ast::Func,
 ) -> Result<FuncId, Error> {
     let signature = Signature::check(scope, decl)?;
+
+    if signature.variadic && decl.block != None {
+        return Err(Error::NonExternVariadic(decl.span));
+    }
 
     let decl = Func {
         signature,

@@ -413,6 +413,12 @@ pub enum Error {
 
     /// Expected `as` after source name.
     ExpectedAs(Span) = 77,
+
+    /// No arguments can follow `...`.
+    ArgCannotFollowVariadic(Span) = 78,
+
+    /// A variadic argument was found in an Amp function.
+    NonExternVariadic(Span) = 79,
 }
 
 impl Error {
@@ -972,6 +978,15 @@ impl Error {
             }
             Self::ExpectedAs(span) => {
                 diagnostic.message = "Expected `as` after external name".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::ArgCannotFollowVariadic(span) => {
+                diagnostic.message =
+                    "Cannot have an argument after a variadic declaration".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::NonExternVariadic(span) => {
+                diagnostic.message = "Variadic functions must be external".to_owned();
                 diagnostic.labels.push(span.primary());
             }
         }

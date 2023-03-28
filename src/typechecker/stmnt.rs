@@ -84,7 +84,7 @@ impl VarDecl {
         checker: &Typechecker,
         scope: &mut Scope,
         vars: &mut Vars,
-        func: &Func,
+        _func: &Func,
         decl: &ast::Var,
     ) -> Result<Self, Error> {
         if decl.ty == None && decl.value == None {
@@ -137,7 +137,7 @@ impl Assign {
         checker: &Typechecker,
         scope: &mut Scope,
         vars: &mut Vars,
-        func: &Func,
+        _func: &Func,
         assign: &ast::Binary,
     ) -> Result<Self, Error> {
         // get pointer to destination

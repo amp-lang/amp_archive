@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use cranelift::{
     codegen::ir::StackSlot,
-    prelude::{FunctionBuilder, InstBuilder, MemFlags, StackSlotData, StackSlotKind},
+    prelude::{
+        isa::CallConv, AbiParam, FunctionBuilder, InstBuilder, MemFlags, StackSlotData,
+        StackSlotKind,
+    },
 };
 use cranelift_module::Module;
 
@@ -524,9 +527,6 @@ pub fn compile_func_call(
     to: Option<cranelift::prelude::Value>,
 ) -> Option<cranelift::prelude::Value> {
     let func = &checker.funcs[call.callee.0];
-    let cranelift_func = codegen
-        .module
-        .declare_func_in_func(codegen.funcs[&call.callee].cranelift_id, &mut builder.func);
 
     let mut args = Vec::new();
 
@@ -556,7 +556,48 @@ pub fn compile_func_call(
         args.push(compile_value(checker, codegen, builder, arg, vars, data, None).unwrap());
     }
 
-    let inst = builder.ins().call(cranelift_func, &args);
+    let cranelift_func = codegen
+        .module
+        .declare_func_in_func(codegen.funcs[&call.callee].cranelift_id, &mut builder.func);
+    let inst = if func.signature.variadic {
+        // Make signature for indirect call
+        let mut signature = codegen.module.make_signature();
+
+        if let Some(ty) = &func.signature.returns {
+            if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
+                signature.returns.push(AbiParam::new(codegen.pointer_type));
+            } else {
+                signature
+                    .returns
+                    .push(AbiParam::new(compile_type(codegen, checker, ty)));
+            }
+        }
+
+        for ty in &func.signature.args {
+            signature
+                .params
+                .push(AbiParam::new(compile_type(codegen, checker, &ty.value.ty)));
+        }
+
+        for arg in &call.args[func.signature.args.len()..] {
+            let ty = arg.ty(checker, &data.vars);
+            if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
+                signature.params.push(AbiParam::new(codegen.pointer_type));
+            } else {
+                signature
+                    .params
+                    .push(AbiParam::new(compile_type(codegen, checker, &ty)));
+            }
+        }
+
+        let sig_ref = builder.import_signature(signature);
+        let addr = builder
+            .ins()
+            .func_addr(codegen.pointer_type, cranelift_func);
+        builder.ins().call_indirect(sig_ref, addr, &args)
+    } else {
+        builder.ins().call(cranelift_func, &args)
+    };
 
     if let Some(ty) = &func.signature.returns {
         if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {

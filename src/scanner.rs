@@ -88,6 +88,9 @@ pub enum Token {
     /// `,`
     Comma,
 
+    /// `...`
+    DotDotDot,
+
     /// `..`
     DotDot,
 
@@ -779,7 +782,12 @@ impl<'a> Iterator for Scanner<'a> {
                     Token::Constructor
                 } else if self.peek_char() == Some('.') {
                     self.next_char();
-                    Token::DotDot
+                    if self.peek_char() == Some('.') {
+                        self.next_char();
+                        Token::DotDotDot
+                    } else {
+                        Token::DotDot
+                    }
                 } else {
                     Token::Dot
                 }

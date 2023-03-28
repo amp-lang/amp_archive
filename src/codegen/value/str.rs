@@ -1,6 +1,6 @@
 //! Compiles strings.
 
-use cranelift::prelude::{FunctionBuilder, InstBuilder, StackSlotData, StackSlotKind};
+use cranelift::prelude::{FunctionBuilder, InstBuilder};
 use cranelift_module::{DataContext, Module};
 
 use crate::codegen::Codegen;

@@ -14,31 +14,11 @@ use crate::typechecker::{
     Typechecker,
 };
 
-use super::{types::compile_type, value::compile_value, Codegen};
-
-pub fn compile_func_call(
-    checker: &Typechecker,
-    codegen: &mut Codegen,
-    builder: &mut FunctionBuilder,
-    vars: &HashMap<VarId, StackSlot>,
-    data: &FuncImpl,
-    call: &FuncCall,
-) {
-    let func = codegen
-        .module
-        .declare_func_in_func(codegen.funcs[&call.callee].cranelift_id, &mut builder.func);
-
-    let mut args = Vec::new();
-
-    for arg in &call.args {
-        args.push(
-            super::value::compile_value(checker, codegen, builder, arg, vars, data, None)
-                .expect("no `to` provided"),
-        );
-    }
-
-    builder.ins().call(func, &args);
-}
+use super::{
+    types::compile_type,
+    value::{compile_func_call, compile_value},
+    Codegen,
+};
 
 pub fn compile_return(
     checker: &Typechecker,
@@ -128,7 +108,7 @@ pub fn compile_statement(
 ) -> bool {
     match stmnt {
         Stmnt::FuncCall(func_call) => {
-            compile_func_call(checker, codegen, builder, vars, data, func_call);
+            compile_func_call(checker, codegen, builder, func_call, vars, data, None);
         }
         Stmnt::Return(ret) => {
             compile_return(checker, codegen, builder, vars, signature, data, ret);

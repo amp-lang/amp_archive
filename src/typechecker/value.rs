@@ -45,25 +45,35 @@ impl FuncCall {
         let func = &checker.funcs[callee.0 as usize];
 
         if func.signature.args.len() != call.args.args.len() {
-            return Err(Error::InvalidArgumentCount {
-                decl: func.span,
-                decl_type: func.signature.name(checker),
-                offending: call.span,
-            });
+            if func.signature.variadic && call.args.args.len() < func.signature.args.len()
+                || !func.signature.variadic
+            {
+                return Err(Error::InvalidArgumentCount {
+                    decl: func.span,
+                    decl_type: func.signature.name(checker),
+                    offending: call.span,
+                });
+            }
         }
 
         let mut args = Vec::new();
 
         for (idx, arg) in call.args.args.iter().enumerate() {
-            let generic_value = GenericValue::check(checker, scope, vars, arg)?;
-            let value = generic_value
-                .coerce(checker, vars, &func.signature.args[idx].value.ty)
-                .ok_or(Error::ExpectedArgumentOfType {
-                    decl: func.span,
-                    name: func.signature.args[idx].value.ty.name(checker),
-                    offending: arg.span(),
-                })?;
-            args.push(value);
+            if idx < func.signature.args.len() {
+                let generic_value = GenericValue::check(checker, scope, vars, arg)?;
+                let value = generic_value
+                    .coerce(checker, vars, &func.signature.args[idx].value.ty)
+                    .ok_or(Error::ExpectedArgumentOfType {
+                        decl: func.span,
+                        name: func.signature.args[idx].value.ty.name(checker),
+                        offending: arg.span(),
+                    })?;
+                args.push(value);
+            } else {
+                let generic_value = GenericValue::check(checker, scope, vars, arg)?;
+                let value = generic_value.coerce_default(checker, vars);
+                args.push(value);
+            }
         }
 
         Ok(Self { callee, args })

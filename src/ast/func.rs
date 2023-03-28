@@ -75,6 +75,49 @@ impl Parse for FuncArg {
     }
 }
 
+/// A function argument or a variadic argument.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum FuncArgOrVariadic {
+    FuncArg(FuncArg),
+    Variadic(Span),
+}
+
+impl FuncArgOrVariadic {
+    /// Returns the span of the argument.
+    pub fn span(&self) -> Span {
+        match self {
+            Self::FuncArg(arg) => arg.span,
+            Self::Variadic(span) => *span,
+        }
+    }
+}
+
+impl Parse for FuncArgOrVariadic {
+    fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
+        if let Some(res) = parser.parse::<FuncArg>() {
+            match res {
+                Ok(arg) => Some(Ok(Self::FuncArg(arg))),
+                Err(err) => Some(Err(err)),
+            }
+        } else {
+            match parser.scanner_mut().peek() {
+                Some(res) => match res {
+                    Ok(token) => {
+                        if token == Token::DotDotDot {
+                            parser.scanner_mut().next();
+                            Some(Ok(Self::Variadic(parser.scanner().span())))
+                        } else {
+                            None
+                        }
+                    }
+                    Err(err) => Some(Err(err)),
+                },
+                None => None,
+            }
+        }
+    }
+}
+
 /// A function declaration.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Func {
@@ -82,7 +125,7 @@ pub struct Func {
     pub modifiers: Vec<Modifier>,
     pub extern_name: Option<Str>,
     pub name: Path,
-    pub args: ArgList<FuncArg>,
+    pub args: ArgList<FuncArgOrVariadic>,
     pub returns: Option<Type>,
     pub block: Option<Block>,
 }
@@ -180,7 +223,7 @@ impl Parse for Func {
             }));
         };
 
-        let args = if let Some(arg_list) = parser.parse::<ArgList<FuncArg>>() {
+        let args = if let Some(arg_list) = parser.parse::<ArgList<FuncArgOrVariadic>>() {
             match arg_list {
                 Ok(args) => args,
                 Err(err) => return Some(Err(err)),
