@@ -218,11 +218,6 @@ impl GenericValue {
                 let ty = target.default_type(checker, vars);
 
                 match ty {
-                    Type::Slice(slice) => {
-                        if mutability > slice.mutability {
-                            return None;
-                        }
-                    }
                     Type::Ptr(ptr) => {
                         if mutability > ptr.mutability {
                             return None;
@@ -233,7 +228,11 @@ impl GenericValue {
 
                 Self::AddrOfField(
                     mutability,
-                    Box::new(target.as_ref().as_ref(checker, vars, mutability)?),
+                    Box::new(if !target.is_pointer(checker, vars) {
+                        target.as_ref().as_ref(checker, vars, mutability)?
+                    } else {
+                        target.as_ref().clone()
+                    }),
                     *id,
                     *field,
                 )

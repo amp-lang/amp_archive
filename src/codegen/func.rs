@@ -55,7 +55,6 @@ pub fn declare_func(codegen: &mut Codegen, checker: &Typechecker, decl: &Func) -
 
     // compile return types
     for ret in &decl.signature.returns {
-        // TODO: support big types
         if ret.is_big(checker, codegen.pointer_type.bytes() as usize) {
             signature.params.push(AbiParam::special(
                 codegen.pointer_type,

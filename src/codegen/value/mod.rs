@@ -416,15 +416,10 @@ pub fn compile_value(
                 item_ty.size(checker, codegen.pointer_type.bytes() as usize) as i64,
             );
 
-            let to_offset = builder.ins().imul_imm(
-                to_idx,
-                item_ty.size(checker, codegen.pointer_type.bytes() as usize) as i64,
-            );
+            let new_ptr = builder.ins().iadd(ptr, from_offset);
+            let size = builder.ins().isub(to_idx, from_idx);
 
-            let ptr = builder.ins().iadd(ptr, from_offset);
-            let size = builder.ins().isub(to_offset, from_offset);
-
-            return create_slice(codegen, builder, ptr, size, to);
+            return create_slice(codegen, builder, new_ptr, size, to);
         }
     };
 
@@ -460,6 +455,7 @@ pub fn mem_load(
                 .ins()
                 .stack_addr(codegen.pointer_type, stack_slot, 0)
         };
+
         let size = builder.ins().iconst(codegen.pointer_type, size as i64);
         builder.call_memcpy(codegen.module.target_config(), dest, addr, size);
 
@@ -586,32 +582,33 @@ pub fn create_slice(
     // the address to write the value to, if any.
     to: Option<cranelift::prelude::Value>,
 ) -> Option<cranelift::prelude::Value> {
-    match to {
-        Some(to) => {
-            builder
-                .ins()
-                .store(cranelift::prelude::MemFlags::new(), ptr, to, 0);
-            builder.ins().store(
-                cranelift::prelude::MemFlags::new(),
-                len,
-                to,
-                codegen.pointer_type.bytes() as i32,
-            );
-
-            None
-        }
+    let dest = match to {
+        Some(to) => to,
         None => {
             let stack_slot = StackSlotData::new(
                 StackSlotKind::ExplicitSlot,
                 codegen.pointer_type.bytes() as u32,
             );
-            let slot = builder.create_sized_stack_slot(stack_slot);
-            builder.ins().stack_store(ptr, slot, 0);
-            builder
-                .ins()
-                .stack_store(len, slot, codegen.pointer_type.bytes() as i32);
 
-            Some(builder.ins().stack_addr(codegen.pointer_type, slot, 0))
+            let slot = builder.create_sized_stack_slot(stack_slot);
+
+            builder.ins().stack_addr(codegen.pointer_type, slot, 0)
         }
+    };
+
+    builder
+        .ins()
+        .store(cranelift::prelude::MemFlags::new(), ptr, dest, 0);
+    builder.ins().store(
+        cranelift::prelude::MemFlags::new(),
+        len,
+        dest,
+        codegen.pointer_type.bytes() as i32,
+    );
+
+    if let Some(_) = to {
+        None
+    } else {
+        Some(dest)
     }
 }
