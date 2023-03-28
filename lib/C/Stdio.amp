@@ -1,3 +1,53 @@
 namespace C;
 
+/// Equivalent to C's `FILE` type.  Should not be used directly.
+export struct C.File {
+    _: u8,
+}
+
+/// An index into a file.
+export struct C.Fpos {
+    _: uint,
+}
+
+export func "fclose" as C.Fclose(file: ~mut C.File) -> i32;
+export func "clearerr" as C.Clearerr(file: ~mut C.File);
+export func "feof" as C.Feof(file: ~mut C.File) -> i32;
+export func "ferror" as C.Ferror(file: ~mut C.File) -> i32;
+export func "fflush" as C.Fflush(file: ~mut C.File) -> i32;
+export func "fgetpos" as C.Fgetpos(file: ~mut C.File, pos: ~mut C.Fpos) -> i32;
+export func "fopen" as C.Fopen(filename: ~const u8, mode: ~const u8) -> ~mut C.File;
+export func "fread" as C.Fread(ptr: ~mut u8, size: uint, nitems: uint, file: ~mut C.File) -> uint;
+export func "freopen" as C.Freopen(filename: ~const u8, mode: ~const u8, file: ~mut C.File) -> ~mut C.File;
+export func "fseek" as C.Fseek(file: ~mut C.File, offset: i32, whence: i32) -> i32;
+export func "fsetpos" as C.Fsetpos(file: ~mut C.File, pos: ~const C.Fpos) -> i32;
+export func "ftell" as C.Ftell(file: ~mut C.File) -> i32;
+export func "fwrite" as C.Fwrite(ptr: ~const u8, size: uint, nitems: uint, file: ~mut C.File) -> uint;
+export func "remove" as C.Remove(filename: ~const u8) -> i32;
+export func "rename" as C.Rename(old: ~const u8, new: ~const u8) -> i32;
+export func "rewind" as C.Rewind(file: ~mut C.File);
+export func "setbuf" as C.Setbuf(file: ~mut C.File, buf: ~mut u8);
+export func "setvbuf" as C.Setvbuf(file: ~mut C.File, buf: ~mut u8, mode: i32, size: uint) -> i32;
+export func "tmpfile" as C.Tmpfile() -> ~mut C.File;
+export func "tmpnam" as C.Tmpnam(s: ~mut u8) -> ~mut u8;
+export func "fprintf" as C.Fprintf(file: ~mut C.File, format: ~const u8, ...) -> i32;
 export func "printf" as C.Printf(format: ~const u8, ...) -> i32;
+export func "sprintf" as C.Sprintf(s: ~mut u8, format: ~const u8, ...) -> i32;
+export func "vfprintf" as C.Vfprintf(file: ~mut C.File, format: ~const u8, ap: ~mut u8) -> i32; // todo va_list type
+export func "vprintf" as C.Vprintf(format: ~const u8, ap: ~mut u8) -> i32; // todo va_list type
+export func "vsprintf" as C.Vsprintf(s: ~mut u8, format: ~const u8, ap: ~mut u8) -> i32; // todo va_list type
+export func "fscanf" as C.Fscanf(file: ~mut C.File, format: ~const u8, ...) -> i32;
+export func "scanf" as C.Scanf(format: ~const u8, ...) -> i32;
+export func "sscanf" as C.Sscanf(s: ~const u8, format: ~const u8, ...) -> i32;
+export func "fgetc" as C.Fgetc(file: ~mut C.File) -> i32;
+export func "fgets" as C.Fgets(s: ~mut u8, n: uint, file: ~mut C.File) -> ~mut u8;
+export func "fputc" as C.Fputc(c: i32, file: ~mut C.File) -> i32;
+export func "fputs" as C.Fputs(s: ~const u8, file: ~mut C.File) -> i32;
+export func "getc" as C.Getc(file: ~mut C.File) -> i32;
+export func "getchar" as C.Getchar() -> i32;
+export func "gets" as C.Gets(s: ~mut u8) -> ~mut u8;
+export func "putc" as C.Putc(c: i32, file: ~mut C.File) -> i32;
+export func "putchar" as C.Putchar(c: i32) -> i32;
+export func "puts" as C.Puts(s: ~const u8) -> i32;
+export func "ungetc" as C.Ungetc(c: i32, file: ~mut C.File) -> i32;
+export func "perror" as C.Perror(s: ~const u8);

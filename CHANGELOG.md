@@ -18,6 +18,7 @@
 - feat: implement `Std.Copy`.
 - refactor!: remove `runtime/intrinsic.amp`
 - feat: implement `Std.Buffer` type
+- feat: `C/Stdio` Amp bindings to C's `stdio.h`
 
 ### Compiler
 - [fix! (#33): create new scope for each block](https://github.com/amp-lang/amp/issues/33)
