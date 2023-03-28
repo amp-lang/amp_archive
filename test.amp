@@ -1,12 +1,10 @@
 import "Std";
 
 export func Main() {
-    var hello_world = Std.Alloc(14);
-    Std.Copy(hello_world, "Hello, world!\n");
-
-    var i = 0 as uint;
-    while i < Std.SliceLen(hello_world) {
-        Std.PrintAscii(hello_world[i]);
-        i = i + 1;
-    }
+    var buffer = Std.Buffer();
+    Std.BufferWriteBytes(~mut buffer, "Hello, world!\n");
+    Std.Print(Std.BufferFlushToSlice(~mut buffer));
+    Std.BufferWriteBytes(~mut buffer, "Hello, world, again!\n");
+    Std.Print(Std.BufferFlushToSlice(~mut buffer));
+    Std.BufferFree(~mut buffer);
 }

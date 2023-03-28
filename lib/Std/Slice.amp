@@ -26,14 +26,11 @@ export func Std.Copy(dest: []mut u8, src: []const u8) {
     } else {
         n = Std.SliceLen(src);
     }
-
-    var dest = dest as ~mut u8;
-    var src = src as ~const u8;
     
     // Copy the data:
     var i: uint = 0;
     while i < n {
-        *((dest as uint + i) as ~mut u8) = *((src as uint + i) as ~const u8);
+        dest[i] = src[i];
         i = i + 1;
     }
 }

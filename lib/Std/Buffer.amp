@@ -1,0 +1,83 @@
+import "Alloc";
+import "Slice";
+
+namespace Std;
+
+/// A lazily allocated buffer of bytes, used for reading and writing.
+export struct Std.Buffer {
+    /// The number of bytes stored in the buffer.
+    len: uint,
+
+    /// The block of memory allocated by the buffer.
+    data: []mut u8,
+}
+
+/// Returns a new `Buffer`.  Doesn't allocate any memory.
+export func Std.Buffer() -> Std.Buffer {
+    return Std.Buffer .{ len = 0, data = (0 as ~mut u8)[0..0] };
+}
+
+/// Allocates a new `Buffer` with the provided capacity.
+export func Std.BufferWithCapacity(capacity: uint) -> Std.Buffer {
+    var buffer = Std.Buffer();
+    Std.BufferAlloc(~mut buffer, capacity);
+    return buffer;
+}
+
+/// Allocates memory for the buffer, if necessary.
+func Std.BufferAlloc(self: ~mut Std.Buffer, capacity: uint) {
+    if self.data as ~const u8 as uint == 0 {
+        var block = Std.Alloc(capacity);
+        self.data = block;
+    } else if capacity > Std.SliceLen(self.data) {
+        self.data = Std.Realloc(self.data, capacity);
+    }
+}
+
+/// Writes a single byte to the buffer.
+export func Std.BufferWrite(self: ~mut Std.Buffer, byte: u8) {
+    Std.BufferAlloc(self, self.len + 1);
+    self.data[self.len] = byte;
+    self.len = self.len + 1;
+}
+
+/// Writes the provided bytes to the buffer.
+export func Std.BufferWriteBytes(self: ~mut Std.Buffer, bytes: []const u8) {
+    if Std.SliceLen(bytes) == 0 {
+        return;
+    }
+
+    Std.BufferAlloc(self, self.len + Std.SliceLen(bytes));
+    Std.Copy(self.data[self.len..self.len + Std.SliceLen(bytes)], bytes);
+    self.len = self.len + Std.SliceLen(bytes);
+}
+
+/// Converts this buffer into a slice.
+export func Std.BufferAsSlice(self: ~const Std.Buffer) -> []const u8 {
+    return self.data[0..self.len];
+}
+
+/// Converts this buffer into a mutable slice.
+export func Std.BufferAsSliceMut(self: ~mut Std.Buffer) -> []mut u8 {
+    return self.data[0..self.len];
+}
+
+/// Gets a slice of this buffer.
+///
+/// # Safety
+/// - The outputted slice must be used before the buffer is written to, otherwise its contents may
+///   be overwritten.
+export func Std.BufferFlushToSlice(self: ~mut Std.Buffer) -> []const u8 {
+    var slice = self.data[0..self.len];
+    self.len = 0;
+    return slice;
+}
+
+/// Frees the memory allocated by the provided buffer.
+///
+/// # Safety
+/// - The provided buffer must not have been freed already.
+/// - The provided buffer must not be used after this function is called.
+export func Std.BufferFree(self: ~mut Std.Buffer) {
+    Std.Free(self.data);
+}
