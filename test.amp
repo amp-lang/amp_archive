@@ -1,5 +1,14 @@
 import "C/Stdio";
+import "Std/Alloc";
 
 export func Main() {
-    C.Printf("%.*s\n", 5, "Hello, World!" as ~const u8);
+    var fp: ~mut C.File;
+    var buf = Std.Alloc(255);
+
+    fp = C.Fopen("test.txt", "r");
+    C.Fgets(buf as ~mut u8, 255, fp);
+    C.Printf(buf as ~const u8);
+
+    C.Fclose(fp);
+    Std.Free(buf);
 }

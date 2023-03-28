@@ -556,13 +556,14 @@ pub fn compile_func_call(
     let cranelift_func = codegen
         .module
         .declare_func_in_func(codegen.funcs[&call.callee].cranelift_id, &mut builder.func);
-    let inst = if func.signature.variadic {
+
+    let inst = if func.signature.variadic && call.args.len() > func.signature.args.len() {
         // Make signature for indirect call
         let mut signature = codegen.module.make_signature();
 
         if let Some(ty) = &func.signature.returns {
             if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
-                signature.returns.push(AbiParam::special(
+                signature.params.push(AbiParam::special(
                     codegen.pointer_type,
                     ArgumentPurpose::StructReturn,
                 ));

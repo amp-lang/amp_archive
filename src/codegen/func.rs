@@ -62,7 +62,7 @@ pub fn declare_func(codegen: &mut Codegen, checker: &Typechecker, decl: &Func) -
     // compile return types
     for ret in &decl.signature.returns {
         if ret.is_big(checker, codegen.pointer_type.bytes() as usize) {
-            signature.returns.push(AbiParam::special(
+            signature.params.push(AbiParam::special(
                 codegen.pointer_type,
                 ArgumentPurpose::StructReturn,
             ))
@@ -75,7 +75,7 @@ pub fn declare_func(codegen: &mut Codegen, checker: &Typechecker, decl: &Func) -
 
     for arg in &decl.signature.args {
         signature
-            .returns
+            .params
             .push(compile_abi_param(checker, codegen, &arg.value.ty));
     }
 

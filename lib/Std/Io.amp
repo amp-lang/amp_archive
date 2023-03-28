@@ -1,22 +1,19 @@
+import "C/Stdio";
 import "Slice";
-
-// From the C standard library:
-func printf(fmt: ~const u8, size: uint, str: ~const u8) -> i32;
-func putchar(char: u8);
 
 namespace Std;
 
 /// Writes a string directly to STDOUT.  Does not append a line break.
 export func Std.Print(str: []const u8) {
-    printf("%.*s", Std.SliceLen(str), str as ~const u8);
+    C.Printf("%.*s", Std.SliceLen(str), str as ~const u8);
 }
 
 /// Writes a string directly to STDOUT.  Appends a line break.
 export func Std.Println(str: []const u8) {
-    printf("%.*s\n", Std.SliceLen(str), str as ~const u8);
+    C.Printf("%.*s\n", Std.SliceLen(str), str as ~const u8);
 }
 
 /// Prints a single ASCII character directly to STDOUT.
 export func Std.PrintAscii(char: u8) {
-    putchar(char);
+    C.Putchar(char);
 }

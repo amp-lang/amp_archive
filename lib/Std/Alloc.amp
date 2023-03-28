@@ -1,9 +1,9 @@
 import "Slice";
 
 // From the C standard library:
-func malloc(size: uint) -> ~mut u8;
-func realloc(ptr: ~mut u8, size: uint) -> ~mut u8;
-func free(ptr: ~mut u8);
+func "malloc" as malloc(size: uint) -> ~mut u8;
+func "realloc" as realloc(ptr: ~mut u8, size: uint) -> ~mut u8;
+func "free" as free(ptr: ~mut u8);
 
 namespace Std;
 
