@@ -6,6 +6,7 @@ use clap::Parser;
 use codespan_reporting::{diagnostic::Diagnostic, files::SimpleFiles};
 use error::Error;
 use import::Importer;
+use include_dir::include_dir;
 use path_absolutize::Absolutize;
 use scanner::Scanner;
 use span::FileId;
@@ -53,13 +54,19 @@ fn build_path(file_id: FileId, files: &mut SimpleFiles<String, String>, importer
     Ok(Some(file))
 }
 
+static LIB: include_dir::Dir = include_dir!("lib");
+
 fn main() -> ExitCode {
     let Cli::Build(mut args) = Cli::parse();
 
+    // Load standard libraries
+    let tmp = tempfile::tempdir().unwrap();
+    LIB.extract(&tmp).unwrap();
+    
     // Add the standard libraries to library search paths
-    let lib_dir = std::env::current_exe().unwrap().parent().unwrap().join("lib");
+    let lib_dir = tmp.path();
     let runtime = lib_dir.join("_Runtime.amp");
-    args.import_dirs.push(lib_dir);
+    args.import_dirs.push(lib_dir.to_path_buf());
     args.input.push(runtime.to_string_lossy().to_string());
 
     let mut files = SimpleFiles::new();
