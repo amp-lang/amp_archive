@@ -1,18 +1,12 @@
 //! Prints a sequence of 1 to 10.
-//!
-//! Requires linking with the runtime library and the C standard library:
-//!
-//! ```sh
-//! amp build examples/while.amp runtime/runtime.amp -o while
-//! ```
 
-func printf(format: ~const u8, arg: i32) -> i32;
+import "C/Stdio";
 
 export func Main() {
     var i: i32 = 0;
 
     while i < 10 {
         i = i + 1;
-        printf("%d\n", i);
+        C.Printf("%d\n", i);
     }
 }

@@ -1,6 +1,4 @@
 //! Prints hello world to the console.
-//!
-//! Requires linking with the Runtime (`amp build examples/hello_world.amp runtime/intrinsic.amp runtime/runtime.amp -I lib -o hello_world`).
 
 import "Std";
 

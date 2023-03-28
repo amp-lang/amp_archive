@@ -1,13 +1,6 @@
 //! An example of structs being used.
-//!
-//! Requires linking with the runtime library and the C standard library:
-//!
-//! ```sh
-//! amp build examples/struct.amp runtime/runtime.amp -o struct
-//! ```
 
-/// `printf` from the C standard library.
-func printf(format: ~const u8, n: i32) -> i32;
+import "C/Stdio";
 
 /// Just a struct with a single member.
 struct Foo {
@@ -19,9 +12,9 @@ export func Main() {
     var my_struct = Foo .{ member = 42 };
 
     // Read a member of foo
-    printf("%d\n", my_struct.member);
+    C.Printf("%d\n", my_struct.member);
 
     // Change a member of foo
     my_struct.member = 43;
-    printf("%d\n", my_struct.member);
+    C.Printf("%d\n", my_struct.member);
 }

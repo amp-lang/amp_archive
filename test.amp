@@ -1,14 +1,5 @@
 import "C/Stdio";
-import "Std/Alloc";
 
 export func Main() {
-    var fp: ~mut C.File;
-    var buf = Std.Alloc(255);
-
-    fp = C.Fopen("README.md", "r");
-    C.Fgets(buf as ~mut u8, 255, fp);
-    C.Printf("%s", buf as ~const u8);
-
-    C.Fclose(fp);
-    Std.Free(buf);
+    C.Printf("Hello, world!\n");
 }

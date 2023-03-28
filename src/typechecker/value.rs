@@ -447,7 +447,7 @@ impl GenericValue {
                         Box::new(if lhs.is_pointer(checker, vars) {
                             lhs
                         } else {
-                            lhs.as_ref(checker, vars, Mutability::Const).unwrap()
+                            lhs.as_ref(checker, vars, Mutability::Mut).unwrap()
                         }),
                         id,
                         field_id,

@@ -22,6 +22,8 @@
 
 ### Compiler
 - [fix! (#33): create new scope for each block](https://github.com/amp-lang/amp/issues/33)
+- feat: automatically link with standard library and runtime
+- fix: local struct variables were always constant
 
 ## v0.3.0-alpha
 

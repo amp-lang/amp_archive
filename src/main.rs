@@ -56,6 +56,12 @@ fn build_path(file_id: FileId, files: &mut SimpleFiles<String, String>, importer
 fn main() -> ExitCode {
     let Cli::Build(mut args) = Cli::parse();
 
+    // Add the standard libraries to library search paths
+    let lib_dir = std::env::current_exe().unwrap().parent().unwrap().join("lib");
+    let runtime = lib_dir.join("_Runtime.amp");
+    args.import_dirs.push(lib_dir);
+    args.input.push(runtime.to_string_lossy().to_string());
+
     let mut files = SimpleFiles::new();
     let mut object_files: Vec<NamedTempFile> = Vec::new(); // compiled object files
 
@@ -64,7 +70,7 @@ fn main() -> ExitCode {
     for input in args.input {
         let Ok(src) = std::fs::read_to_string(&input) 
         else {
-            diagnostic::display_diagnostic(&files, &Diagnostic::error().with_message("Could not read source file"));
+            diagnostic::display_diagnostic(&files, &Diagnostic::error().with_message(format!("Could not read source file {}", input)));
             return ExitCode::FAILURE;
         };
 

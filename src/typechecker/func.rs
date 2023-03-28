@@ -74,7 +74,7 @@ impl Signature {
                         },
                     ));
                 }
-                ast::FuncArgOrVariadic::Variadic(span) => {
+                ast::FuncArgOrVariadic::Variadic(_) => {
                     variadic = true;
 
                     if let Some(bad_arg) = decl_args.next() {
