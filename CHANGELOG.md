@@ -21,12 +21,12 @@
 - feat: `C/Stdio` Amp bindings to C's `stdio.h`
 
 ### Compiler
-- [fix! (#33): create new scope for each block](https://github.com/amp-lang/amp/issues/33)
+- [fix!: (#33) create new scope for each block](https://github.com/amp-lang/amp/issues/33)
 - feat: automatically link with standard library and runtime
 - fix: local struct variables were always constant
-- [fix! (#46): throw error when invalid syntax is found in root](https://github.com/amp-lang/amp/issues/46)
-- [fix! (#47): throw error when modifiers are before EOF](https://github.com/amp-lang/amp/issues/47)
-- [fix! (#42): ](https://github.com/amp-lang/amp/issues/42)
+- [fix!: (#46) throw error when invalid syntax is found in root](https://github.com/amp-lang/amp/issues/46)
+- [fix!: (#47) throw error when modifiers are before EOF](https://github.com/amp-lang/amp/issues/47)
+- [fix!: (#42) disallow private types to be exposed](https://github.com/amp-lang/amp/issues/42)
 
 ## v0.3.0-alpha
 
