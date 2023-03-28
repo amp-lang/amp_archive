@@ -4,12 +4,10 @@ use cranelift::{
     codegen::ir::StackSlot,
     prelude::{FunctionBuilder, InstBuilder},
 };
-use cranelift_module::Module;
 
 use crate::typechecker::{
     func::{FuncImpl, Signature},
     stmnt::{Assign, Block, IfBranch, Return, Stmnt, VarDecl},
-    value::FuncCall,
     var::VarId,
     Typechecker,
 };

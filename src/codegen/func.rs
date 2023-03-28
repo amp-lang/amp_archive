@@ -15,11 +15,12 @@ use cranelift_module::{Linkage, Module};
 use crate::typechecker::{
     decl::Modifier,
     func::{Func, FuncId, FuncImpl, Signature},
+    types::Type,
     var::VarId,
     Typechecker,
 };
 
-use super::{stmnt, types, Codegen};
+use super::{stmnt, types::compile_type, Codegen};
 
 /// A function declared in the Cranelift context.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -61,33 +62,21 @@ pub fn declare_func(codegen: &mut Codegen, checker: &Typechecker, decl: &Func) -
     // compile return types
     for ret in &decl.signature.returns {
         if ret.is_big(checker, codegen.pointer_type.bytes() as usize) {
-            signature.params.push(AbiParam::special(
+            signature.returns.push(AbiParam::special(
                 codegen.pointer_type,
                 ArgumentPurpose::StructReturn,
-            ));
+            ))
         } else {
-            let ty = types::compile_type(codegen, checker, &ret);
-            signature.returns.push(AbiParam::new(ty));
+            signature
+                .returns
+                .push(AbiParam::new(compile_type(codegen, checker, &ret)))
         }
     }
 
     for arg in &decl.signature.args {
-        if arg
-            .value
-            .ty
-            .is_big(checker, codegen.pointer_type.bytes() as usize)
-        {
-            signature.params.push(AbiParam::special(
-                codegen.pointer_type,
-                ArgumentPurpose::StructArgument(arg.value.ty.size(
-                    checker,
-                    codegen.module.target_config().pointer_width.bytes() as usize,
-                ) as u32),
-            ));
-        } else {
-            let ty = types::compile_type(codegen, checker, &arg.value.ty);
-            signature.params.push(AbiParam::new(ty));
-        }
+        signature
+            .returns
+            .push(compile_abi_param(checker, codegen, &arg.value.ty));
     }
 
     let cranelift_id = codegen
@@ -106,6 +95,20 @@ pub fn declare_func(codegen: &mut Codegen, checker: &Typechecker, decl: &Func) -
     CraneliftFunc {
         cranelift_id,
         signature,
+    }
+}
+
+/// Compiles a parameter type for the Cranelift ABI.
+pub fn compile_abi_param(checker: &Typechecker, codegen: &mut Codegen, ty: &Type) -> AbiParam {
+    if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
+        AbiParam::special(
+            codegen.pointer_type,
+            ArgumentPurpose::StructArgument(
+                ty.size(checker, codegen.pointer_type.bytes() as usize) as u32,
+            ),
+        )
+    } else {
+        AbiParam::new(compile_type(codegen, checker, &ty))
     }
 }
 

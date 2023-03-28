@@ -1,11 +1,8 @@
 use std::collections::HashMap;
 
 use cranelift::{
-    codegen::ir::StackSlot,
-    prelude::{
-        isa::CallConv, AbiParam, FunctionBuilder, InstBuilder, MemFlags, StackSlotData,
-        StackSlotKind,
-    },
+    codegen::ir::{ArgumentPurpose, StackSlot},
+    prelude::{AbiParam, FunctionBuilder, InstBuilder, MemFlags, StackSlotData, StackSlotKind},
 };
 use cranelift_module::Module;
 
@@ -22,7 +19,7 @@ use self::{
     str::{compile_string, compile_string_slice},
 };
 
-use super::{types::compile_type, Codegen};
+use super::{func::compile_abi_param, types::compile_type, Codegen};
 
 mod cmp;
 mod conv;
@@ -565,7 +562,10 @@ pub fn compile_func_call(
 
         if let Some(ty) = &func.signature.returns {
             if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
-                signature.returns.push(AbiParam::new(codegen.pointer_type));
+                signature.returns.push(AbiParam::special(
+                    codegen.pointer_type,
+                    ArgumentPurpose::StructReturn,
+                ));
             } else {
                 signature
                     .returns
@@ -576,18 +576,14 @@ pub fn compile_func_call(
         for ty in &func.signature.args {
             signature
                 .params
-                .push(AbiParam::new(compile_type(codegen, checker, &ty.value.ty)));
+                .push(compile_abi_param(checker, codegen, &ty.value.ty));
         }
 
         for arg in &call.args[func.signature.args.len()..] {
             let ty = arg.ty(checker, &data.vars);
-            if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
-                signature.params.push(AbiParam::new(codegen.pointer_type));
-            } else {
-                signature
-                    .params
-                    .push(AbiParam::new(compile_type(codegen, checker, &ty)));
-            }
+            signature
+                .params
+                .push(compile_abi_param(checker, codegen, &ty));
         }
 
         let sig_ref = builder.import_signature(signature);
