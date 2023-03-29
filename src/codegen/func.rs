@@ -61,7 +61,10 @@ pub fn declare_func(codegen: &mut Codegen, checker: &Typechecker, decl: &Func) -
 
     // compile return types
     for ret in &decl.signature.returns {
-        if ret.is_big(checker, codegen.pointer_type.bytes() as usize) {
+        if ret
+            .is_big(checker, codegen.pointer_type.bytes() as usize)
+            .expect("must be sized")
+        {
             signature.params.push(AbiParam::special(
                 codegen.pointer_type,
                 ArgumentPurpose::StructReturn,
@@ -107,11 +110,15 @@ pub fn declare_func(codegen: &mut Codegen, checker: &Typechecker, decl: &Func) -
 
 /// Compiles a parameter type for the Cranelift ABI.
 pub fn compile_abi_param(checker: &Typechecker, codegen: &mut Codegen, ty: &Type) -> AbiParam {
-    if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
+    if ty
+        .is_big(checker, codegen.pointer_type.bytes() as usize)
+        .expect("must be sized")
+    {
         AbiParam::special(
             codegen.pointer_type,
             ArgumentPurpose::StructArgument(
-                ty.size(checker, codegen.pointer_type.bytes() as usize) as u32,
+                ty.size(checker, codegen.pointer_type.bytes() as usize)
+                    .expect("must be sized") as u32,
             ),
         )
     } else {
@@ -141,7 +148,10 @@ pub fn compile_func(
     builder.switch_to_block(entry_block);
 
     let arg_offset = if let Some(returns) = &signature.returns {
-        if returns.is_big(checker, codegen.pointer_type.bytes() as usize) {
+        if returns
+            .is_big(checker, codegen.pointer_type.bytes() as usize)
+            .expect("must be sized")
+        {
             1
         } else {
             0
@@ -153,10 +163,12 @@ pub fn compile_func(
     for (idx, var) in data.vars.vars.iter().enumerate() {
         let slot = StackSlotData::new(
             StackSlotKind::ExplicitSlot,
-            var.ty.size(
-                checker,
-                codegen.module.target_config().pointer_width.bytes() as usize,
-            ) as u32,
+            var.ty
+                .size(
+                    checker,
+                    codegen.module.target_config().pointer_width.bytes() as usize,
+                )
+                .expect("must be sized") as u32,
         );
         let slot = builder.create_sized_stack_slot(slot);
         vars.insert(VarId(idx), slot);
@@ -167,19 +179,19 @@ pub fn compile_func(
             if var
                 .ty
                 .is_big(checker, codegen.pointer_type.bytes() as usize)
+                .expect("must be sized")
             {
                 let addr = builder.ins().stack_addr(codegen.pointer_type, slot, 0);
                 let size = builder.ins().iconst(
                     codegen.pointer_type,
-                    var.ty.size(checker, codegen.pointer_type.bytes() as usize) as i64,
+                    var.ty
+                        .size(checker, codegen.pointer_type.bytes() as usize)
+                        .expect("must be sized") as i64,
                 );
                 builder.call_memcpy(codegen.module.target_config(), addr, arg, size);
-                // builder.ins().store(MemFlags::new(), arg, addr, 0);
             } else {
-                // let ty = types::compile_type(codegen, &var.ty);
                 builder.ins().stack_store(arg, slot, 0);
             }
-            // use_var(codegen, &mut builder, &vars, data, VarId(arg), Some(addr));
         }
     }
 

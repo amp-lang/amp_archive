@@ -26,23 +26,32 @@ pub fn compile_int_to_int(
 ) -> cranelift::prelude::Value {
     let signed = match value.ty(checker, &data.vars) {
         Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::Int => true,
+        // pointers are unsigned
         _ => false,
     };
 
     let from = value.ty(checker, &data.vars);
     let to = compile_type(codegen, checker, ty);
-    let value = compile_value(checker, codegen, builder, value, vars, data, None).unwrap();
+    let clif_value = compile_value(checker, codegen, builder, value, vars, data, None).unwrap();
 
     // Ensure the signedness of the value is considered in the conversion
-    if from.size(checker, codegen.pointer_type.bytes() as usize) < to.bytes() as usize {
+    if from
+        .size(checker, codegen.pointer_type.bytes() as usize)
+        .expect("must be sized")
+        < to.bytes() as usize
+    {
         if signed {
-            builder.ins().sextend(to, value)
+            builder.ins().sextend(to, clif_value)
         } else {
-            builder.ins().uextend(to, value)
+            builder.ins().uextend(to, clif_value)
         }
-    } else if from.size(checker, codegen.pointer_type.bytes() as usize) > to.bytes() as usize {
-        builder.ins().ireduce(to, value)
+    } else if from
+        .size(checker, codegen.pointer_type.bytes() as usize)
+        .expect("must be sized")
+        > to.bytes() as usize
+    {
+        builder.ins().ireduce(to, clif_value)
     } else {
-        value
+        clif_value
     }
 }

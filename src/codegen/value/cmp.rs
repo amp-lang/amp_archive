@@ -43,6 +43,7 @@ pub fn compile_struct_comparison(
                 .ty
                 .value
                 .is_big(checker, codegen.pointer_type.bytes() as usize)
+                .expect("must be sized")
             {
                 let size = builder.ins().iconst(
                     codegen.pointer_type,
@@ -50,7 +51,7 @@ pub fn compile_struct_comparison(
                         .ty
                         .value
                         .size(checker, codegen.pointer_type.bytes() as usize)
-                        as i64,
+                        .expect("must be sized") as i64,
                 );
                 let cmp =
                     builder.call_memcmp(codegen.module.target_config(), left_ptr, right_ptr, size);
@@ -129,10 +130,14 @@ pub fn compile_eq(
         let lhs = compile_value(checker, codegen, builder, left, vars, data, None).unwrap();
         let rhs = compile_value(checker, codegen, builder, right, vars, data, None).unwrap();
 
-        if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
+        if ty
+            .is_big(checker, codegen.pointer_type.bytes() as usize)
+            .expect("must be sized")
+        {
             let size = builder.ins().iconst(
                 codegen.pointer_type,
-                ty.size(checker, codegen.pointer_type.bytes() as usize) as i64,
+                ty.size(checker, codegen.pointer_type.bytes() as usize)
+                    .expect("must be sized") as i64,
             );
 
             let cmp = builder.call_memcmp(codegen.module.target_config(), lhs, rhs, size);
@@ -159,7 +164,10 @@ pub fn compile_eq(
         }
     } else {
         // check if the type is already stored on the stack.
-        let (left_ptr, right_ptr) = if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
+        let (left_ptr, right_ptr) = if ty
+            .is_big(checker, codegen.pointer_type.bytes() as usize)
+            .expect("must be sized")
+        {
             let lhs = compile_value(checker, codegen, builder, left, vars, data, None).unwrap();
             let rhs = compile_value(checker, codegen, builder, right, vars, data, None).unwrap();
             (lhs, rhs)
@@ -167,12 +175,14 @@ pub fn compile_eq(
             let left_slot =
                 builder.create_sized_stack_slot(cranelift::prelude::StackSlotData::new(
                     cranelift::prelude::StackSlotKind::ExplicitSlot,
-                    ty.size(checker, codegen.pointer_type.bytes() as usize) as u32,
+                    ty.size(checker, codegen.pointer_type.bytes() as usize)
+                        .expect("must be sized") as u32,
                 ));
             let right_slot =
                 builder.create_sized_stack_slot(cranelift::prelude::StackSlotData::new(
                     cranelift::prelude::StackSlotKind::ExplicitSlot,
-                    ty.size(checker, codegen.pointer_type.bytes() as usize) as u32,
+                    ty.size(checker, codegen.pointer_type.bytes() as usize)
+                        .expect("must be sized") as u32,
                 ));
 
             let left_ptr = builder.ins().stack_addr(codegen.pointer_type, left_slot, 0);

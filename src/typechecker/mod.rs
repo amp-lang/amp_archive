@@ -237,7 +237,10 @@ impl Typechecker {
             module.check_type_defs(self, &modules)?;
         }
 
-        // TODO: check type sizes for loops
+        // Check type sizes
+        for module in &modules {
+            module.check_type_sizes(self)?;
+        }
 
         // Check function declarations
         let mut i = 0;

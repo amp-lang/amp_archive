@@ -6,7 +6,7 @@ use crate::{
 use super::{
     path::Path,
     scope::{Scope, TypeDecl},
-    struct_::StructId,
+    struct_::{check_struct_size, StructId},
     type_alias::TypeAliasId,
     Typechecker,
 };
@@ -136,21 +136,11 @@ impl Type {
     }
 
     /// Returns `true` if this type needs to be passed through a pointer rather than by value.
-    pub fn is_big(&self, checker: &Typechecker, ptr_size: usize) -> bool {
-        !self.is_primitive(checker) && self.size(checker, ptr_size) > ptr_size
-        // match self.clone().resolve_aliases(checker) {
-        //     // slice is always ptr_size * 2, so it's guaranteed a big type
-        //     Self::Slice(_) => todo!(),
-        //     // for C abi
-        //     Self::Struct(struct_) => checker.structs[struct_.0].size(checker, ptr_size) > ptr_size,
-        //     Self
-        //     // Self::TypeAlias(alias) => checker.type_aliases[alias.0]
-        //     //     .value
-        //     //     .as_ref()
-        //     //     .unwrap()
-        //     //     .is_big(checker, ptr_size),
-        //     _ => false,
-        // }
+    pub fn is_big(&self, checker: &Typechecker, ptr_size: usize) -> Option<bool> {
+        if self.is_primitive(checker) {
+            return Some(false);
+        }
+        Some(self.size(checker, ptr_size)? > ptr_size)
     }
 
     /// Returns `true` if this value is an integer type.
@@ -166,18 +156,13 @@ impl Type {
             | Type::U32
             | Type::U64
             | Type::Uint => true,
-            // Type::TypeAlias(ty) => checker.type_aliases[ty.0]
-            //     .value
-            //     .as_ref()
-            //     .unwrap()
-            //     .is_int(checker),
             _ => false,
         }
     }
 
     /// Returns the size of the type in bytes.
-    pub fn size(&self, checker: &Typechecker, ptr_size: usize) -> usize {
-        match self.clone().resolve_aliases(checker) {
+    pub fn size(&self, checker: &Typechecker, ptr_size: usize) -> Option<usize> {
+        Some(match self.clone().resolve_aliases(checker) {
             Type::Bool => 1,
             Type::I8 => 1,
             Type::I16 => 2,
@@ -190,40 +175,48 @@ impl Type {
             Type::U64 => 8,
             Type::Uint => ptr_size,
             Type::Ptr(ptr) => {
-                if ptr.ty.is_sized(checker) {
+                if ptr.is_wide(checker) {
                     ptr_size * 2 // wide pointer size
                 } else {
                     ptr_size
                 }
             }
-            Type::Slice(_) => todo!("return `None`"),
-            Type::Struct(struct_) => checker.structs[struct_.0].size(checker, ptr_size),
-            // Type::TypeAlias(ty) => checker.type_aliases[ty.0]
-            //     .value
-            //     .as_ref()
-            //     .unwrap()
-            //     .size(checker, ptr_size),
+            Type::Slice(_) => return None,
+            // TODO: check if unsized
+            Type::Struct(struct_id) => {
+                let struct_ = &checker.structs[struct_id.0];
+                if check_struct_size(checker, struct_).expect("TODO: don't expect this") {
+                    checker.structs[struct_id.0].size(checker, ptr_size)
+                } else {
+                    return None;
+                }
+            }
             _ => unreachable!(),
-        }
+        })
     }
 
     /// Returns `true` if the type is a primitive type.
     pub fn is_primitive(&self, checker: &Typechecker) -> bool {
         match self.clone().resolve_aliases(checker) {
-            Type::Struct(_) => false,
-            // Type::TypeAlias(ty) => checker.type_aliases[ty.0]
-            //     .value
-            //     .as_ref()
-            //     .unwrap()
-            //     .is_primitive(checker),
-            _ => true,
+            Type::Bool
+            | Type::I8
+            | Type::I16
+            | Type::I32
+            | Type::I64
+            | Type::Int
+            | Type::U8
+            | Type::U16
+            | Type::U32
+            | Type::U64
+            | Type::Uint => true,
+            _ => false,
         }
     }
 
     /// Checks for a type in the given scope.
     ///
     /// TODO: check imports and declared types
-    pub fn check(scope: &mut Scope, ty: &ast::Type) -> Result<Self, Error> {
+    pub fn check(checker: &Typechecker, scope: &mut Scope, ty: &ast::Type) -> Result<Self, Error> {
         match ty {
             ast::Type::Named(name) => {
                 let path = Path::check(name);
@@ -275,11 +268,20 @@ impl Type {
 
                 Ok(Type::Ptr(Ptr {
                     mutability,
-                    ty: Box::new(Type::check(scope, &ptr.ty)?),
+                    ty: Box::new(Type::check(checker, scope, &ptr.ty)?),
                 }))
             }
+            // TODO: check for array types
             ast::Type::Array(array) => Ok(Type::Slice(Slice {
-                ty: Box::new(Type::check(scope, &array.ty)?),
+                ty: Box::new({
+                    let ty = Type::check(checker, scope, &array.ty)?;
+                    // TODO: return `Err` variant
+                    if ty.is_sized(checker) {
+                        ty
+                    } else {
+                        return Err(Error::OwnedUnsizedType(array.ty.span()));
+                    }
+                }),
             })),
         }
     }
@@ -354,10 +356,7 @@ impl Type {
 
     /// Returns `true` if the size of this type is known at compile time.
     pub fn is_sized(&self, checker: &Typechecker) -> bool {
-        match self.clone().resolve_aliases(checker) {
-            Type::Slice(_) => false,
-            _ => true,
-        }
+        self.size(checker, 8).is_some()
     }
 }
 

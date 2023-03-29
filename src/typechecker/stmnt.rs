@@ -93,7 +93,7 @@ impl VarDecl {
         }
 
         let (ty, value) = if let Some(ty) = &decl.ty {
-            let ty = Type::check(scope, ty)?;
+            let ty = Type::check(checker, scope, ty)?;
 
             if let Some(value) = &decl.value {
                 let value = GenericValue::check(checker, scope, vars, value)?
@@ -120,6 +120,10 @@ impl VarDecl {
 
             (value.ty(checker, vars), Some(value))
         };
+
+        if !ty.is_sized(checker) {
+            return Err(Error::OwnedUnsizedType(decl.span));
+        }
 
         let id = vars.declare_var(Var::new(decl.span, decl.name.value.clone(), ty));
         scope.define_var(decl.name.value.clone(), id);

@@ -6,12 +6,12 @@ namespace Std;
 
 /// Writes a string directly to STDOUT.  Does not append a line break.
 export func Std.Print(str: ~const [u8]) {
-    C.Printf("%.*s\0" as ~const C.Char, Std.SliceLen(str), str as ~const u8);
+    C.Printf("%.*s\0" as ~const C.Char, Std.SliceLen(str), str as ~const C.Char);
 }
 
 /// Writes a string directly to STDOUT.  Appends a line break.
 export func Std.Println(str: ~const [u8]) {
-    C.Printf("%.*s\n\0" as ~const C.Char, Std.SliceLen(str), str as ~const u8);
+    C.Printf("%.*s\n\0" as ~const C.Char, Std.SliceLen(str), str as ~const C.Char);
 }
 
 /// Prints a single ASCII character directly to STDOUT.

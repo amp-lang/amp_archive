@@ -44,6 +44,6 @@ pub fn check_type_alias_def(
         .expect("Typechecker confirms this type exists");
     let TypeDecl::TypeAlias(id) = item else { unreachable!("Typechecker confirms this is a type alias") };
 
-    checker.type_aliases[id.0].value = Some(Type::check(scope, &ast.value)?);
+    checker.type_aliases[id.0].value = Some(Type::check(checker, scope, &ast.value)?);
     Ok(())
 }

@@ -1,7 +1,8 @@
-import "C";
-import "C/Stdio";
+import "Std";
 
 export func Main() {
-    // var my_str = ;
-    C.Printf("Hello, world!\ntest\n\0" as ~const C.Char);
+    var buffer = Std.Buffer();
+    Std.BufferWriteBytes(~mut buffer, "Hello, world!\n");
+    Std.Print(Std.BufferFlushToSlice(~mut buffer));
+    Std.BufferFree(~mut buffer);
 }
