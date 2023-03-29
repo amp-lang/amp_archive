@@ -64,7 +64,7 @@ pub fn compile_value(
             .ins()
             .iconst(cranelift::prelude::types::I64, *value as i64),
         Value::Int(value) => builder.ins().iconst(codegen.pointer_type, *value as i64),
-        Value::Str(_, value) => return compile_string_slice(codegen, builder, value, to),
+        Value::Str(value) => return compile_string_slice(codegen, builder, value, to),
         Value::Var(var) => use_var(codegen, checker, builder, vars, data, *var, to)?,
         Value::FuncCall(call) => {
             compile_func_call(checker, codegen, builder, call, vars, data, to)?
@@ -321,14 +321,14 @@ pub fn compile_value(
         Value::IntToInt(value, ty) => {
             compile_int_to_int(checker, codegen, builder, value, ty, vars, data)
         }
-        Value::SliceToPtr(value, _) => {
+        Value::WidePtrToPtr(value, _) => {
             let ptr = compile_value(checker, codegen, builder, value, vars, data, None)
                 .expect("No `to` provided");
             builder
                 .ins()
                 .load(codegen.pointer_type, MemFlags::new(), ptr, 0)
         }
-        Value::SliceToSlice(value, _) => {
+        Value::WidePtrToWidePtr(value, _) => {
             compile_value(checker, codegen, builder, value, vars, data, to)?
         }
         Value::SliceIdx(slice, idx, ty) => {
@@ -415,7 +415,7 @@ pub fn compile_value(
             let new_ptr = builder.ins().iadd(ptr, from_offset);
             let size = builder.ins().isub(to_idx, from_idx);
 
-            return create_slice(codegen, builder, new_ptr, size, to);
+            return create_wide_pointer(codegen, builder, new_ptr, size, to);
         }
     };
 
@@ -607,8 +607,8 @@ pub fn compile_func_call(
     }
 }
 
-/// Creates a slice value.
-pub fn create_slice(
+/// Creates a wide pointer value.
+pub fn create_wide_pointer(
     codegen: &mut Codegen,
     builder: &mut FunctionBuilder,
     ptr: cranelift::prelude::Value,

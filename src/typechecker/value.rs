@@ -118,11 +118,11 @@ pub enum GenericValue {
     IntToInt(Box<GenericValue>, Type),
 
     /// Converts a slice to a pointer type.
-    SliceToPtr(Box<GenericValue>, Type),
+    WidePtrToPtr(Box<GenericValue>, Type),
 
     /// Converts a slice to a different slice type.  Basically a no-op, as slice types are only
     /// used at compile time.
-    SliceToSlice(Box<GenericValue>, Type),
+    WidePtrToWidePtr(Box<GenericValue>, Type),
 
     /// Index a slice.
     SliceIdx(Box<GenericValue>, Box<GenericValue>, Type),
@@ -231,6 +231,10 @@ impl GenericValue {
                         if mutability > ptr.mutability {
                             return None;
                         }
+
+                        // TODO: check if sized here, then implement some type of unsized struct
+                        // field access:
+                        // wide_ptr.addr := wide_ptr.addr + field_offset
                     }
                     _ => {}
                 }
@@ -249,11 +253,13 @@ impl GenericValue {
             Self::SliceIdx(target, index, ty) => {
                 let Type::Slice(slice) = target.default_type(checker, vars) else { unreachable!() };
 
-                if mutability > slice.mutability {
-                    return None;
-                }
+                // if mutability > slice.mutability {
+                //     return None;
+                // }
 
-                Self::AddrOfSliceIdx(mutability, target.clone(), index.clone(), ty.clone())
+                todo!("slice index")
+
+                // Self::AddrOfSliceIdx(mutability, target.clone(), index.clone(), ty.clone())
             }
             Self::PtrIdx(target, index, ty) => {
                 let Type::Ptr(ptr) = target.default_type(checker, vars) else { unreachable!() };
@@ -297,7 +303,7 @@ impl GenericValue {
         match self {
             Self::Bool(_) => Type::Bool,
             Self::Int(_) => Type::Int,
-            Self::Str(_) => Type::Slice(Slice::new(Mutability::Const, Type::Int)),
+            Self::Str(_) => Type::slice_ptr(Mutability::Mut, Type::U8),
             Self::Var(var) => vars.vars[var.0 as usize].ty.clone(),
             Self::FuncCall(func_call) => checker.funcs[func_call.callee.0 as usize]
                 .signature
@@ -330,8 +336,8 @@ impl GenericValue {
             Self::LogEq(_, _) => Type::Bool,
             Self::LogNe(_, _) => Type::Bool,
             Self::IntToInt(_, ty) => ty.clone(),
-            Self::SliceToPtr(_, ty) => ty.clone(),
-            Self::SliceToSlice(_, ty) => ty.clone(),
+            Self::WidePtrToPtr(_, ty) => ty.clone(),
+            Self::WidePtrToWidePtr(_, ty) => ty.clone(),
             Self::SliceIdx(_, _, ty) => ty.clone(),
             Self::PtrIdx(_, _, ty) => ty.clone(),
             Self::Coerce(_, ty) => ty.clone(),
@@ -344,7 +350,7 @@ impl GenericValue {
             Self::Subslice(ptr, _, _, ty) => {
                 let Type::Ptr(Ptr { mutability, .. }) = ptr.default_type(checker, vars) else { unreachable!() };
 
-                Type::Slice(Slice::new(mutability, ty.clone()))
+                Type::slice_ptr(mutability, ty.clone())
             }
         }.resolve_aliases(checker)
     }
@@ -550,30 +556,31 @@ impl GenericValue {
                         .ok_or(Error::ExpectedUintIndex(to.span()))?;
 
                     let ty = value.default_type(checker, vars);
-                    let (ptr, item_ty) = match ty {
-                        Type::Slice(ty) => (
-                            Self::SliceToPtr(
-                                Box::new(value),
-                                Type::Ptr(Ptr::new(ty.mutability, ty.ty.as_ref().clone())),
-                            ),
-                            ty.ty.clone(),
-                        ),
-                        Type::Ptr(ty) => (value, ty.ty.clone()),
-                        _ => {
-                            return Err(Error::CannotIndex {
-                                ty: ty.name(checker),
-                                offending: idx.expr.span(),
-                            })
-                        }
-                    };
+                    todo!("index operator")
+                    // let (ptr, item_ty) = match ty {
+                    //     Type::Slice(ty) => (
+                    //         Self::WidePtrToPtr(
+                    //             Box::new(value),
+                    //             Type::Ptr(Ptr::new(ty.mutability, ty.ty.as_ref().clone())),
+                    //         ),
+                    //         ty.ty.clone(),
+                    //     ),
+                    //     Type::Ptr(ty) => (value, ty.ty.clone()),
+                    //     _ => {
+                    //         return Err(Error::CannotIndex {
+                    //             ty: ty.name(checker),
+                    //             offending: idx.expr.span(),
+                    //         })
+                    //     }
+                    // };
 
-                    return Ok(Self::Subslice(
-                        // get address of slice
-                        Box::new(ptr),
-                        Box::new(index),
-                        Box::new(to_value),
-                        item_ty.as_ref().clone(),
-                    ));
+                    // return Ok(Self::Subslice(
+                    //     // get address of slice
+                    //     Box::new(ptr),
+                    //     Box::new(index),
+                    //     Box::new(to_value),
+                    //     item_ty.as_ref().clone(),
+                    // ));
                 }
 
                 let ty = value.default_type(checker, vars);
@@ -617,11 +624,21 @@ impl GenericValue {
             (ty, Type::Ptr(_)) if ty.is_int(checker) => {
                 Some(Self::IntToInt(Box::new(self), to.clone()))
             }
-            (Type::Ptr(_), Type::Ptr(_)) => Some(Self::IntToInt(Box::new(self), to.clone())),
-            (Type::Slice(_), Type::Ptr(_)) => Some(Self::SliceToPtr(Box::new(self), to.clone())),
-            (Type::Slice(_), Type::Slice(_)) => {
-                Some(Self::SliceToSlice(Box::new(self), to.clone()))
+            // => Some(Self::IntToInt(Box::new(self), to.clone())),
+            (Type::Ptr(left), Type::Ptr(right)) => {
+                match (left.is_wide(checker), right.is_wide(checker)) {
+                    (true, true) => Some(Self::WidePtrToWidePtr(Box::new(self), to.clone())),
+                    (true, false) => Some(Self::WidePtrToPtr(Box::new(self), to.clone())),
+                    (false, false) => Some(Self::IntToInt(Box::new(self), to.clone())),
+
+                    // Cannot convert wide pointer to thin pointer
+                    (false, true) => None,
+                }
             }
+            // (Type::Slice(_), Type::Ptr(_)) => Some(Self::WidePtrToPtr(Box::new(self), to.clone())),
+            // (Type::Slice(_), Type::Slice(_)) => {
+            //     Some(Self::WidePtrToWidePtr(Box::new(self), to.clone()))
+            // }
             _ => None,
         }
     }
@@ -631,7 +648,7 @@ impl GenericValue {
         match self {
             GenericValue::Bool(bool) => Value::Bool(bool),
             GenericValue::Int(int) => Value::Int(int as i64),
-            GenericValue::Str(str) => Value::Str(Mutability::Const, str),
+            GenericValue::Str(str) => Value::Str(str),
             GenericValue::Var(var) => Value::Var(var),
             GenericValue::FuncCall(call) => Value::FuncCall(call),
             GenericValue::Deref(val) => Value::Deref(Box::new(val.coerce_default(checker, vars))),
@@ -674,11 +691,11 @@ impl GenericValue {
             GenericValue::IntToInt(from, ty) => {
                 Value::IntToInt(Box::new(from.coerce_default(checker, vars)), ty)
             }
-            GenericValue::SliceToPtr(from, ty) => {
-                Value::SliceToPtr(Box::new(from.coerce_default(checker, vars)), ty)
+            GenericValue::WidePtrToPtr(from, ty) => {
+                Value::WidePtrToPtr(Box::new(from.coerce_default(checker, vars)), ty)
             }
-            GenericValue::SliceToSlice(from, ty) => {
-                Value::SliceToSlice(Box::new(from.coerce_default(checker, vars)), ty)
+            GenericValue::WidePtrToWidePtr(from, ty) => {
+                Value::WidePtrToWidePtr(Box::new(from.coerce_default(checker, vars)), ty)
             }
             GenericValue::SliceIdx(slice, idx, ty) => Value::SliceIdx(
                 Box::new(slice.coerce_default(checker, vars)),
@@ -747,10 +764,18 @@ impl GenericValue {
             (GenericValue::Int(int), Type::U32) => Some(Value::U32(int as u32)),
             (GenericValue::Int(int), Type::U64) => Some(Value::U64(int as u64)),
             (GenericValue::Int(int), Type::Uint) => Some(Value::Uint(int as u64)),
-            (GenericValue::Str(str), Type::Slice(ptr)) => match &*ptr.ty {
-                Type::U8 => Some(Value::Str(ptr.mutability, str)),
-                _ => None,
-            },
+            (GenericValue::Str(str), Type::Ptr(Ptr { ty, .. })) => {
+                match ty.clone().resolve_aliases(checker) {
+                    Type::Slice(Slice { ty }) => {
+                        if ty.is_equivalent(checker, &Type::U8) {
+                            Some(Value::Str(str))
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                }
+            }
             (GenericValue::Var(var), ty) => {
                 if vars.vars[var.0].ty.is_equivalent(checker, ty) {
                     Some(Value::Var(var))
@@ -871,11 +896,11 @@ impl GenericValue {
             (GenericValue::IntToInt(val, ty), to) if ty.is_equivalent(checker, to) => Some(
                 Value::IntToInt(Box::new(val.coerce_default(checker, vars)), ty),
             ),
-            (GenericValue::SliceToPtr(val, ty), to) if ty.is_equivalent(checker, to) => Some(
-                Value::SliceToPtr(Box::new(val.coerce_default(checker, vars)), ty),
+            (GenericValue::WidePtrToPtr(val, ty), to) if ty.is_equivalent(checker, to) => Some(
+                Value::WidePtrToPtr(Box::new(val.coerce_default(checker, vars)), ty),
             ),
-            (GenericValue::SliceToSlice(val, ty), to) if ty.is_equivalent(checker, to) => Some(
-                Value::SliceToSlice(Box::new(val.coerce_default(checker, vars)), ty),
+            (GenericValue::WidePtrToWidePtr(val, ty), to) if ty.is_equivalent(checker, to) => Some(
+                Value::WidePtrToWidePtr(Box::new(val.coerce_default(checker, vars)), ty),
             ),
             (GenericValue::SliceIdx(slice, idx, ty), to) if ty.is_equivalent(checker, to) => {
                 Some(Value::SliceIdx(
@@ -923,18 +948,19 @@ impl GenericValue {
                 }
             }
             (GenericValue::Subslice(ptr, start, end, item_ty), Type::Slice(_)) => {
-                let Type::Ptr(Ptr { mutability, .. }) = ptr.default_type(checker, vars) else { unreachable!() };
-                if Type::Slice(Slice::new(mutability, item_ty.clone())).is_equivalent(checker, &ty)
-                {
-                    Some(Value::Subslice(
-                        Box::new(ptr.coerce_default(checker, vars)),
-                        Box::new(start.coerce(checker, vars, &Type::Uint)?),
-                        Box::new(end.coerce(checker, vars, &Type::Uint)?),
-                        item_ty,
-                    ))
-                } else {
-                    None
-                }
+                // let Type::Ptr(Ptr { mutability, .. }) = ptr.default_type(checker, vars) else { unreachable!() };
+                // if Type::Slice(Slice::new(mutability, item_ty.clone())).is_equivalent(checker, &ty)
+                // {
+                //     Some(Value::Subslice(
+                //         Box::new(ptr.coerce_default(checker, vars)),
+                //         Box::new(start.coerce(checker, vars, &Type::Uint)?),
+                //         Box::new(end.coerce(checker, vars, &Type::Uint)?),
+                //         item_ty,
+                //     ))
+                // } else {
+                //     None
+                // }
+                todo!()
             }
             _ => None,
         }
@@ -967,8 +993,8 @@ pub enum Value {
     /// A boolean value.
     Bool(bool),
 
-    /// A `[]const u8` or `[]mut u8` value.
-    Str(Mutability, String),
+    /// A string literal as a byte slice: `~const [u8]` or `~mut [u8]`.
+    Str(String),
 
     /// An 8-bit unsigned integer.
     U8(u8),
@@ -1037,10 +1063,10 @@ pub enum Value {
     IntToInt(Box<Value>, Type),
 
     /// Converts a slice to a pointer
-    SliceToPtr(Box<Value>, Type),
+    WidePtrToPtr(Box<Value>, Type),
 
     /// Converts a slice to a different slice type.
-    SliceToSlice(Box<Value>, Type),
+    WidePtrToWidePtr(Box<Value>, Type),
 
     /// Indexes into a slice.
     SliceIdx(Box<Value>, Box<Value>, Type),
@@ -1065,7 +1091,7 @@ impl Value {
     pub fn ty(&self, checker: &Typechecker, vars: &Vars) -> Type {
         match self {
             Value::Bool(_) => Type::Bool,
-            Value::Str(mut_, _) => Type::Slice(Slice::new(*mut_, Type::U8)),
+            Value::Str(_) => Type::slice_ptr(Mutability::Mut, Type::U8),
             Value::U8(_) => Type::U8,
             Value::U16(_) => Type::U16,
             Value::U32(_) => Type::U32,
@@ -1107,8 +1133,8 @@ impl Value {
             Value::LogEq(_, _) => Type::Bool,
             Value::LogNe(_, _) => Type::Bool,
             Value::IntToInt(_, ty) => ty.clone(),
-            Value::SliceToPtr(_, ty) => ty.clone(),
-            Value::SliceToSlice(_, ty) => ty.clone(),
+            Value::WidePtrToPtr(_, ty) => ty.clone(),
+            Value::WidePtrToWidePtr(_, ty) => ty.clone(),
             Value::SliceIdx(_, _, ty) => ty.clone(),
             Value::PtrIdx(_, _, ty) => ty.clone(),
             Value::AddrOfSliceIdx(mutability, _, _, ty) => {
@@ -1120,7 +1146,8 @@ impl Value {
             Value::Subslice(ptr, _, _, ty) => {
                 let Type::Ptr(Ptr { mutability, .. }) = ptr.ty(checker, vars) else { unreachable!() };
 
-                Type::Slice(Slice::new(mutability, ty.clone()))
+                // Type::Slice(Slice::new(mutability, ty.clone()))
+                todo!()
             }
         }.resolve_aliases(checker)
     }

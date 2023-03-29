@@ -5,7 +5,7 @@ use cranelift_module::{DataContext, Module};
 
 use crate::codegen::Codegen;
 
-use super::create_slice;
+use super::create_wide_pointer;
 
 /// Compiles the provided string as a Cranelift value.
 #[inline]
@@ -41,5 +41,5 @@ pub fn compile_string_slice(
     let len = builder
         .ins()
         .iconst(codegen.pointer_type, value.len() as i64);
-    create_slice(codegen, builder, ptr, len, to)
+    create_wide_pointer(codegen, builder, ptr, len, to)
 }

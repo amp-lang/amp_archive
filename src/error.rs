@@ -443,6 +443,9 @@ pub enum Error {
 
     /// Expected a struct type to construct.
     CannotConstructNonStruct(Span) = 85,
+
+    /// Expected the length of an array.
+    ExpectedArrayLength(Span) = 86,
 }
 
 impl Error {
@@ -1041,6 +1044,10 @@ impl Error {
             }
             Self::CannotConstructNonStruct(span) => {
                 diagnostic.message = "Cannot construct a non-struct type".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::ExpectedArrayLength(span) => {
+                diagnostic.message = "Expected an array length".to_owned();
                 diagnostic.labels.push(span.primary());
             }
         }

@@ -1,7 +1,7 @@
-import "Std/Io";
-
-export func Std.Print(str: []const u8);
+import "C";
+import "C/Stdio";
 
 export func Main() {
-    Std.Print("Hello, world!");
+    // var my_str = ;
+    C.Printf("Hello, world!\ntest\n\0" as ~const C.Char);
 }
