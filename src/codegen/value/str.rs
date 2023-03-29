@@ -8,18 +8,14 @@ use crate::codegen::Codegen;
 use super::create_slice;
 
 /// Compiles the provided string as a Cranelift value.
-pub fn compile_string(
+#[inline]
+fn compile_string(
     codegen: &mut Codegen,
     builder: &mut FunctionBuilder,
     str: &str,
-    nullterm: bool,
 ) -> cranelift::prelude::Value {
     let mut cx = DataContext::new();
-    let mut data = str.as_bytes().to_vec();
-
-    if nullterm {
-        data.push(0);
-    }
+    let data = str.as_bytes().to_vec();
 
     cx.define(data.into_boxed_slice());
 
@@ -41,7 +37,7 @@ pub fn compile_string_slice(
     // the address to write the value to, if any.
     to: Option<cranelift::prelude::Value>,
 ) -> Option<cranelift::prelude::Value> {
-    let ptr = compile_string(codegen, builder, value, true);
+    let ptr = compile_string(codegen, builder, value);
     let len = builder
         .ins()
         .iconst(codegen.pointer_type, value.len() as i64);

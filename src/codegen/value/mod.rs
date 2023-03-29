@@ -14,10 +14,7 @@ use crate::typechecker::{
     Typechecker,
 };
 
-use self::{
-    conv::compile_int_to_int,
-    str::{compile_string, compile_string_slice},
-};
+use self::{conv::compile_int_to_int, str::compile_string_slice};
 
 use super::{func::compile_abi_param, types::compile_type, Codegen};
 
@@ -67,7 +64,6 @@ pub fn compile_value(
             .ins()
             .iconst(cranelift::prelude::types::I64, *value as i64),
         Value::Int(value) => builder.ins().iconst(codegen.pointer_type, *value as i64),
-        Value::CStr(_, value) => compile_string(codegen, builder, value, true),
         Value::Str(_, value) => return compile_string_slice(codegen, builder, value, to),
         Value::Var(var) => use_var(codegen, checker, builder, vars, data, *var, to)?,
         Value::FuncCall(call) => {

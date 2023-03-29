@@ -1,6 +1,6 @@
 import "Std/Io";
 
-export func Std.Print(str: []const u8, test: i32);
+export func Std.Print(str: []const u8);
 
 export func Main() {
     Std.Print("Hello, world!");

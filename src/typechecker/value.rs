@@ -747,10 +747,6 @@ impl GenericValue {
             (GenericValue::Int(int), Type::U32) => Some(Value::U32(int as u32)),
             (GenericValue::Int(int), Type::U64) => Some(Value::U64(int as u64)),
             (GenericValue::Int(int), Type::Uint) => Some(Value::Uint(int as u64)),
-            (GenericValue::Str(str), Type::Ptr(ptr)) => match &*ptr.ty {
-                Type::U8 => Some(Value::CStr(ptr.mutability, str)),
-                _ => None,
-            },
             (GenericValue::Str(str), Type::Slice(ptr)) => match &*ptr.ty {
                 Type::U8 => Some(Value::Str(ptr.mutability, str)),
                 _ => None,
@@ -971,9 +967,6 @@ pub enum Value {
     /// A boolean value.
     Bool(bool),
 
-    /// A null terminated string.
-    CStr(Mutability, String),
-
     /// A `[]const u8` or `[]mut u8` value.
     Str(Mutability, String),
 
@@ -1072,7 +1065,6 @@ impl Value {
     pub fn ty(&self, checker: &Typechecker, vars: &Vars) -> Type {
         match self {
             Value::Bool(_) => Type::Bool,
-            Value::CStr(mut_, _) => Type::Ptr(Ptr::new(*mut_, Type::U8)),
             Value::Str(mut_, _) => Type::Slice(Slice::new(*mut_, Type::U8)),
             Value::U8(_) => Type::U8,
             Value::U16(_) => Type::U16,
