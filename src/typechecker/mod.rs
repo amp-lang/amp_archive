@@ -56,13 +56,56 @@ impl Typechecker {
         }
     }
 
+    /// Returns the function with the provided name, if any.
+    pub fn get_func_by_extern_name(&self, name: &String) -> Option<FuncId> {
+        for (idx, func) in self.funcs.iter().enumerate() {
+            if func.extern_name.as_ref() == Some(name) {
+                return Some(FuncId(idx));
+            }
+        }
+
+        None
+    }
+
+    /// Returns the function with the provided name, if any.
+    pub fn get_func_by_name(&self, name: &Path) -> Option<FuncId> {
+        for (idx, func) in self.funcs.iter().enumerate() {
+            if &func.name.value == name {
+                return Some(FuncId(idx));
+            }
+        }
+
+        None
+    }
+
     /// Declares a function in this [Typechecker] context.
     pub fn declare_func(&mut self, func: Func, scope: &mut Scope) -> Result<FuncId, Error> {
-        if let Some(id) = scope.resolve_func(&func.name.value) {
-            return Err(Error::DuplicateSymbol {
-                original: self.funcs[id.0 as usize].span,
-                name: Spanned::new(func.name.span, func.name.value.to_string()),
-            });
+        if let Some(extern_name) = &func.extern_name {
+            if let Some(id) = self.get_func_by_extern_name(extern_name) {
+                let other_func = &self.funcs[id.0];
+
+                if other_func.defined && func.defined
+                    || !func.signature.is_equivalent(self, &other_func.signature)
+                {
+                    return Err(Error::DuplicateSymbol {
+                        original: other_func.span,
+                        name: Spanned::new(func.name.span, func.name.value.to_string()),
+                    });
+                }
+            }
+        } else {
+            if let Some(id) = self.get_func_by_name(&func.name.value) {
+                let other_func = &self.funcs[id.0];
+
+                if other_func.defined && func.defined
+                    || !func.signature.is_equivalent(self, &other_func.signature)
+                {
+                    return Err(Error::DuplicateSymbol {
+                        original: other_func.span,
+                        name: Spanned::new(func.name.span, func.name.value.to_string()),
+                    });
+                }
+            }
         }
 
         let id = FuncId(self.funcs.len());
@@ -78,19 +121,9 @@ impl Typechecker {
         Ok(id)
     }
 
-    /// Returns the type with the provided name, if any.
-    pub fn get_type_by_name(&self, name: &Path) -> Option<TypeDecl> {
-        for (idx, struct_) in self.structs.iter().enumerate() {
-            if &struct_.name.value == name {
-                return Some(TypeDecl::Struct(StructId(idx)));
-            }
-        }
-
-        None
-    }
-
-    pub fn declare_struct(&mut self, struct_: Struct) -> Result<StructId, Error> {
-        if let Some(id) = self.get_type_by_name(&struct_.name.value) {
+    /// Declares a struct type in this [Typechecker] context.
+    pub fn declare_struct(&mut self, struct_: Struct, scope: &Scope) -> Result<StructId, Error> {
+        if let Some(id) = scope.resolve_type(&struct_.name.value) {
             let span = match id {
                 TypeDecl::Struct(id) => self.structs[id.0 as usize].span,
                 TypeDecl::TypeAlias(id) => self.type_aliases[id.0 as usize].span,
@@ -149,11 +182,20 @@ impl Typechecker {
     }
 
     /// Declares a type alias in this [Typechecker] context.
-    pub fn declare_type_alias(&mut self, type_alias: TypeAlias) -> Result<TypeAliasId, Error> {
-        if self.get_type_by_name(&type_alias.name.value).is_some() {
+    pub fn declare_type_alias(
+        &mut self,
+        type_alias: TypeAlias,
+        scope: &Scope,
+    ) -> Result<TypeAliasId, Error> {
+        if let Some(id) = scope.resolve_type(&type_alias.name.value) {
+            let span = match id {
+                TypeDecl::Struct(id) => self.structs[id.0 as usize].span,
+                TypeDecl::TypeAlias(id) => self.type_aliases[id.0 as usize].span,
+            };
+
             return Err(Error::DuplicateSymbol {
-                original: type_alias.span,
-                name: Spanned::new(type_alias.span, type_alias.name.value.to_string()),
+                original: span,
+                name: Spanned::new(type_alias.name.span, type_alias.name.value.to_string()),
             });
         }
 
@@ -182,8 +224,12 @@ impl Typechecker {
         }
 
         // Check type declarations
-        for module in &mut modules {
-            module.check_type_decls(self)?;
+        let mut i = 0;
+        while i < modules.len() {
+            let mut module = modules[i].clone();
+            module.check_type_decls(self, &modules)?;
+            modules[i] = module;
+            i += 1;
         }
 
         // Check type definitions
@@ -191,7 +237,7 @@ impl Typechecker {
             module.check_type_defs(self, &modules)?;
         }
 
-        // TODO: check if type sizes are used
+        // TODO: check type sizes for loops
 
         // Check function declarations
         let mut i = 0;

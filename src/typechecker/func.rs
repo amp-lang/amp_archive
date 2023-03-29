@@ -39,6 +39,30 @@ pub struct Signature {
 }
 
 impl Signature {
+    pub fn is_equivalent(&self, checker: &Typechecker, to: &Self) -> bool {
+        if to.args.len() != self.args.len() {
+            return false;
+        }
+
+        for (idx, arg) in self.args.iter().enumerate() {
+            if !arg.value.ty.is_equivalent(checker, &to.args[idx].value.ty) {
+                return false;
+            }
+        }
+
+        match (&self.returns, &to.returns) {
+            (Some(self_ty), Some(to_ty)) => {
+                if !self_ty.is_equivalent(checker, &to_ty) {
+                    return false;
+                }
+            }
+            (None, None) => {}
+            _ => return false,
+        }
+
+        self.variadic == to.variadic
+    }
+
     /// Renders the type signature as a human-readable type string.
     pub fn name(&self, checker: &Typechecker) -> String {
         format!(
@@ -154,6 +178,9 @@ pub struct Func {
 
     /// The definition of the [Func].
     pub func_impl: Option<FuncImpl>,
+
+    /// Whether the function is defined.
+    pub defined: bool,
 }
 
 /// The implementation of a function.
@@ -188,6 +215,7 @@ pub fn check_func_decl(
                 .map_or(decl.args.span.end, |ty| ty.span().end),
         ),
         func_impl: None,
+        defined: decl.block != None,
     };
 
     checker.declare_func(decl, scope)

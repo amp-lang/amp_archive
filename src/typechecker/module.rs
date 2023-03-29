@@ -299,12 +299,18 @@ impl Module {
     }
 
     /// Checks the type declarations of a module.
-    pub fn check_type_decls(&mut self, checker: &mut Typechecker) -> Result<(), Error> {
+    pub fn check_type_decls(
+        &mut self,
+        checker: &mut Typechecker,
+        modules: &Vec<Module>,
+    ) -> Result<(), Error> {
+        let mut scope = self.make_scope(checker, modules);
+
         for decl in &self.ast.decls {
             match decl {
                 ast::Decl::Struct(struct_) => {
                     let decl = check_struct_decl(struct_)?;
-                    let id = checker.declare_struct(decl.clone())?;
+                    let id = checker.declare_struct(decl.clone(), &mut scope)?;
 
                     for item in &struct_.modifiers {
                         match item {
@@ -319,7 +325,7 @@ impl Module {
                 }
                 ast::Decl::TypeAlias(ty) => {
                     let decl = check_type_alias_decl(ty)?;
-                    let id = checker.declare_type_alias(decl.clone())?;
+                    let id = checker.declare_type_alias(decl.clone(), &scope)?;
 
                     for item in &ty.modifiers {
                         match item {

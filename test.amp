@@ -1,9 +1,7 @@
-import "Test2";
+import "Std/Io";
 
-func PrivateFunc() {
-    Test2();
-}
+export func Std.Print(str: []const u8, test: i32);
 
 export func Main() {
-    PrivateFunc();
+    Std.Print("Hello, world!");
 }

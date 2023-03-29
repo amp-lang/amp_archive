@@ -24,7 +24,6 @@ impl TypeDecl {
                 .as_ref()
                 .unwrap()
                 .get_struct_id(checker),
-            _ => None,
         }
     }
 }
