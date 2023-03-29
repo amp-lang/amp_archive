@@ -28,6 +28,7 @@
 - [fix!: (#46) throw error when invalid syntax is found in root](https://github.com/amp-lang/amp/issues/46)
 - [fix!: (#47) throw error when modifiers are before EOF](https://github.com/amp-lang/amp/issues/47)
 - [fix!: (#42) disallow private types to be exposed](https://github.com/amp-lang/amp/issues/42)
+- [fix: (#49) allow multiple private functions to have the same name](https://github.com/amp-lang/amp/issues/49)
 
 ## v0.3.0-alpha
 

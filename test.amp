@@ -1,6 +1,9 @@
-import "C";
-import "C/Stdio";
+import "Test2";
+
+func PrivateFunc() {
+    Test2();
+}
 
 export func Main() {
-    C.Printf("%d\n\0" as ~const C.Char, 42 as C.Int);
+    PrivateFunc();
 }

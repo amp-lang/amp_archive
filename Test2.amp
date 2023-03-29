@@ -1,0 +1,9 @@
+import "Std";
+
+func PrivateFunc() {
+    Std.Println("Hello, world!");
+}
+
+export func Test2() {
+    PrivateFunc();
+}

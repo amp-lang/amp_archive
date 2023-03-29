@@ -79,18 +79,25 @@ pub fn declare_func(codegen: &mut Codegen, checker: &Typechecker, decl: &Func) -
             .push(compile_abi_param(checker, codegen, &arg.value.ty));
     }
 
-    let cranelift_id = codegen
-        .module
-        .declare_function(
-            &mangle_func(decl),
-            if decl.modifiers.contains(&Modifier::Export) {
-                Linkage::Export
-            } else {
-                Linkage::Local
-            },
-            &signature,
-        )
-        .unwrap();
+    let cranelift_id = if decl.modifiers.contains(&Modifier::Export) || decl.func_impl.is_none() {
+        codegen
+            .module
+            .declare_function(
+                &mangle_func(decl),
+                if decl.modifiers.contains(&Modifier::Export) {
+                    Linkage::Export
+                } else {
+                    Linkage::Local
+                },
+                &signature,
+            )
+            .unwrap()
+    } else {
+        codegen
+            .module
+            .declare_anonymous_function(&signature)
+            .unwrap()
+    };
 
     CraneliftFunc {
         cranelift_id,
