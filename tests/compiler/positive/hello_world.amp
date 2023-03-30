@@ -1,0 +1,5 @@
+import "Std/Io";
+
+export func Main() {
+    Std.Println("Hello, world!");
+}

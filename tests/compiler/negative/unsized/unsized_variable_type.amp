@@ -1,0 +1,4 @@
+export func Main() {
+    // The size of `[u8]` is not known at compile time, so the variable cannot have a `[u8]` value.
+    var my_var: [u8];
+}

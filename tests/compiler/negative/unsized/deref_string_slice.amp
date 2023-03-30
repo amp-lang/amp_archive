@@ -1,0 +1,6 @@
+export func Main() {
+    var my_str = "hello, world!";
+
+    // my_str is a `~const [u8]`, and cannot be dereferenced as the value pointed to is unsized.
+    var deref = *my_str;
+}

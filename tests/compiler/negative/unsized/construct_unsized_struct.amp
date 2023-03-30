@@ -1,0 +1,8 @@
+struct MyStruct {
+    export data: [u8],
+}
+
+export func Main() {
+    // MyStruct is sized, and therefore cannot be constructed.
+    var my_struct = MyStruct .{};
+}
