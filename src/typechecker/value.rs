@@ -1054,6 +1054,24 @@ impl GenericValue {
                     _ => None,
                 }
             }
+            (GenericValue::AddrOfUnsizedField(mutability, value, struct_id, field), to) => {
+                let struct_decl = &checker.structs[struct_id.0];
+                let ty = Type::Ptr(Ptr::new(
+                    mutability,
+                    struct_decl.fields[field].ty.value.clone(),
+                ));
+
+                if ty.is_equivalent(checker, to) {
+                    Some(Value::AddrOfUnsizedField(
+                        mutability,
+                        Box::new(value.coerce_default(checker, vars)),
+                        struct_id,
+                        field,
+                    ))
+                } else {
+                    None
+                }
+            }
             _ => None,
         }
     }

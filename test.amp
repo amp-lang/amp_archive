@@ -1,6 +1,11 @@
-import "Test2";
+import "Std";
+
+struct MyStruct {
+    member: [u8]
+}
 
 export func Main() {
-    var my_struct = MyStruct();
-    var member = MyStructMember(~const my_struct);
+    var my_string = "Hello, world!\n";
+    var my_struct = my_string as ~const MyStruct;
+    Std.Print(~const my_struct.member);
 }

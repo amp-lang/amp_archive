@@ -60,14 +60,20 @@ impl Struct {
 
         let mut fields = self.fields.iter().peekable();
         while let Some(field) = fields.next() {
-            size += field.ty.value.size(checker, ptr_size).unwrap();
+            if let Some(field_size) = field.ty.value.size(checker, ptr_size) {
+                size += field_size;
 
-            if let Some(next_field) = fields.peek() {
-                if let Some(next_size) = next_field.ty.value.size(checker, ptr_size) {
-                    size = round_up(size, next_size);
-                } else {
-                    break;
+                if let Some(next_field) = fields.peek() {
+                    if let Some(next_size) = next_field.ty.value.size(checker, ptr_size) {
+                        size = round_up(size, next_size);
+                    } else {
+                        break;
+                    }
                 }
+            } else {
+                // only happens if the only field is unsized, which means the struct's sized fields
+                // are 0 bytes
+                return 0;
             }
         }
 
