@@ -28,7 +28,10 @@ pub fn compile_return(
     ret: &Return,
 ) {
     if let Some(returns) = &signature.returns {
-        if returns.is_big(checker, codegen.pointer_type.bytes() as usize) {
+        if returns
+            .is_big(checker, codegen.pointer_type.bytes() as usize)
+            .expect("must be sized")
+        {
             let addr = builder.block_params(builder.current_block().unwrap())[0];
             super::value::compile_value(
                 checker,
@@ -320,7 +323,10 @@ pub fn compile_block(
 
     if !filled && must_return {
         if let Some(returns) = &signature.returns {
-            if returns.is_big(checker, codegen.pointer_type.bytes() as usize) {
+            if returns
+                .is_big(checker, codegen.pointer_type.bytes() as usize)
+                .expect("must be sized")
+            {
                 builder.ins().return_(&[]);
             } else {
                 let ty = compile_type(codegen, checker, returns);

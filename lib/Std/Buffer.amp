@@ -9,7 +9,7 @@ export struct Std.Buffer {
     len: uint,
 
     /// The block of memory allocated by the buffer.
-    data: []mut u8,
+    data: ~mut [u8],
 }
 
 /// Returns a new `Buffer`.  Doesn't allocate any memory.
@@ -42,7 +42,7 @@ export func Std.BufferWrite(self: ~mut Std.Buffer, byte: u8) {
 }
 
 /// Writes the provided bytes to the buffer.
-export func Std.BufferWriteBytes(self: ~mut Std.Buffer, bytes: []const u8) {
+export func Std.BufferWriteBytes(self: ~mut Std.Buffer, bytes: ~const [u8]) {
     if Std.SliceLen(bytes) == 0 {
         return;
     }
@@ -53,12 +53,12 @@ export func Std.BufferWriteBytes(self: ~mut Std.Buffer, bytes: []const u8) {
 }
 
 /// Converts this buffer into a slice.
-export func Std.BufferAsSlice(self: ~const Std.Buffer) -> []const u8 {
+export func Std.BufferAsSlice(self: ~const Std.Buffer) -> ~const [u8] {
     return self.data[0..self.len];
 }
 
 /// Converts this buffer into a mutable slice.
-export func Std.BufferAsSliceMut(self: ~mut Std.Buffer) -> []mut u8 {
+export func Std.BufferAsSliceMut(self: ~mut Std.Buffer) -> ~mut [u8] {
     return self.data[0..self.len];
 }
 
@@ -67,7 +67,7 @@ export func Std.BufferAsSliceMut(self: ~mut Std.Buffer) -> []mut u8 {
 /// # Safety
 /// - The outputted slice must be used before the buffer is written to, otherwise its contents may
 ///   be overwritten.
-export func Std.BufferFlushToSlice(self: ~mut Std.Buffer) -> []const u8 {
+export func Std.BufferFlushToSlice(self: ~mut Std.Buffer) -> ~const [u8] {
     var slice = self.data[0..self.len];
     self.len = 0;
     return slice;

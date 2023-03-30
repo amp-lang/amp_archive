@@ -93,7 +93,7 @@ impl Signature {
         while let Some(arg) = decl_args.next() {
             match arg {
                 ast::FuncArgOrVariadic::FuncArg(arg) => {
-                    let ty = Type::check(scope, &arg.ty)?;
+                    let ty = Type::check(checker, scope, &arg.ty)?;
 
                     match ty {
                         Type::Struct(struct_ty) => {
@@ -107,6 +107,10 @@ impl Signature {
                             }
                         }
                         _ => {}
+                    }
+
+                    if !ty.is_sized(checker) {
+                        return Err(Error::OwnedUnsizedType(arg.span));
                     }
 
                     args.push(Spanned::new(
@@ -129,7 +133,7 @@ impl Signature {
 
         let returns = match &decl.returns {
             Some(returns) => Some({
-                let ty = Type::check(scope, returns)?;
+                let ty = Type::check(checker, scope, returns)?;
                 match ty {
                     Type::Struct(struct_ty) => {
                         let ty = &checker.structs[struct_ty.0];
@@ -142,6 +146,9 @@ impl Signature {
                         }
                     }
                     _ => {}
+                }
+                if !ty.is_sized(checker) {
+                    return Err(Error::OwnedUnsizedType(returns.span()));
                 }
                 ty
             }),
@@ -169,8 +176,6 @@ pub struct Func {
     pub extern_name: Option<String>,
 
     /// The name of the function.
-    ///
-    /// TODO: replace with some sort of namespace path type.
     pub name: Spanned<Path>,
 
     /// The span of the declaration, from the `fn` keyword to the end of the return type, if any.

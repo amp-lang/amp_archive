@@ -40,7 +40,7 @@ impl Return {
                 });
             }
 
-            let generic_value = GenericValue::check(checker, scope, vars, value)?;
+            let generic_value = GenericValue::check(checker, scope, vars, value, false)?;
 
             let value = generic_value
                 .coerce(checker, vars, &func.signature.returns.clone().unwrap())
@@ -93,10 +93,10 @@ impl VarDecl {
         }
 
         let (ty, value) = if let Some(ty) = &decl.ty {
-            let ty = Type::check(scope, ty)?;
+            let ty = Type::check(checker, scope, ty)?;
 
             if let Some(value) = &decl.value {
-                let value = GenericValue::check(checker, scope, vars, value)?
+                let value = GenericValue::check(checker, scope, vars, value, false)?
                     .coerce(checker, vars, &ty)
                     .ok_or(Error::CannotAssignType {
                         decl: decl.span,
@@ -114,12 +114,17 @@ impl VarDecl {
                 scope,
                 vars,
                 decl.value.as_ref().expect("Cannot be none"),
+                false,
             )?;
 
             let value = value.coerce_default(checker, vars);
 
             (value.ty(checker, vars), Some(value))
         };
+
+        if !ty.is_sized(checker) {
+            return Err(Error::OwnedUnsizedType(decl.span));
+        }
 
         let id = vars.declare_var(Var::new(decl.span, decl.name.value.clone(), ty));
         scope.define_var(decl.name.value.clone(), id);
@@ -151,7 +156,7 @@ impl Assign {
                 expr,
                 ..
             }) => {
-                let value = GenericValue::check(checker, scope, vars, &expr)?;
+                let value = GenericValue::check(checker, scope, vars, &expr, false)?;
                 let Type::Ptr(Ptr { mutability, .. }) = value.default_type(checker, vars) else {
                     return Err(Error::InvalidDeref(expr.span()))
                 };
@@ -162,7 +167,7 @@ impl Assign {
 
                 value.coerce_default(checker, vars)
             }
-            _ => GenericValue::check(checker, scope, vars, &assign.left)?
+            _ => GenericValue::check(checker, scope, vars, &assign.left, false)?
                 .as_ref(checker, vars, Mutability::Mut)
                 .ok_or(Error::CannotChangeImmutable(assign.left.span()))?
                 .coerce_default(checker, vars),
@@ -176,7 +181,7 @@ impl Assign {
         // get type of destination
         let Type::Ptr(ptr) = dest.ty(checker, vars) else { unreachable!() };
 
-        let value = GenericValue::check(checker, scope, vars, &assign.right)?
+        let value = GenericValue::check(checker, scope, vars, &assign.right, false)?
             .coerce(checker, vars, &ptr.ty)
             .ok_or(Error::CannotAssignType {
                 decl: assign.right.span(),
@@ -205,7 +210,7 @@ impl While {
     ) -> Result<Self, Error> {
         let cond = if let Some(cond) = &ast.cond {
             Some(
-                GenericValue::check(checker, scope, vars, cond)?
+                GenericValue::check(checker, scope, vars, cond, false)?
                     .coerce(checker, vars, &Type::Bool)
                     .ok_or(Error::InvalidCondition(cond.span()))?,
             )
@@ -233,7 +238,7 @@ impl ElseIf {
         func: &Func,
         ast: &ast::ElseIf,
     ) -> Result<Self, Error> {
-        let cond = GenericValue::check(checker, scope, vars, &ast.cond)?
+        let cond = GenericValue::check(checker, scope, vars, &ast.cond, false)?
             .coerce(checker, vars, &Type::Bool)
             .ok_or(Error::InvalidCondition(ast.cond.span()))?;
 
@@ -286,7 +291,7 @@ impl If {
         func: &Func,
         ast: &ast::If,
     ) -> Result<Self, Error> {
-        let cond = GenericValue::check(checker, scope, vars, &ast.cond)?
+        let cond = GenericValue::check(checker, scope, vars, &ast.cond, false)?
             .coerce(checker, vars, &Type::Bool)
             .ok_or(Error::InvalidCondition(ast.cond.span()))?;
 

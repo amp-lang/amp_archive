@@ -374,10 +374,10 @@ impl Token {
             Token::Slash => (5, 6),
             Token::Percent => (5, 6),
             Token::KAs => (6, 7),
-            Token::LParen => (7, 8),
-            Token::Constructor => (7, 8),
-            Token::Dot => (7, 8),
-            Token::LBrack => (7, 8),
+            Token::LParen => (8, 9),
+            Token::Constructor => (8, 9),
+            Token::Dot => (8, 9),
+            Token::LBrack => (8, 9),
             _ => unreachable!("Invalid operator."),
         }
     }
@@ -388,8 +388,8 @@ impl Token {
     /// Panics if the token is not a unary operator.
     pub fn prefix_binding_power(&self) -> u8 {
         match self {
-            Token::Star => 5,
-            Token::Tilde => 5,
+            Token::Star => 7,
+            Token::Tilde => 7,
             _ => unreachable!("Invalid operator."),
         }
     }

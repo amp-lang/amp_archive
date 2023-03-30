@@ -29,6 +29,7 @@ pub struct Struct {
     pub modifiers: Vec<Modifier>,
     pub name: Spanned<Path>,
     pub fields: Vec<Field>,
+    pub sized: bool,
 }
 
 /// Rounds a number up to the nearest multiple of another number.
@@ -46,22 +47,28 @@ fn round_up(num_to_round: usize, multiple: usize) -> usize {
 }
 
 impl Struct {
-    /// Returns the size, in bytes, of this [Struct].
+    /// Returns the size, in bytes, of this [Struct].  If the struct is unsized, it returns the
+    /// size of the struct excluding the unsized field.
     pub fn size(&self, checker: &Typechecker, ptr_size: usize) -> usize {
         // calculate size with field padding
         let mut size = 0;
 
         let mut fields = self.fields.iter().peekable();
         while let Some(field) = fields.next() {
-            size += field.ty.value.size(checker, ptr_size);
+            size += field.ty.value.size(checker, ptr_size).unwrap();
 
             if let Some(next_field) = fields.peek() {
-                let next_size = next_field.ty.value.size(checker, ptr_size);
-                size = round_up(size, next_size);
+                if let Some(next_size) = next_field.ty.value.size(checker, ptr_size) {
+                    size = round_up(size, next_size);
+                } else {
+                    break;
+                }
             }
         }
 
-        size = round_up(size, ptr_size); // align struct to pointer size for system
+        // Round up to alignment of struct
+        // TODO: when/if we have alignment configuration for structs, we should use that here
+        size = size.next_power_of_two();
         size
     }
 
@@ -77,6 +84,10 @@ impl Struct {
     ///
     /// Fails if the field does not exist.
     pub fn get_field_offset(&self, checker: &Typechecker, ptr_size: usize, target: usize) -> usize {
+        if !self.sized && target == self.fields.len() - 1 {
+            return self.size(checker, ptr_size);
+        }
+
         // calculate size with field padding
         let mut offset = 0;
 
@@ -86,11 +97,11 @@ impl Struct {
                 return offset;
             }
 
-            offset += field.ty.value.size(checker, ptr_size);
+            offset += field.ty.value.size(checker, ptr_size).unwrap();
 
             if let Some((_, next_field)) = fields.peek() {
                 let next_size = next_field.ty.value.size(checker, ptr_size);
-                offset = round_up(offset, next_size);
+                offset = round_up(offset, next_size.unwrap());
             }
         }
 
@@ -105,6 +116,7 @@ pub fn check_struct_decl(decl: &ast::Struct) -> Result<Struct, Error> {
         modifiers: decl.modifiers.iter().map(|m| Modifier::check(m)).collect(),
         name: Spanned::new(decl.name.span, Path::check(&decl.name)),
         fields: Vec::new(),
+        sized: true,
     };
 
     Ok(struct_)
@@ -123,7 +135,6 @@ pub fn check_struct_def(
 
     let mut field_names = HashSet::new();
     for item in &ast.fields.fields {
-        // TODO: check if field makes struct infinitely sized
         if field_names.contains(&item.name.value) {
             return Err(Error::DuplicateField(Spanned::new(
                 item.name.span,
@@ -132,7 +143,7 @@ pub fn check_struct_def(
         }
         field_names.insert(&item.name.value);
 
-        let ty = Type::check(scope, &item.ty)?;
+        let ty = Type::check(checker, scope, &item.ty)?;
 
         // Make sure field isn't exposing a private type
         // TODO: check if field is private
@@ -158,4 +169,43 @@ pub fn check_struct_def(
     }
 
     Ok(())
+}
+
+/// Checks the size of a struct.  Returns `true` if the struct is sized.
+pub fn check_struct_size(checker: &Typechecker, struct_: &Struct) -> Result<bool, Error> {
+    if !struct_.sized {
+        // the struct for sure already checked
+        return Ok(false);
+    }
+
+    let mut fields = struct_.fields.iter().peekable();
+    let mut sized = true;
+
+    while let Some(field) = fields.next() {
+        match field.ty.value.clone().resolve_aliases(checker) {
+            Type::Struct(struct_ty) => {
+                // check if type is sized
+                let ty = &checker.structs[struct_ty.0];
+
+                // TODO: check if struct is infinite sized
+                if !check_struct_size(checker, ty)? {
+                    sized = false;
+
+                    if fields.peek().is_some() {
+                        return Err(Error::BadUnsizedStructField(field.span));
+                    }
+                }
+            }
+            Type::Slice(_) => {
+                sized = false;
+
+                if fields.peek().is_some() {
+                    return Err(Error::BadUnsizedStructField(field.span));
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Ok(sized)
 }

@@ -1,14 +1,14 @@
 namespace Std;
 
 /// A basic slice type that can be used to get the length and pointer values of an Amp slice.
-struct Std.BasicSlice {
+struct Std.WidePtr {
     ptr: ~const u8,
     len: uint,
 }
 
 /// Returns the number of items in the provided slice.
-export func Std.SliceLen(slice: []const u8) -> uint {
-    var slice = (~const slice) as ~const Std.BasicSlice;
+export func Std.SliceLen(slice: ~const [u8]) -> uint {
+    var slice = (~const slice) as ~const Std.WidePtr;
     return slice.len;
 }
 
@@ -18,7 +18,7 @@ export func Std.SliceLen(slice: []const u8) -> uint {
 ///
 /// # Safety
 /// - The provided slices should not overlap.
-export func Std.Copy(dest: []mut u8, src: []const u8) {
+export func Std.Copy(dest: ~mut [u8], src: ~const [u8]) {
     var n: uint;
 
     if Std.SliceLen(dest) < Std.SliceLen(src) {

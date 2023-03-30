@@ -12,6 +12,7 @@
 - feat!: external names for functions
 - [feat: (#39) variadic function arguments](https://github.com/amp-lang/amp/issues/39)
 - [feat: (#41) type aliases](https://github.com/amp-lang/amp/issues/41)
+- [feat!: (#52) unsized types](https://github.com/amp-lang/amp/issues/52)
 
 ### Library
 - feat: implement standard library, I guess

@@ -102,54 +102,18 @@ impl Parse for PointerType {
     }
 }
 
-/// The length of an array type.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum ArrayLength {
-    Static(Int),
-    Slice(PointerMutability),
-}
-
-impl Parse for ArrayLength {
-    fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
-        match parser.scanner_mut().peek()? {
-            Ok(token) => {
-                if token == Token::KConst {
-                    parser.scanner_mut().next();
-                    Some(Ok(ArrayLength::Slice(PointerMutability::Const(
-                        parser.scanner().span(),
-                    ))))
-                } else if token == Token::KMut {
-                    parser.scanner_mut().next();
-                    Some(Ok(ArrayLength::Slice(PointerMutability::Mut(
-                        parser.scanner().span(),
-                    ))))
-                } else if let Some(int) = parser.parse::<Int>() {
-                    match int {
-                        Ok(value) => Some(Ok(ArrayLength::Static(value))),
-                        Err(err) => return Some(Err(err)),
-                    }
-                } else {
-                    return None;
-                }
-            }
-            Err(err) => Some(Err(err)),
-        }
-    }
-}
-
 /// An array or slice type.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ArrayType {
     pub span: Span,
     pub ty: Box<Type>,
-    pub length: ArrayLength,
+    pub length: Option<Int>,
 }
 
 impl Parse for ArrayType {
     fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
-        // [N]T
-        // []const T
-        // []mut T
+        // [T; 10]
+        // [T]
 
         match parser.scanner_mut().peek()? {
             Ok(token) => {
@@ -163,10 +127,26 @@ impl Parse for ArrayType {
         }
         let started = parser.scanner().span();
 
-        let static_length = if let Some(length) = parser.parse::<Int>() {
-            match length {
-                Ok(value) => Some(value),
+        let ty = if let Some(ty) = parser.parse::<Type>() {
+            match ty {
+                Ok(value) => value,
                 Err(err) => return Some(Err(err)),
+            }
+        } else {
+            parser.scanner_mut().next();
+            return Some(Err(Error::ExpectedArrayType(parser.scanner().span())));
+        };
+
+        let length = if let Some(Ok(Token::Semi)) = parser.scanner_mut().peek() {
+            parser.scanner_mut().next();
+
+            if let Some(length) = parser.parse::<Int>() {
+                match length {
+                    Ok(value) => Some(value),
+                    Err(err) => return Some(Err(err)),
+                }
+            } else {
+                return Some(Err(Error::ExpectedArrayLength(parser.scanner().span())));
             }
         } else {
             None
@@ -194,34 +174,6 @@ impl Parse for ArrayType {
                 offending: parser.scanner().span(),
             }));
         }
-
-        let length = match static_length {
-            None => {
-                if let Some(mutability) = parser.parse::<PointerMutability>() {
-                    match mutability {
-                        Ok(value) => ArrayLength::Slice(value),
-                        Err(err) => return Some(Err(err)),
-                    }
-                } else {
-                    parser.scanner_mut().next();
-                    return Some(Err(Error::ExpectedSliceMutability {
-                        started,
-                        offending: parser.scanner().span(),
-                    }));
-                }
-            }
-            Some(static_length) => ArrayLength::Static(static_length),
-        };
-
-        let ty = if let Some(ty) = parser.parse::<Type>() {
-            match ty {
-                Ok(value) => value,
-                Err(err) => return Some(Err(err)),
-            }
-        } else {
-            parser.scanner_mut().next();
-            return Some(Err(Error::ExpectedArrayType(parser.scanner().span())));
-        };
 
         return Some(Ok(Self {
             span: Span::new(

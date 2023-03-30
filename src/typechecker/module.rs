@@ -13,7 +13,7 @@ use super::{
     func::{check_func_decl, check_func_def, FuncId},
     namespace::Namespace,
     scope::Scope,
-    struct_::{check_struct_decl, check_struct_def, StructId},
+    struct_::{check_struct_decl, check_struct_def, check_struct_size, StructId},
     type_alias::{check_type_alias_decl, check_type_alias_def, TypeAliasId},
     Typechecker,
 };
@@ -363,6 +363,18 @@ impl Module {
                 }
                 _ => {}
             }
+        }
+
+        Ok(())
+    }
+
+    /// Checks the type sizes in the module.
+    pub fn check_type_sizes(&self, checker: &mut Typechecker) -> Result<(), Error> {
+        for struct_id in &self.structs {
+            let mut struct_ = checker.structs[struct_id.0].clone();
+            let sized = check_struct_size(checker, &struct_)?;
+            struct_.sized = sized;
+            checker.structs[struct_id.0] = struct_;
         }
 
         Ok(())

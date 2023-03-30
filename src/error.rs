@@ -443,6 +443,15 @@ pub enum Error {
 
     /// Expected a struct type to construct.
     CannotConstructNonStruct(Span) = 85,
+
+    /// Expected the length of an array.
+    ExpectedArrayLength(Span) = 86,
+
+    /// An unsized struct field was not the last member in the struct.
+    BadUnsizedStructField(Span) = 87,
+
+    /// An unsized value was owned.
+    OwnedUnsizedType(Span) = 88,
 }
 
 impl Error {
@@ -1041,6 +1050,20 @@ impl Error {
             }
             Self::CannotConstructNonStruct(span) => {
                 diagnostic.message = "Cannot construct a non-struct type".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::ExpectedArrayLength(span) => {
+                diagnostic.message = "Expected an array length".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::BadUnsizedStructField(span) => {
+                diagnostic.message =
+                    "A struct may only have an unsized field at the end of the declaration"
+                        .to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::OwnedUnsizedType(span) => {
+                diagnostic.message = "Size not known at compile time".to_owned();
                 diagnostic.labels.push(span.primary());
             }
         }

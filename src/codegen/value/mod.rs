@@ -64,7 +64,7 @@ pub fn compile_value(
             .ins()
             .iconst(cranelift::prelude::types::I64, *value as i64),
         Value::Int(value) => builder.ins().iconst(codegen.pointer_type, *value as i64),
-        Value::Str(_, value) => return compile_string_slice(codegen, builder, value, to),
+        Value::Str(value) => return compile_string_slice(codegen, builder, value, to),
         Value::Var(var) => use_var(codegen, checker, builder, vars, data, *var, to)?,
         Value::FuncCall(call) => {
             compile_func_call(checker, codegen, builder, call, vars, data, to)?
@@ -80,6 +80,7 @@ pub fn compile_value(
             if deref
                 .ty
                 .is_big(checker, codegen.pointer_type.bytes() as usize)
+                .expect("must be sized")
             {
                 if let Some(dest) = to {
                     let size = builder.ins().iconst(
@@ -87,7 +88,7 @@ pub fn compile_value(
                         deref
                             .ty
                             .size(checker, codegen.pointer_type.bytes() as usize)
-                            as i64,
+                            .expect("must be sized") as i64,
                     );
                     builder.call_memcpy(codegen.module.target_config(), dest, ptr, size);
 
@@ -98,7 +99,7 @@ pub fn compile_value(
                         deref
                             .ty
                             .size(checker, codegen.pointer_type.bytes() as usize)
-                            as u32,
+                            .expect("must be sized") as u32,
                     ));
                     let dest = builder.ins().stack_addr(codegen.pointer_type, slot, 0);
                     let size = builder.ins().iconst(
@@ -106,7 +107,7 @@ pub fn compile_value(
                         deref
                             .ty
                             .size(checker, codegen.pointer_type.bytes() as usize)
-                            as i64,
+                            .expect("must be sized") as i64,
                     );
                     builder.call_memcpy(codegen.module.target_config(), dest, ptr, size);
 
@@ -123,11 +124,13 @@ pub fn compile_value(
             .ins()
             .stack_addr(codegen.pointer_type, vars[&var], 0),
         Value::Store(_, value) => {
+            dbg!(value);
             let ty = value.ty(checker, &data.vars);
 
             let slot = builder.create_sized_stack_slot(StackSlotData::new(
                 StackSlotKind::ExplicitSlot,
-                ty.size(checker, codegen.pointer_type.bytes() as usize) as u32,
+                ty.size(checker, codegen.pointer_type.bytes() as usize)
+                    .expect("must be sized") as u32,
             ));
 
             let addr = builder.ins().stack_addr(codegen.pointer_type, slot, 0);
@@ -200,14 +203,19 @@ pub fn compile_value(
             let src = builder.ins().iadd_imm(ptr, offset as i64);
             let size = builder.ins().iconst(
                 codegen.pointer_type,
-                field.size(checker, codegen.pointer_type.bytes() as usize) as i64,
+                field
+                    .size(checker, codegen.pointer_type.bytes() as usize)
+                    .expect("must be sized") as i64,
             );
 
             if let Some(to) = to {
                 builder.call_memcpy(codegen.module.target_config(), to, src, size);
                 return None;
             } else {
-                if !field.is_big(checker, codegen.pointer_type.bytes() as usize) {
+                if !field
+                    .is_big(checker, codegen.pointer_type.bytes() as usize)
+                    .expect("must be sized")
+                {
                     let ty = compile_type(codegen, checker, field);
                     builder
                         .ins()
@@ -321,14 +329,14 @@ pub fn compile_value(
         Value::IntToInt(value, ty) => {
             compile_int_to_int(checker, codegen, builder, value, ty, vars, data)
         }
-        Value::SliceToPtr(value, _) => {
+        Value::WidePtrToPtr(value, _) => {
             let ptr = compile_value(checker, codegen, builder, value, vars, data, None)
                 .expect("No `to` provided");
             builder
                 .ins()
                 .load(codegen.pointer_type, MemFlags::new(), ptr, 0)
         }
-        Value::SliceToSlice(value, _) => {
+        Value::WidePtrToWidePtr(value, _) => {
             compile_value(checker, codegen, builder, value, vars, data, to)?
         }
         Value::SliceIdx(slice, idx, ty) => {
@@ -344,7 +352,8 @@ pub fn compile_value(
 
             let offset = builder.ins().imul_imm(
                 idx,
-                ty.size(checker, codegen.pointer_type.bytes() as usize) as i64,
+                ty.size(checker, codegen.pointer_type.bytes() as usize)
+                    .expect("must be sized") as i64,
             );
 
             let final_ptr = builder.ins().iadd(ptr, offset);
@@ -359,7 +368,8 @@ pub fn compile_value(
 
             let offset = builder.ins().imul_imm(
                 idx,
-                ty.size(checker, codegen.pointer_type.bytes() as usize) as i64,
+                ty.size(checker, codegen.pointer_type.bytes() as usize)
+                    .expect("must be sized") as i64,
             );
 
             let final_ptr = builder.ins().iadd(ptr, offset);
@@ -379,7 +389,8 @@ pub fn compile_value(
 
             let offset = builder.ins().imul_imm(
                 idx,
-                ty.size(checker, codegen.pointer_type.bytes() as usize) as i64,
+                ty.size(checker, codegen.pointer_type.bytes() as usize)
+                    .expect("must be sized") as i64,
             );
 
             builder.ins().iadd(ptr, offset)
@@ -392,7 +403,8 @@ pub fn compile_value(
 
             let offset = builder.ins().imul_imm(
                 idx,
-                ty.size(checker, codegen.pointer_type.bytes() as usize) as i64,
+                ty.size(checker, codegen.pointer_type.bytes() as usize)
+                    .expect("must be sized") as i64,
             );
 
             builder.ins().iadd(ptr, offset)
@@ -409,13 +421,36 @@ pub fn compile_value(
 
             let from_offset = builder.ins().imul_imm(
                 from_idx,
-                item_ty.size(checker, codegen.pointer_type.bytes() as usize) as i64,
+                item_ty
+                    .size(checker, codegen.pointer_type.bytes() as usize)
+                    .expect("must be sized") as i64,
             );
 
             let new_ptr = builder.ins().iadd(ptr, from_offset);
             let size = builder.ins().isub(to_idx, from_idx);
 
-            return create_slice(codegen, builder, new_ptr, size, to);
+            return create_wide_pointer(codegen, builder, new_ptr, size, to);
+        }
+        Value::AddrOfUnsizedField(_, wide_ptr, struct_id, _) => {
+            let clif_ptr = compile_value(checker, codegen, builder, wide_ptr, vars, data, None)
+                .expect("No `to` provided");
+
+            // the pointer part of the slice
+            let old_ptr = builder
+                .ins()
+                .load(codegen.pointer_type, MemFlags::new(), clif_ptr, 0);
+
+            let old_len = builder
+                .ins()
+                .load(codegen.pointer_type, MemFlags::new(), clif_ptr, 8);
+
+            let offset =
+                checker.structs[struct_id.0].size(checker, codegen.pointer_type.bytes() as usize);
+
+            let new_ptr = builder.ins().iadd_imm(old_ptr, offset as i64);
+            let new_len = builder.ins().iadd_imm(old_len, -(offset as i64));
+
+            return create_wide_pointer(codegen, builder, new_ptr, new_len, to);
         }
     };
 
@@ -439,8 +474,13 @@ pub fn mem_load(
     // the address to write the value to, if any.
     to: Option<cranelift::prelude::Value>,
 ) -> Option<cranelift::prelude::Value> {
-    if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
-        let size = ty.size(checker, codegen.pointer_type.bytes() as usize);
+    if ty
+        .is_big(checker, codegen.pointer_type.bytes() as usize)
+        .expect("must be sized")
+    {
+        let size = ty
+            .size(checker, codegen.pointer_type.bytes() as usize)
+            .expect("must be sized");
         let stack_slot = builder
             .create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, size as u32));
 
@@ -491,14 +531,18 @@ pub fn use_var(
         Some(to) => {
             let size = builder.ins().iconst(
                 codegen.pointer_type,
-                ty.size(checker, codegen.pointer_type.bytes() as usize) as i64,
+                ty.size(checker, codegen.pointer_type.bytes() as usize)
+                    .expect("must be sized") as i64,
             );
             let addr = builder.ins().stack_addr(codegen.pointer_type, slot, 0);
             builder.call_memcpy(codegen.module.target_config(), to, addr, size);
             return None;
         }
         None => {
-            if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
+            if ty
+                .is_big(checker, codegen.pointer_type.bytes() as usize)
+                .expect("must be sized")
+            {
                 Some(builder.ins().stack_addr(codegen.pointer_type, slot, 0))
             } else {
                 let ty = compile_type(codegen, checker, ty);
@@ -524,14 +568,18 @@ pub fn compile_func_call(
     let mut args = Vec::new();
 
     let dest = if let Some(ty) = &func.signature.returns {
-        if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
+        if ty
+            .is_big(checker, codegen.pointer_type.bytes() as usize)
+            .expect("must be sized")
+        {
             if let Some(value) = to {
                 args.push(value);
                 Some(value)
             } else {
                 let stack_slot = StackSlotData::new(
                     StackSlotKind::ExplicitSlot,
-                    ty.size(checker, codegen.pointer_type.bytes() as usize) as u32,
+                    ty.size(checker, codegen.pointer_type.bytes() as usize)
+                        .expect("must be sized") as u32,
                 );
                 let slot = builder.create_sized_stack_slot(stack_slot);
                 args.push(builder.ins().stack_addr(codegen.pointer_type, slot, 0));
@@ -558,7 +606,10 @@ pub fn compile_func_call(
         let mut signature = codegen.module.make_signature();
 
         if let Some(ty) = &func.signature.returns {
-            if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
+            if ty
+                .is_big(checker, codegen.pointer_type.bytes() as usize)
+                .expect("must be sized")
+            {
                 signature.params.push(AbiParam::special(
                     codegen.pointer_type,
                     ArgumentPurpose::StructReturn,
@@ -593,7 +644,10 @@ pub fn compile_func_call(
     };
 
     if let Some(ty) = &func.signature.returns {
-        if ty.is_big(checker, codegen.pointer_type.bytes() as usize) {
+        if ty
+            .is_big(checker, codegen.pointer_type.bytes() as usize)
+            .expect("must be sized")
+        {
             if to == None {
                 Some(dest.unwrap())
             } else {
@@ -607,8 +661,8 @@ pub fn compile_func_call(
     }
 }
 
-/// Creates a slice value.
-pub fn create_slice(
+/// Creates a wide pointer value.
+pub fn create_wide_pointer(
     codegen: &mut Codegen,
     builder: &mut FunctionBuilder,
     ptr: cranelift::prelude::Value,

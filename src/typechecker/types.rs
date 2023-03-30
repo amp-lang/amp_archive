@@ -6,7 +6,7 @@ use crate::{
 use super::{
     path::Path,
     scope::{Scope, TypeDecl},
-    struct_::StructId,
+    struct_::{check_struct_size, StructId},
     type_alias::TypeAliasId,
     Typechecker,
 };
@@ -43,32 +43,29 @@ impl Ptr {
 
         format!("~{} {}", mutability, self.ty.name(checker))
     }
+
+    /// Returns `true` if this type is a wide pointer.
+    #[inline]
+    pub fn is_wide(&self, checker: &Typechecker) -> bool {
+        !self.ty.is_sized(checker)
+    }
 }
 
 /// A slice type.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Slice {
-    pub mutability: Mutability,
     pub ty: Box<Type>,
 }
 
 impl Slice {
     /// Creates a new pointer type.
-    pub fn new(mutability: Mutability, ty: Type) -> Self {
-        Self {
-            mutability,
-            ty: Box::new(ty),
-        }
+    pub fn new(ty: Type) -> Self {
+        Self { ty: Box::new(ty) }
     }
 
     /// Returns the visualized name of the pointer type.
     pub fn name(&self, checker: &Typechecker) -> String {
-        let mutability = match self.mutability {
-            Mutability::Const => "const",
-            Mutability::Mut => "mut",
-        };
-
-        format!("[]{} {}", mutability, self.ty.name(checker))
+        format!("[{}]", self.ty.name(checker))
     }
 }
 
@@ -93,6 +90,11 @@ pub enum Type {
 }
 
 impl Type {
+    /// Creates a `~const [T]` or `~mut [T]` type.
+    pub fn slice_ptr(mutability: Mutability, ty: Type) -> Self {
+        Self::Ptr(Ptr::new(mutability, Type::Slice(Slice::new(ty))))
+    }
+
     /// Resolves the aliases of this type.  Guarantees that this type is not [TypeAlias]
     pub fn resolve_aliases(self, checker: &Typechecker) -> Self {
         match self {
@@ -106,7 +108,6 @@ impl Type {
                 ty: Box::new(ptr.ty.resolve_aliases(checker)),
             }),
             Type::Slice(slice) => Type::Slice(Slice {
-                mutability: slice.mutability,
                 ty: Box::new(slice.ty.resolve_aliases(checker)),
             }),
             _ => self,
@@ -135,19 +136,11 @@ impl Type {
     }
 
     /// Returns `true` if this type needs to be passed through a pointer rather than by value.
-    pub fn is_big(&self, checker: &Typechecker, ptr_size: usize) -> bool {
-        match self.clone().resolve_aliases(checker) {
-            // slice is always ptr_size * 2, so it's guaranteed a big type
-            Self::Slice(_) => true,
-            // for C abi
-            Self::Struct(struct_) => checker.structs[struct_.0].size(checker, ptr_size) > ptr_size,
-            // Self::TypeAlias(alias) => checker.type_aliases[alias.0]
-            //     .value
-            //     .as_ref()
-            //     .unwrap()
-            //     .is_big(checker, ptr_size),
-            _ => false,
+    pub fn is_big(&self, checker: &Typechecker, ptr_size: usize) -> Option<bool> {
+        if self.is_primitive(checker) {
+            return Some(false);
         }
+        Some(self.size(checker, ptr_size)? > ptr_size)
     }
 
     /// Returns `true` if this value is an integer type.
@@ -163,18 +156,13 @@ impl Type {
             | Type::U32
             | Type::U64
             | Type::Uint => true,
-            // Type::TypeAlias(ty) => checker.type_aliases[ty.0]
-            //     .value
-            //     .as_ref()
-            //     .unwrap()
-            //     .is_int(checker),
             _ => false,
         }
     }
 
     /// Returns the size of the type in bytes.
-    pub fn size(&self, checker: &Typechecker, ptr_size: usize) -> usize {
-        match self.clone().resolve_aliases(checker) {
+    pub fn size(&self, checker: &Typechecker, ptr_size: usize) -> Option<usize> {
+        Some(match self.clone().resolve_aliases(checker) {
             Type::Bool => 1,
             Type::I8 => 1,
             Type::I16 => 2,
@@ -186,35 +174,48 @@ impl Type {
             Type::U32 => 4,
             Type::U64 => 8,
             Type::Uint => ptr_size,
-            Type::Ptr(_) => ptr_size,
-            Type::Slice(_) => ptr_size * 2,
-            Type::Struct(struct_) => checker.structs[struct_.0].size(checker, ptr_size),
-            // Type::TypeAlias(ty) => checker.type_aliases[ty.0]
-            //     .value
-            //     .as_ref()
-            //     .unwrap()
-            //     .size(checker, ptr_size),
+            Type::Ptr(ptr) => {
+                if ptr.is_wide(checker) {
+                    ptr_size * 2 // wide pointer size
+                } else {
+                    ptr_size
+                }
+            }
+            Type::Slice(_) => return None,
+            Type::Struct(struct_id) => {
+                let struct_ = &checker.structs[struct_id.0];
+                if check_struct_size(checker, struct_).expect("TODO: don't expect this") {
+                    checker.structs[struct_id.0].size(checker, ptr_size)
+                } else {
+                    return None;
+                }
+            }
             _ => unreachable!(),
-        }
+        })
     }
 
     /// Returns `true` if the type is a primitive type.
     pub fn is_primitive(&self, checker: &Typechecker) -> bool {
         match self.clone().resolve_aliases(checker) {
-            Type::Struct(_) => false,
-            // Type::TypeAlias(ty) => checker.type_aliases[ty.0]
-            //     .value
-            //     .as_ref()
-            //     .unwrap()
-            //     .is_primitive(checker),
-            _ => true,
+            Type::Bool
+            | Type::I8
+            | Type::I16
+            | Type::I32
+            | Type::I64
+            | Type::Int
+            | Type::U8
+            | Type::U16
+            | Type::U32
+            | Type::U64
+            | Type::Uint => true,
+            _ => false,
         }
     }
 
     /// Checks for a type in the given scope.
     ///
     /// TODO: check imports and declared types
-    pub fn check(scope: &mut Scope, ty: &ast::Type) -> Result<Self, Error> {
+    pub fn check(checker: &Typechecker, scope: &mut Scope, ty: &ast::Type) -> Result<Self, Error> {
         match ty {
             ast::Type::Named(name) => {
                 let path = Path::check(name);
@@ -266,21 +267,21 @@ impl Type {
 
                 Ok(Type::Ptr(Ptr {
                     mutability,
-                    ty: Box::new(Type::check(scope, &ptr.ty)?),
+                    ty: Box::new(Type::check(checker, scope, &ptr.ty)?),
                 }))
             }
-            ast::Type::Array(array) => {
-                let mutability = match array.length {
-                    ast::ArrayLength::Static(_) => todo!("Implement array types"),
-                    ast::ArrayLength::Slice(ast::PointerMutability::Const(_)) => Mutability::Const,
-                    ast::ArrayLength::Slice(ast::PointerMutability::Mut(_)) => Mutability::Mut,
-                };
-
-                Ok(Type::Slice(Slice {
-                    mutability,
-                    ty: Box::new(Type::check(scope, &array.ty)?),
-                }))
-            }
+            // TODO: check for array types
+            ast::Type::Array(array) => Ok(Type::Slice(Slice {
+                ty: Box::new({
+                    let ty = Type::check(checker, scope, &array.ty)?;
+                    // TODO: return `Err` variant
+                    if ty.is_sized(checker) {
+                        ty
+                    } else {
+                        return Err(Error::OwnedUnsizedType(array.ty.span()));
+                    }
+                }),
+            })),
         }
     }
 
@@ -302,9 +303,7 @@ impl Type {
             (Type::Ptr(ptr), Type::Ptr(other)) => {
                 ptr.ty.is_equivalent(checker, &other.ty) && ptr.mutability >= other.mutability
             }
-            (Type::Slice(slice), Type::Slice(other)) => {
-                slice.ty.is_equivalent(checker, &other.ty) && slice.mutability >= other.mutability
-            }
+            (Type::Slice(slice), Type::Slice(other)) => slice.ty.is_equivalent(checker, &other.ty),
             (Type::Struct(struct_), Type::Struct(other)) => struct_ == other,
             (Type::TypeAlias(ty), other) => checker.type_aliases[ty.0]
                 .value
@@ -352,6 +351,11 @@ impl Type {
                 .get_slice(checker),
             _ => None,
         }
+    }
+
+    /// Returns `true` if the size of this type is known at compile time.
+    pub fn is_sized(&self, checker: &Typechecker) -> bool {
+        self.size(checker, 8).is_some()
     }
 }
 
