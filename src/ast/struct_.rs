@@ -11,15 +11,34 @@ use super::{Iden, Modifier, Path, Type};
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct StructField {
     pub span: Span,
+    pub modifiers: Vec<Modifier>,
     pub name: Iden,
     pub ty: Type,
 }
 
 impl Parse for StructField {
     fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
-        let name = match parser.parse::<Iden>()? {
-            Ok(name) => name,
-            Err(err) => return Some(Err(err)),
+        let mut modifiers = Vec::new();
+
+        // Parse modifiers
+        while let Some(value) = parser.parse::<Modifier>() {
+            match value {
+                Ok(value) => modifiers.push(value),
+                Err(err) => return Some(Err(err)),
+            }
+        }
+
+        let name = match parser.parse::<Iden>() {
+            Some(Ok(name)) => name,
+            Some(Err(err)) => return Some(Err(err)),
+            None => {
+                if modifiers.len() > 0 {
+                    parser.scanner_mut().next();
+                    return Some(Err(Error::ExpectedFieldName(parser.scanner().span())));
+                } else {
+                    return None;
+                }
+            }
         };
 
         if let Some(Ok(Token::Colon)) = parser.scanner_mut().next() {
@@ -38,6 +57,7 @@ impl Parse for StructField {
 
         Some(Ok(Self {
             span: Span::new(parser.scanner().file_id(), name.span.start, ty.span().end),
+            modifiers,
             name,
             ty,
         }))
