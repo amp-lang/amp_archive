@@ -33,6 +33,7 @@
 - [fix: (#49) allow multiple private functions to have the same name](https://github.com/amp-lang/amp/issues/49)
 - [fix: (#40) allow multiple declarations of functions](https://github.com/amp-lang/amp/issues/40)
 - [feat: (#50) remove support for null terminated strings](https://github.com/amp-lang/amp/issues/50)
+- [feat: (#55) implement `run` subcommand](https://github.com/amp-lang/amp/issues/55)
 
 ## v0.3.0-alpha
 
