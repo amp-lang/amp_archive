@@ -309,7 +309,7 @@ impl Module {
         for decl in &self.ast.decls {
             match decl {
                 ast::Decl::Struct(struct_) => {
-                    let decl = check_struct_decl(struct_)?;
+                    let decl = check_struct_decl(checker, struct_)?;
                     let id = checker.declare_struct(decl.clone(), &mut scope)?;
 
                     for item in &struct_.modifiers {

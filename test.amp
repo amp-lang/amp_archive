@@ -1,23 +1,6 @@
-import "Std";
-
-/// A type which represents a slice with one or more elements.
-export struct OneOrMore {
-    first: u8,
-    rest: [u8],
-}
-
-/// Returns the first element of the slice.
-export func OneOrMoreFirst(self: ~const OneOrMore) -> u8 {
-    return self.first;
-}
-
-/// Returns the element of the slice.
-export func OneOrMoreGet(self: ~const OneOrMore, index: uint) -> u8 {
-    return (self as ~const [u8])[index];
-}
+import "Test2";
 
 export func Main() {
-    var my_str = "hello, world!\0";
-    var one_or_more = my_str as ~const OneOrMore;
-    Std.Println(~const one_or_more.rest as ~const [u8]);
+    var my_struct = MyStruct();
+    var member = MyStructMember(~const my_struct);
 }

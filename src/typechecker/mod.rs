@@ -44,6 +44,9 @@ pub struct Typechecker {
 
     /// The type aliases declared by all modules.
     pub type_aliases: Vec<TypeAlias>,
+
+    /// The current module being checked.
+    pub current_module: ModuleId,
 }
 
 impl Typechecker {
@@ -53,6 +56,7 @@ impl Typechecker {
             funcs: Vec::new(),
             structs: Vec::new(),
             type_aliases: Vec::new(),
+            current_module: ModuleId(0),
         }
     }
 
@@ -219,13 +223,15 @@ impl Typechecker {
         modules[0] = module;
 
         // Check namespace declarations
-        for module in &mut modules {
+        for (idx, module) in modules.iter_mut().enumerate() {
+            self.current_module = ModuleId(idx);
             module.declare_namespaces();
         }
 
         // Check type declarations
         let mut i = 0;
         while i < modules.len() {
+            self.current_module = ModuleId(i);
             let mut module = modules[i].clone();
             module.check_type_decls(self, &modules)?;
             modules[i] = module;
@@ -233,18 +239,21 @@ impl Typechecker {
         }
 
         // Check type definitions
-        for module in &modules {
+        for (idx, module) in modules.iter().enumerate() {
+            self.current_module = ModuleId(idx);
             module.check_type_defs(self, &modules)?;
         }
 
         // Check type sizes
-        for module in &modules {
+        for (idx, module) in modules.iter().enumerate() {
+            self.current_module = ModuleId(idx);
             module.check_type_sizes(self)?;
         }
 
         // Check function declarations
         let mut i = 0;
         while i < modules.len() {
+            self.current_module = ModuleId(i);
             let mut module = modules[i].clone();
             module.check_func_decls(self, &modules)?;
             modules[i] = module;
@@ -252,7 +261,8 @@ impl Typechecker {
         }
 
         // Check function definitions
-        for module in &modules {
+        for (idx, module) in modules.iter().enumerate() {
+            self.current_module = ModuleId(idx);
             module.check_func_defs(self, &modules)?;
         }
 

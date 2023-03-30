@@ -452,6 +452,12 @@ pub enum Error {
 
     /// An unsized value was owned.
     OwnedUnsizedType(Span) = 88,
+
+    /// Cannot construct a struct with private fields.
+    CannotConstructPrivateStruct(Span) = 89,
+
+    /// An attempt was made to access a private field of a struct.
+    CannotAccessPrivateField(Span) = 90,
 }
 
 impl Error {
@@ -1064,6 +1070,14 @@ impl Error {
             }
             Self::OwnedUnsizedType(span) => {
                 diagnostic.message = "Size not known at compile time".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::CannotConstructPrivateStruct(span) => {
+                diagnostic.message = "Cannot construct a struct with private fields".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::CannotAccessPrivateField(span) => {
+                diagnostic.message = "Cannot access a private field".to_owned();
                 diagnostic.labels.push(span.primary());
             }
         }

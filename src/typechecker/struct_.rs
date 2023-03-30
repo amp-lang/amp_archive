@@ -7,7 +7,7 @@ use crate::{
     typechecker::scope::TypeDecl,
 };
 
-use super::{decl::Modifier, path::Path, scope::Scope, types::Type, Typechecker};
+use super::{decl::Modifier, module::ModuleId, path::Path, scope::Scope, types::Type, Typechecker};
 
 /// A unique identifier for a struct.
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -17,6 +17,7 @@ pub struct StructId(pub usize);
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Field {
     pub span: Span,
+    pub modifiers: Vec<Modifier>,
     pub name: Spanned<String>,
     pub ty: Spanned<Type>,
 }
@@ -26,10 +27,14 @@ pub struct Field {
 pub struct Struct {
     /// The location of the struct's declaration.
     pub span: Span,
+    pub declared_in: ModuleId,
     pub modifiers: Vec<Modifier>,
     pub name: Spanned<Path>,
     pub fields: Vec<Field>,
     pub sized: bool,
+
+    /// `true` if the struct can be constructed outside of the module it's declared in.
+    pub can_construct: bool,
 }
 
 /// Rounds a number up to the nearest multiple of another number.
@@ -110,13 +115,15 @@ impl Struct {
 }
 
 /// Checks a struct declaration, simply checks if the name is already defined in the current scope.
-pub fn check_struct_decl(decl: &ast::Struct) -> Result<Struct, Error> {
+pub fn check_struct_decl(checker: &Typechecker, decl: &ast::Struct) -> Result<Struct, Error> {
     let struct_ = Struct {
         span: decl.span,
+        declared_in: checker.current_module,
         modifiers: decl.modifiers.iter().map(|m| Modifier::check(m)).collect(),
         name: Spanned::new(decl.name.span, Path::check(&decl.name)),
         fields: Vec::new(),
         sized: true,
+        can_construct: true,
     };
 
     Ok(struct_)
@@ -133,6 +140,8 @@ pub fn check_struct_def(
         .expect("Typechecker confirms this type exists");
     let TypeDecl::Struct(id) = item else { unreachable!("Typechecker confirms this is a struct") };
 
+    let mut can_construct = true;
+
     let mut field_names = HashSet::new();
     for item in &ast.fields.fields {
         if field_names.contains(&item.name.value) {
@@ -145,13 +154,21 @@ pub fn check_struct_def(
 
         let ty = Type::check(checker, scope, &item.ty)?;
 
+        let field = Field {
+            span: item.span,
+            name: Spanned::new(item.name.span, item.name.value.clone()),
+            modifiers: item.modifiers.iter().map(|m| Modifier::check(m)).collect(),
+            ty: Spanned::new(item.ty.span(), ty.clone()),
+        };
+
         // Make sure field isn't exposing a private type
-        // TODO: check if field is private
         match ty {
             Type::Struct(struct_ty) => {
                 let ty = &checker.structs[struct_ty.0];
 
-                if !ty.modifiers.contains(&Modifier::Export) {
+                if !ty.modifiers.contains(&Modifier::Export)
+                    && field.modifiers.contains(&Modifier::Export)
+                {
                     return Err(Error::ExposedPrivateType {
                         name: Spanned::new(ty.name.span, ty.name.value.to_string()),
                         offending: item.span,
@@ -161,12 +178,14 @@ pub fn check_struct_def(
             _ => {}
         }
 
-        checker.structs[id.0 as usize].fields.push(Field {
-            span: item.span,
-            name: Spanned::new(item.name.span, item.name.value.clone()),
-            ty: Spanned::new(item.ty.span(), ty),
-        });
+        if !field.modifiers.contains(&Modifier::Export) {
+            can_construct = false;
+        }
+
+        checker.structs[id.0 as usize].fields.push(field);
     }
+
+    checker.structs[id.0 as usize].can_construct = can_construct;
 
     Ok(())
 }

@@ -7,6 +7,7 @@ use crate::{
 };
 
 use super::{
+    decl::Modifier,
     func::FuncId,
     path::Path,
     scope::Scope,
@@ -432,6 +433,10 @@ impl GenericValue {
 
                 let struct_decl = &checker.structs[id.0 as usize];
 
+                if !struct_decl.can_construct && struct_decl.declared_in != checker.current_module {
+                    return Err(Error::CannotConstructPrivateStruct(constructor.ty.span()));
+                }
+
                 let mut fields = HashMap::new();
 
                 for field in &constructor.fields {
@@ -477,6 +482,14 @@ impl GenericValue {
                 let struct_decl = &checker.structs[id.0 as usize];
 
                 if let Some((field_id, _)) = struct_decl.get_field(&iden.value) {
+                    let field = &struct_decl.fields[field_id];
+
+                    if !field.modifiers.contains(&Modifier::Export)
+                        && struct_decl.declared_in != checker.current_module
+                    {
+                        return Err(Error::CannotAccessPrivateField(iden.span));
+                    }
+
                     Ok(Self::StructAccess(
                         Box::new(match lhs_ty {
                             Type::Ptr(Ptr { mutability, ty }) => {
