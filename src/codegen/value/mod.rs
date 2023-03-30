@@ -124,6 +124,7 @@ pub fn compile_value(
             .ins()
             .stack_addr(codegen.pointer_type, vars[&var], 0),
         Value::Store(_, value) => {
+            dbg!(value);
             let ty = value.ty(checker, &data.vars);
 
             let slot = builder.create_sized_stack_slot(StackSlotData::new(
@@ -429,6 +430,27 @@ pub fn compile_value(
             let size = builder.ins().isub(to_idx, from_idx);
 
             return create_wide_pointer(codegen, builder, new_ptr, size, to);
+        }
+        Value::AddrOfUnsizedField(_, wide_ptr, struct_id, _) => {
+            let clif_ptr = compile_value(checker, codegen, builder, wide_ptr, vars, data, None)
+                .expect("No `to` provided");
+
+            // the pointer part of the slice
+            let old_ptr = builder
+                .ins()
+                .load(codegen.pointer_type, MemFlags::new(), clif_ptr, 0);
+
+            let old_len = builder
+                .ins()
+                .load(codegen.pointer_type, MemFlags::new(), clif_ptr, 8);
+
+            let offset =
+                checker.structs[struct_id.0].size(checker, codegen.pointer_type.bytes() as usize);
+
+            let new_ptr = builder.ins().iadd_imm(old_ptr, offset as i64);
+            let new_len = builder.ins().iadd_imm(old_len, -(offset as i64));
+
+            return create_wide_pointer(codegen, builder, new_ptr, new_len, to);
         }
     };
 

@@ -31,7 +31,6 @@ impl FuncCall {
         vars: &Vars,
         call: &ast::Call,
     ) -> Result<Self, Error> {
-        // TODO: make this code simpler somehow
         let callee = {
             let path = Path::check_path_expr(&call.callee)?;
             let res = scope.resolve_func(&path);
@@ -59,7 +58,7 @@ impl FuncCall {
 
         for (idx, arg) in call.args.args.iter().enumerate() {
             if idx < func.signature.args.len() {
-                let generic_value = GenericValue::check(checker, scope, vars, arg)?;
+                let generic_value = GenericValue::check(checker, scope, vars, arg, false)?;
                 let value = generic_value
                     .coerce(checker, vars, &func.signature.args[idx].value.ty)
                     .ok_or(Error::ExpectedArgumentOfType {
@@ -69,7 +68,7 @@ impl FuncCall {
                     })?;
                 args.push(value);
             } else {
-                let generic_value = GenericValue::check(checker, scope, vars, arg)?;
+                let generic_value = GenericValue::check(checker, scope, vars, arg, false)?;
                 let value = generic_value.coerce_default(checker, vars);
                 args.push(value);
             }
@@ -82,11 +81,22 @@ impl FuncCall {
 /// A `{value}` literal value before it is coerced to a specific type.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum GenericValue {
+    /// Creates a boolean literal.
     Bool(bool),
+
+    /// Creates an integer literal.
     Int(i64),
+
+    /// Creates a string literal as a `~const [u8]`.
     Str(String),
+
+    /// Loads the value of a variable.
     Var(VarId),
+
+    /// Calls a function.
     FuncCall(FuncCall),
+
+    /// Loads a value from a pointer.
     Deref(Box<GenericValue>),
 
     /// Same as `~const var` or `~mut var`.
@@ -148,6 +158,13 @@ pub enum GenericValue {
         Box<GenericValue>,
         Type,
     ),
+
+    /// Accesses an unsized field on an unsized struct.  Should never be outputted by `coerce` or
+    /// `coerce_default`.
+    UnsizedStructAccess(Box<GenericValue>, StructId, usize),
+
+    /// Outputs a wide pointer to the address of an unsized field on an unsized struct.
+    AddrOfUnsizedField(Mutability, Box<GenericValue>, StructId, usize),
 }
 
 impl GenericValue {
@@ -186,7 +203,7 @@ impl GenericValue {
         vars: &Vars,
         expr: &ast::Expr,
     ) -> Result<Self, Error> {
-        let value = Self::check(checker, scope, vars, expr)?;
+        let value = Self::check(checker, scope, vars, expr, false)?;
 
         match value.default_type(checker, vars) {
             Type::Ptr(_) => Ok(GenericValue::Deref(Box::new(value))),
@@ -207,7 +224,7 @@ impl GenericValue {
         mutability: Mutability,
         expr: &ast::Expr,
     ) -> Result<Self, Error> {
-        Ok(Self::check(checker, scope, vars, expr)?
+        Ok(Self::check(checker, scope, vars, expr, true)?
             .as_ref(checker, vars, mutability)
             .ok_or(Error::CannotReferenceAsMut(expr.span()))?)
     }
@@ -231,10 +248,6 @@ impl GenericValue {
                         if mutability > ptr.mutability {
                             return None;
                         }
-
-                        // TODO: check if sized here, then implement some type of unsized struct
-                        // field access:
-                        // wide_ptr.addr := wide_ptr.addr + field_offset
                     }
                     _ => {}
                 }
@@ -268,6 +281,15 @@ impl GenericValue {
 
                 Self::AddrOfPtrIdx(mutability, target.clone(), index.clone(), ty.clone())
             }
+            Self::UnsizedStructAccess(value, field, ty) => {
+                let Type::Ptr(ptr) = value.default_type(checker, vars) else { unreachable!() };
+
+                if mutability > ptr.mutability {
+                    return None;
+                }
+
+                Self::AddrOfUnsizedField(mutability, value.clone(), *field, ty.clone())
+            }
             value => Self::Store(mutability, Box::new(value.clone())),
         })
     }
@@ -279,8 +301,8 @@ impl GenericValue {
         left: &ast::Expr,
         right: &ast::Expr,
     ) -> Result<(GenericValue, GenericValue), Error> {
-        let lhs = Self::check(checker, scope, vars, left)?;
-        let rhs = Self::check(checker, scope, vars, right)?;
+        let lhs = Self::check(checker, scope, vars, left, false)?;
+        let rhs = Self::check(checker, scope, vars, right, false)?;
 
         let lhs_ty = lhs.default_type(checker, vars);
 
@@ -350,6 +372,14 @@ impl GenericValue {
 
                 Type::slice_ptr(mutability, ty.clone())
             }
+            Self::UnsizedStructAccess(_, struct_id, field) => {
+                checker.structs[struct_id.0].fields[*field].ty.value.clone()
+            }
+            Self::AddrOfUnsizedField(mut_, _, struct_id, field) => {
+                let ty = checker.structs[struct_id.0].fields[*field].ty.value.clone();
+
+                Type::Ptr(Ptr::new(*mut_, ty.clone()))
+            }
         }.resolve_aliases(checker)
     }
 
@@ -359,8 +389,9 @@ impl GenericValue {
         scope: &mut Scope,
         vars: &Vars,
         expr: &ast::Expr,
+        is_ref: bool,
     ) -> Result<Self, Error> {
-        match expr {
+        let value = match expr {
             ast::Expr::Bool(bool) => Ok(GenericValue::Bool(bool.value)),
             ast::Expr::Int(int) => Ok(GenericValue::Int(int.value)),
             ast::Expr::Str(str) => Ok(GenericValue::Str(str.value.clone())),
@@ -412,7 +443,7 @@ impl GenericValue {
                         return Err(Error::DuplicateFieldDefinition(field.span));
                     }
 
-                    let value = Self::check(checker, scope, vars, &field.value)?
+                    let value = Self::check(checker, scope, vars, &field.value, false)?
                         .coerce(checker, vars, &field_decl.ty.value)
                         .ok_or(Error::ExpectedFieldOfType {
                             decl: field.span,
@@ -431,7 +462,9 @@ impl GenericValue {
                 right,
                 ..
             }) => {
-                let lhs = Self::check(checker, scope, vars, left)?;
+                // NOTE: the left hand side of field accesses are always references
+                let lhs = Self::check(checker, scope, vars, left, true)?;
+                let lhs_ty = lhs.default_type(checker, vars);
 
                 let id = lhs
                     .resolve_struct(checker, vars)
@@ -443,16 +476,28 @@ impl GenericValue {
 
                 let struct_decl = &checker.structs[id.0 as usize];
 
-                if let Some(value) = struct_decl.get_field(&iden.value) {
-                    let (field_id, _) = value;
-
-                    // let ty = field_decl.ty.value.name(checker);
-
+                if let Some((field_id, _)) = struct_decl.get_field(&iden.value) {
                     Ok(Self::StructAccess(
-                        Box::new(if lhs.is_pointer(checker, vars) {
-                            lhs
-                        } else {
-                            lhs.as_ref(checker, vars, Mutability::Mut).unwrap()
+                        Box::new(match lhs_ty {
+                            Type::Ptr(Ptr { mutability, ty }) => {
+                                if ty.is_sized(checker) {
+                                    lhs
+                                } else {
+                                    if field_id == struct_decl.fields.len() - 1 {
+                                        return Ok(Self::UnsizedStructAccess(
+                                            Box::new(lhs),
+                                            id,
+                                            field_id,
+                                        ));
+                                    }
+
+                                    Self::WidePtrToPtr(
+                                        Box::new(lhs),
+                                        Type::Ptr(Ptr::new(mutability, ty.as_ref().clone())),
+                                    )
+                                }
+                            }
+                            _ => lhs.as_ref(checker, vars, Mutability::Mut).unwrap(),
                         }),
                         id,
                         field_id,
@@ -517,7 +562,7 @@ impl GenericValue {
                 }
             }
             ast::Expr::As(as_) => {
-                let value = Self::check(checker, scope, vars, &as_.expr)?;
+                let value = Self::check(checker, scope, vars, &as_.expr, false)?;
 
                 let ty = Type::check(checker, scope, &as_.ty)?;
 
@@ -534,9 +579,10 @@ impl GenericValue {
                 }
             }
             ast::Expr::Idx(idx) => {
-                let value = Self::check(checker, scope, vars, &idx.expr)?;
+                // NOTE: the left hand side of index operators are always references
+                let value = Self::check(checker, scope, vars, &idx.expr, false)?;
 
-                let index = Self::check(checker, scope, vars, &idx.index)?;
+                let index = Self::check(checker, scope, vars, &idx.index, false)?;
 
                 // check if `index` is a `uint`
                 index
@@ -545,7 +591,7 @@ impl GenericValue {
                     .ok_or(Error::ExpectedUintIndex(idx.index.span()))?;
 
                 if let Some(to) = &idx.to {
-                    let to_value = Self::check(checker, scope, vars, to)?;
+                    let to_value = Self::check(checker, scope, vars, to, false)?;
 
                     // check if `to` is a `uint`
                     to_value
@@ -574,7 +620,7 @@ impl GenericValue {
                     };
 
                     return Ok(Self::Subslice(
-                        // get address of slice
+                        // slice is always a pointer
                         Box::new(ptr),
                         Box::new(index),
                         Box::new(to_value),
@@ -614,6 +660,18 @@ impl GenericValue {
                 }
             }
             _ => return Err(Error::InvalidValue(expr.span())),
+        }?;
+
+        if !is_ref {
+            let ty = value.default_type(checker, vars);
+
+            if !ty.is_sized(checker) {
+                return Err(Error::OwnedUnsizedType(expr.span()));
+            } else {
+                Ok(value)
+            }
+        } else {
+            Ok(value)
         }
     }
 
@@ -757,6 +815,15 @@ impl GenericValue {
                 ),
                 ty,
             ),
+            GenericValue::UnsizedStructAccess(..) => unreachable!("unsized value"),
+            GenericValue::AddrOfUnsizedField(mut_, value, struct_id, field) => {
+                Value::AddrOfUnsizedField(
+                    mut_,
+                    Box::new(value.coerce_default(checker, vars)),
+                    struct_id,
+                    field,
+                )
+            }
         }
     }
 
@@ -1096,6 +1163,9 @@ pub enum Value {
     ///
     /// The first parameter is always a pointer.
     Subslice(Box<Value>, Box<Value>, Box<Value>, Type),
+
+    /// Outputs the address of an unsized field in an unsized struct.
+    AddrOfUnsizedField(Mutability, Box<Value>, StructId, usize),
 }
 
 impl Value {
@@ -1159,6 +1229,12 @@ impl Value {
                 let Type::Ptr(Ptr { mutability, .. }) = ptr.ty(checker, vars) else { unreachable!() };
 
                 Type::slice_ptr(mutability, ty.clone())
+            }
+            Value::AddrOfUnsizedField(mutability, _, id, field) => {
+                Type::Ptr(Ptr::new(
+                    *mutability,
+                    checker.structs[id.0].fields[*field].ty.value.clone(),
+                ))
             }
         }.resolve_aliases(checker)
     }

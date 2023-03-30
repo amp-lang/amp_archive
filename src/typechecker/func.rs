@@ -176,8 +176,6 @@ pub struct Func {
     pub extern_name: Option<String>,
 
     /// The name of the function.
-    ///
-    /// TODO: replace with some sort of namespace path type.
     pub name: Spanned<Path>,
 
     /// The span of the declaration, from the `fn` keyword to the end of the return type, if any.

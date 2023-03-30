@@ -182,7 +182,6 @@ impl Type {
                 }
             }
             Type::Slice(_) => return None,
-            // TODO: check if unsized
             Type::Struct(struct_id) => {
                 let struct_ = &checker.structs[struct_id.0];
                 if check_struct_size(checker, struct_).expect("TODO: don't expect this") {

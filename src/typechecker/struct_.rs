@@ -66,7 +66,9 @@ impl Struct {
             }
         }
 
-        size = round_up(size, ptr_size); // align struct to pointer size for system
+        // Round up to alignment of struct
+        // TODO: when/if we have alignment configuration for structs, we should use that here
+        size = size.next_power_of_two();
         size
     }
 
@@ -133,7 +135,6 @@ pub fn check_struct_def(
 
     let mut field_names = HashSet::new();
     for item in &ast.fields.fields {
-        // TODO: check if field makes struct infinitely sized
         if field_names.contains(&item.name.value) {
             return Err(Error::DuplicateField(Spanned::new(
                 item.name.span,
