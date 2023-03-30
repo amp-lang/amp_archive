@@ -1,0 +1,16 @@
+import "../Test";
+
+/// Number comparisons
+export func NumCmp() {
+    var a: int = 1;
+    var b: int = 1;
+    var c: int = 3;
+
+    Test.Expect("runtime int comparison 1", a == b);
+    Test.Nexpect("runtime int comparison 2", a != b);
+    Test.Nexpect("runtime int comparison 3", a == b);
+}
+
+export func Main() {
+    NumCmp();
+}
