@@ -571,6 +571,7 @@ impl GenericValue {
                     ast::BinaryOp::Gt => Op::Gt,
                     ast::BinaryOp::Shl => Op::Shl,
                     ast::BinaryOp::Shr => Op::Shr,
+                    ast::BinaryOp::BitAnd => Op::BitAnd,
                     _ => unreachable!("purposefully put last"),
                 };
 
@@ -780,7 +781,6 @@ impl GenericValue {
             ),
             GenericValue::IntOp(op, lhs, rhs) => {
                 if op == Op::Shl || op == Op::Shr {
-                    let ty = lhs.default_type(checker, vars);
                     return Value::IntOp(
                         op,
                         Box::new(lhs.coerce_default(checker, vars)),
@@ -1141,6 +1141,7 @@ pub enum Op {
     Gt,
     Shl,
     Shr,
+    BitAnd,
 }
 
 /// A value expression in an Amp module.

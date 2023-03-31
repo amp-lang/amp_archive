@@ -145,6 +145,9 @@ pub enum Token {
     /// `%`
     Percent,
 
+    /// `&`
+    And,
+
     /// `(`
     LParen,
 
@@ -343,6 +346,7 @@ impl Token {
             Token::Gt => true,
             Token::Constructor => true,
             Token::Dot => true,
+            Token::And => true,
             Token::Star => true,
             Token::Plus => true,
             Token::Slash => true,
@@ -376,6 +380,7 @@ impl Token {
             Token::Lt => (1, 2),
             Token::GtEq => (1, 2),
             Token::Gt => (1, 2),
+            Token::And => (2, 3),
             Token::LtLt => (3, 4),
             Token::GtGt => (3, 4),
             Token::Plus => (4, 5),
@@ -816,6 +821,7 @@ impl<'a> Iterator for Scanner<'a> {
                     Token::Dot
                 }
             }
+            '&' => Token::And,
             '(' => Token::LParen,
             ')' => Token::RParen,
             '{' => Token::LBrace,

@@ -15,6 +15,8 @@
 - [feat!: (#52) unsized types](https://github.com/amp-lang/amp/issues/52)
 - [feat!: (#34) export struct fields](https://github.com/amp-lang/amp/issues/34)
 - [feat: (#43) `<<` and `>>` operators](https://github.com/amp-lang/amp/issues/43)
+- [feat: (#43) bitwise NOT operator (`~`)](https://github.com/amp-lang/amp/issues/43)
+- [feat: (#43) bitwise AND operator (`&`)](https://github.com/amp-lang/amp/issues/43)
 
 ### Library
 - feat: implement standard library, I guess
