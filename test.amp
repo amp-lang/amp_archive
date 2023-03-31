@@ -1,8 +1,8 @@
 import "C";
 import "C/Stdio";
 
-export func Main() {
-    var my_num = -1;
+export func UseFunc(my_func: func()) {}
 
-    C.Printf("%d\n\0" as ~const C.Char, my_num);
+export func Main() {
+    var my_func: func(i32) -> i32;
 }

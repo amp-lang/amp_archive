@@ -69,6 +69,29 @@ impl Slice {
     }
 }
 
+/// A function type.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Func {
+    pub args: Vec<Type>,
+    pub ret: Option<Box<Type>>,
+}
+
+impl Func {
+    pub fn name(&self, checker: &Typechecker) -> String {
+        let args = self
+            .args
+            .iter()
+            .map(|arg| arg.name(checker))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        match &self.ret {
+            Some(ret) => format!("fn({}) -> {}", args, ret.name(checker)),
+            None => format!("fn({})", args),
+        }
+    }
+}
+
 /// A type expression.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Type {
@@ -87,6 +110,7 @@ pub enum Type {
     Slice(Slice),
     Struct(StructId),
     TypeAlias(TypeAliasId),
+    Func(Func),
 }
 
 impl Type {
@@ -131,6 +155,7 @@ impl Type {
             Type::Ptr(ptr) => ptr.name(checker),
             Type::Slice(slice) => slice.name(checker),
             Type::Struct(struct_) => checker.structs[struct_.0].name.value.to_string(),
+            Type::Func(func) => func.name(checker),
             _ => unreachable!(),
         }
     }
@@ -190,6 +215,7 @@ impl Type {
                     return None;
                 }
             }
+            Type::Func(_) => ptr_size,
             _ => unreachable!(),
         })
     }
@@ -282,6 +308,19 @@ impl Type {
                     }
                 }),
             })),
+            ast::Type::Func(func) => {
+                let mut args = Vec::new();
+                for arg in &func.args.args {
+                    args.push(Type::check(checker, scope, &arg)?);
+                }
+
+                let ret = match &func.ret {
+                    Some(ret) => Some(Box::new(Type::check(checker, scope, ret)?)),
+                    None => None,
+                };
+
+                Ok(Type::Func(Func { args, ret }))
+            }
         }
     }
 

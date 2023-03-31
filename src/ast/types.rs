@@ -5,7 +5,7 @@ use crate::{
     span::Span,
 };
 
-use super::{Int, Path};
+use super::{ArgList, Int, Path};
 
 /// The mutability of a pointer.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -187,6 +187,71 @@ impl Parse for ArrayType {
     }
 }
 
+/// A function type.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct FuncType {
+    pub span: Span,
+    pub args: ArgList<Type>,
+    pub ret: Option<Box<Type>>,
+}
+
+impl Parse for FuncType {
+    fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
+        // func() -> i32
+        // func(i32) -> i32
+        // func(i32, i32) -> i32
+
+        match parser.scanner_mut().peek()? {
+            Ok(token) => {
+                if token != Token::KFunc {
+                    return None;
+                }
+
+                parser.scanner_mut().next();
+            }
+            Err(err) => return Some(Err(err)),
+        }
+        let started = parser.scanner().span();
+
+        let args = if let Some(args) = parser.parse::<ArgList<Type>>() {
+            match args {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            }
+        } else {
+            parser.scanner_mut().next();
+            return Some(Err(Error::ExpectedFunctionTypeArgs(
+                parser.scanner().span(),
+            )));
+        };
+
+        let ret = if let Some(Ok(Token::Arrow)) = parser.scanner_mut().peek() {
+            parser.scanner_mut().next();
+
+            if let Some(ret) = parser.parse::<Type>() {
+                match ret {
+                    Ok(value) => Some(Box::new(value)),
+                    Err(err) => return Some(Err(err)),
+                }
+            } else {
+                return Some(Err(Error::ExpectedFunctionTypeRet(parser.scanner().span())));
+            }
+        } else {
+            None
+        };
+
+        Some(Ok(Self {
+            span: Span::new(
+                parser.scanner().file_id(),
+                started.start,
+                parser.scanner().span().end,
+            ),
+            args,
+            ret,
+        }))
+    }
+}
+
 /// A type expression.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Type {
@@ -206,6 +271,9 @@ pub enum Type {
 
     /// An array type.
     Array(ArrayType),
+
+    /// A function type.
+    Func(FuncType),
 }
 
 impl Type {
@@ -215,6 +283,7 @@ impl Type {
             Self::Named(ty) => ty.span,
             Self::Pointer(ty) => ty.span,
             Self::Array(ty) => ty.span,
+            Self::Func(ty) => ty.span,
         }
     }
 }
@@ -233,6 +302,11 @@ impl Parse for Type {
             })))
         } else if let Some(ty) = parser.parse::<Path>() {
             Some(Ok(Self::Named(match ty {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            })))
+        } else if let Some(ty) = parser.parse::<FuncType>() {
+            Some(Ok(Self::Func(match ty {
                 Ok(value) => value,
                 Err(err) => return Some(Err(err)),
             })))

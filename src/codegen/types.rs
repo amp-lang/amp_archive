@@ -34,6 +34,7 @@ pub fn compile_type(
             checker,
             &checker.type_aliases[alias.0].value.as_ref().unwrap(),
         ),
+        Type::Func(_) => codegen.pointer_type,
         _ => unreachable!("compile_type: {:?}", ty),
     }
 }

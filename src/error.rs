@@ -473,6 +473,12 @@ pub enum Error {
 
     /// Can only negate number types.
     InvalidNeg(Span) = 95,
+
+    /// Expected the arguments of a function type.
+    ExpectedFunctionTypeArgs(Span) = 96,
+
+    /// Expected the return type after the arrow `->`.
+    ExpectedFunctionTypeRet(Span) = 97,
 }
 
 impl Error {
@@ -1113,6 +1119,14 @@ impl Error {
             }
             Self::InvalidNeg(span) => {
                 diagnostic.message = "Can only negate signed number types".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::ExpectedFunctionTypeArgs(span) => {
+                diagnostic.message = "Expected a list of type arguments".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::ExpectedFunctionTypeRet(span) => {
+                diagnostic.message = "Expected a return type".to_owned();
                 diagnostic.labels.push(span.primary());
             }
         }

@@ -23,6 +23,7 @@
 - [feat: (#44) `&&` logical AND operator](https://github.com/amp-lang/amp/issues/44)
 - [feat: (#44) `||` logical OR operator](https://github.com/amp-lang/amp/issues/44)
 - [feat: (#57) `-` negate operator](https://github.com/amp-lang/amp/issues/57)
+- [feat: (#58) `func` types](https://github.com/amp-lang/amp/issues/58)
 
 ### Library
 - feat: implement standard library, I guess
