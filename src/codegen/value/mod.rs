@@ -486,6 +486,15 @@ pub fn compile_value(
 
             builder.ins().band(left, right)
         }
+        Value::LogOr(left, right) => {
+            let left = compile_value(checker, codegen, builder, left, vars, data, None)
+                .expect("No `to` provided");
+
+            let right = compile_value(checker, codegen, builder, right, vars, data, None)
+                .expect("No `to` provided");
+
+            builder.ins().bor(left, right)
+        }
     };
 
     if let Some(to) = to {

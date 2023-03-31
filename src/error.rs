@@ -467,6 +467,9 @@ pub enum Error {
 
     /// Can only compare two boolean types.
     InvalidLogAnd(Span) = 93,
+
+    /// Can only compare two boolean types.
+    InvalidLogOr(Span) = 94,
 }
 
 impl Error {
@@ -1099,6 +1102,10 @@ impl Error {
             }
             Self::InvalidLogAnd(span) => {
                 diagnostic.message = "Can only perform logical AND on boolean types".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::InvalidLogOr(span) => {
+                diagnostic.message = "Can only perform logical OR on boolean types".to_owned();
                 diagnostic.labels.push(span.primary());
             }
         }

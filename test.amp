@@ -2,7 +2,8 @@ import "C";
 import "C/Stdio";
 
 export func Main() {
-    C.Printf("%hhd\n\0" as ~const C.Char, true && true); // => 1
-    C.Printf("%hhd\n\0" as ~const C.Char, true && false); // => 0
-    C.Printf("%hhd\n\0" as ~const C.Char, false && true); // => 0
+    C.Printf("%hhd\n\0" as ~const C.Char, true || true); // => 1
+    C.Printf("%hhd\n\0" as ~const C.Char, true || false); // => 1
+    C.Printf("%hhd\n\0" as ~const C.Char, false || true); // => 1
+    C.Printf("%hhd\n\0" as ~const C.Char, false || false); // => 0
 }

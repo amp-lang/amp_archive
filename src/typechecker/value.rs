@@ -175,6 +175,9 @@ pub enum GenericValue {
 
     /// Performs a logical AND operation on two booleans.
     LogAnd(Box<GenericValue>, Box<GenericValue>),
+
+    /// Performs a logical OR operation on two booleans.
+    LogOr(Box<GenericValue>, Box<GenericValue>),
 }
 
 impl GenericValue {
@@ -393,6 +396,7 @@ impl GenericValue {
             Self::BitNot(item) => item.default_type(checker, vars),
             Self::LogNot(_) => Type::Bool,
             Self::LogAnd(_, _) => Type::Bool,
+            Self::LogOr(_, _) => Type::Bool,
         }.resolve_aliases(checker)
     }
 
@@ -587,6 +591,24 @@ impl GenericValue {
                 }
 
                 Ok(GenericValue::LogAnd(Box::new(lhs), Box::new(rhs)))
+            }
+            ast::Expr::Binary(ast::Binary {
+                op: ast::BinaryOp::LogOr,
+                left,
+                right,
+                ..
+            }) => {
+                let (lhs, rhs) = Self::check_math_expr(checker, scope, vars, left, right)?;
+
+                if lhs.clone().coerce(checker, vars, &Type::Bool).is_none() {
+                    return Err(Error::InvalidLogOr(left.span()));
+                }
+
+                if rhs.clone().coerce(checker, vars, &Type::Bool).is_none() {
+                    return Err(Error::InvalidLogOr(right.span()));
+                }
+
+                Ok(GenericValue::LogOr(Box::new(lhs), Box::new(rhs)))
             }
             ast::Expr::Binary(ast::Binary {
                 span,
@@ -924,6 +946,10 @@ impl GenericValue {
                 Box::new(left.coerce_default(checker, vars)),
                 Box::new(right.coerce_default(checker, vars)),
             ),
+            GenericValue::LogOr(left, right) => Value::LogOr(
+                Box::new(left.coerce_default(checker, vars)),
+                Box::new(right.coerce_default(checker, vars)),
+            ),
         }
     }
 
@@ -1170,6 +1196,10 @@ impl GenericValue {
                 Box::new(left.coerce_default(checker, vars)),
                 Box::new(right.coerce_default(checker, vars)),
             )),
+            (GenericValue::LogOr(left, right), Type::Bool) => Some(Value::LogOr(
+                Box::new(left.coerce_default(checker, vars)),
+                Box::new(right.coerce_default(checker, vars)),
+            )),
             _ => None,
         }
     }
@@ -1303,6 +1333,9 @@ pub enum Value {
 
     /// Performs a logical AND on two booleans.
     LogAnd(Box<Value>, Box<Value>),
+
+    /// Performs a logical OR on two booleans.
+    LogOr(Box<Value>, Box<Value>),
 }
 
 impl Value {
@@ -1376,6 +1409,7 @@ impl Value {
             Value::BitNot(value) => value.ty(checker, vars),
             Value::LogNot(value) => value.ty(checker, vars),
             Value::LogAnd(..) => Type::Bool,
+            Value::LogOr(..) => Type::Bool,
         }.resolve_aliases(checker)
     }
 }

@@ -154,6 +154,9 @@ pub enum Token {
     /// `^`
     Caret,
 
+    /// `||`
+    PipePipe,
+
     /// `|`
     Pipe,
 
@@ -359,6 +362,7 @@ impl Token {
             Token::And => true,
             Token::Caret => true,
             Token::Star => true,
+            Token::PipePipe => true,
             Token::Pipe => true,
             Token::Plus => true,
             Token::Slash => true,
@@ -387,6 +391,7 @@ impl Token {
     pub fn binding_power(&self) -> (u8, u8) {
         match self {
             Token::Eq => (0, 1),
+            Token::PipePipe => (1, 2),
             Token::AndAnd => (2, 3),
             Token::EqEq => (3, 4),
             Token::BangEq => (3, 4),
@@ -847,7 +852,14 @@ impl<'a> Iterator for Scanner<'a> {
                 }
             }
             '^' => Token::Caret,
-            '|' => Token::Pipe,
+            '|' => {
+                if self.peek_char() == Some('|') {
+                    self.next_char();
+                    Token::PipePipe
+                } else {
+                    Token::Pipe
+                }
+            }
             '(' => Token::LParen,
             ')' => Token::RParen,
             '{' => Token::LBrace,
