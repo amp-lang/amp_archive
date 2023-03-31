@@ -28,13 +28,19 @@ impl TypeDecl {
     }
 }
 
+/// Any non-type value that can be stored in a scope (types are resolved separately).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ScopeValue<'a> {
+    Namespace(Scope<'a>),
+    Func(FuncId),
+    Var(VarId),
+}
+
 /// A scope of symbols and variables.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Scope<'a> {
     pub parent: Option<&'a Scope<'a>>,
-    pub namespaces: HashMap<String, Scope<'a>>,
-    pub funcs: HashMap<String, FuncId>,
-    pub vars: HashMap<String, VarId>,
+    pub values: HashMap<String, ScopeValue<'a>>,
     pub types: HashMap<String, TypeDecl>,
 }
 
@@ -43,9 +49,7 @@ impl<'a> Scope<'a> {
     pub fn new(parent: Option<&'a Scope<'a>>) -> Self {
         Self {
             parent,
-            namespaces: HashMap::new(),
-            funcs: HashMap::new(),
-            vars: HashMap::new(),
+            values: HashMap::new(),
             types: HashMap::new(),
         }
     }
@@ -53,27 +57,51 @@ impl<'a> Scope<'a> {
     /// Declares a namespace in the current [Scope].
     #[inline]
     pub fn declare_namespace(&mut self, name: String) {
-        self.namespaces.insert(name, Scope::new(None));
+        self.values
+            .insert(name, ScopeValue::Namespace(Scope::new(None)));
     }
 
     /// Resolves a namespace in the current scope or parent scopes.
     pub fn resolve_namespace(&self, name: &str) -> Option<&Scope> {
-        self.namespaces
-            .get(name)
-            .or_else(|| self.parent.and_then(|p| p.resolve_namespace(name)))
+        if let Some(ScopeValue::Namespace(scope)) = self.values.get(name) {
+            Some(scope)
+        } else if let Some(parent) = self.parent {
+            parent.resolve_namespace(name)
+        } else {
+            None
+        }
+    }
+
+    /// Resolves a namespace in the current scope or parent scopes.
+    ///
+    /// # Safety
+    /// Ensure that the returned [Scope] is not used after the parent [Scope] is dropped.
+    fn resolve_namespace_mut<'n>(&'n mut self, name: &str) -> Option<&'n mut Scope> {
+        if let Some(ScopeValue::Namespace(scope)) = self.values.get_mut(name) {
+            unsafe { Some(&mut *(scope as *const Scope as *mut Scope)) }
+        } else if let Some(_) = self.parent {
+            // TODO: cannot assign to parent namespace
+            // NOTE: shouldn't be an issue yet, as declarations are only in the root scope
+            None
+        } else {
+            None
+        }
     }
 
     /// Recursively searches for a function with the provided name, if any.
     pub fn resolve_func(&self, name: &Path) -> Option<FuncId> {
+        // TODO: check variables for functions
         if let Some(namespace) = name.namespace() {
             if let Some(namespace) = self.resolve_namespace(namespace) {
-                let res = namespace.funcs.get(name.short_name()).copied();
-                res
+                namespace.resolve_func(&Path::new(name.short_name().to_string()))
             } else {
                 None
             }
-        } else if let Some(id) = self.funcs.get(name.short_name()) {
-            Some(*id)
+        } else if let Some(id) = self.values.get(name.short_name()) {
+            match id {
+                ScopeValue::Func(id) => Some(*id),
+                _ => None,
+            }
         } else if let Some(parent) = &self.parent {
             parent.resolve_func(name)
         } else {
@@ -83,8 +111,11 @@ impl<'a> Scope<'a> {
 
     /// Recursively searches for a variable with the provided name, if any.
     pub fn resolve_var(&self, name: &str) -> Option<VarId> {
-        if let Some(id) = self.vars.get(name) {
-            Some(*id)
+        if let Some(id) = self.values.get(name) {
+            match id {
+                ScopeValue::Var(id) => Some(*id),
+                _ => None,
+            }
         } else if let Some(parent) = &self.parent {
             parent.resolve_var(name)
         } else {
@@ -115,21 +146,24 @@ impl<'a> Scope<'a> {
     /// Returns `false` if the namespace for the function didn't exist.
     pub fn define_func(&mut self, name: Path, id: FuncId) -> bool {
         if let Some(namespace) = name.namespace() {
-            if let Some(scope) = self.namespaces.get_mut(namespace) {
-                scope.funcs.insert(name.short_name().to_string(), id);
+            if let Some(scope) = self.resolve_namespace_mut(namespace) {
+                scope
+                    .values
+                    .insert(name.short_name().to_string(), ScopeValue::Func(id));
                 true
             } else {
                 false
             }
         } else {
-            self.funcs.insert(name.short_name().to_string(), id);
+            self.values
+                .insert(name.short_name().to_string(), ScopeValue::Func(id));
             true
         }
     }
 
     /// Defines a function in this scope.
     pub fn define_var(&mut self, name: String, id: VarId) {
-        self.vars.insert(name, id);
+        self.values.insert(name, ScopeValue::Var(id));
     }
 
     /// Defines a type in this scope.
@@ -137,7 +171,7 @@ impl<'a> Scope<'a> {
     /// Returns `false` if the type's namespace didn't exist.
     pub fn define_type(&mut self, name: Path, id: TypeDecl) -> bool {
         if let Some(namespace) = name.namespace() {
-            if let Some(scope) = self.namespaces.get_mut(namespace) {
+            if let Some(scope) = self.resolve_namespace_mut(namespace) {
                 scope.types.insert(name.short_name().to_string(), id);
                 true
             } else {

@@ -43,6 +43,7 @@
 - [fix: (#40) allow multiple declarations of functions](https://github.com/amp-lang/amp/issues/40)
 - [feat: (#50) remove support for null terminated strings](https://github.com/amp-lang/amp/issues/50)
 - [feat: (#55) implement `run` subcommand](https://github.com/amp-lang/amp/issues/55)
+- [feat: (#51) group functions, variables and namespaces in Scopes](https://github.com/amp-lang/amp/issues/51)
 
 ## v0.3.0-alpha
 
