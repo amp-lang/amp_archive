@@ -557,8 +557,27 @@ impl GenericValue {
                     ast::BinaryOp::Lt => Op::Lt,
                     ast::BinaryOp::GtEq => Op::GtEq,
                     ast::BinaryOp::Gt => Op::Gt,
+                    ast::BinaryOp::Shl => Op::Shl,
+                    ast::BinaryOp::Shr => Op::Shr,
                     _ => unreachable!("purposefully put last"),
                 };
+
+                if op == Op::Shl || op == Op::Shr {
+                    let lhs = Self::check(checker, scope, vars, left, false)?;
+                    let rhs = Self::check(checker, scope, vars, right, false)?;
+
+                    if lhs.is_int(checker, vars) && rhs.is_int(checker, vars) {
+                        return Ok(GenericValue::IntOp(op, Box::new(lhs), Box::new(rhs)));
+                    } else {
+                        return Err(Error::NonNumberMath {
+                            ty: Spanned::new(
+                                left.span(),
+                                lhs.default_type(checker, vars).name(checker),
+                            ),
+                            offending: *span,
+                        });
+                    }
+                }
 
                 let (lhs, rhs) = Self::check_math_expr(checker, scope, vars, left, right)?;
 
@@ -748,6 +767,15 @@ impl GenericValue {
                 field,
             ),
             GenericValue::IntOp(op, lhs, rhs) => {
+                if op == Op::Shl || op == Op::Shr {
+                    let ty = lhs.default_type(checker, vars);
+                    return Value::IntOp(
+                        op,
+                        Box::new(lhs.coerce_default(checker, vars)),
+                        Box::new(rhs.coerce_default(checker, vars)),
+                    );
+                }
+
                 let ty = lhs.default_type(checker, vars);
                 Value::IntOp(
                     op,
@@ -1089,12 +1117,8 @@ pub enum Op {
     Lt,
     GtEq,
     Gt,
-}
-
-/// A logical comparison of two values.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Cmp {
-    Eq,
+    Shl,
+    Shr,
 }
 
 /// A value expression in an Amp module.

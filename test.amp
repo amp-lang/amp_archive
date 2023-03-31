@@ -1,11 +1,10 @@
-import "Std";
-
-struct MyStruct {
-    member: [u8]
-}
+import "C";
+import "C/Stdio";
 
 export func Main() {
-    var my_string = "Hello, world!\n";
-    var my_struct = my_string as ~const MyStruct;
-    Std.Print(~const my_struct.member);
+    var my_num1 = 0b1 << 2; // 4
+    var my_num2 = 0b1000_0000 >> 4; // 8
+
+    C.Printf("%d\n\0" as ~const C.Char, my_num1); // => 4
+    C.Printf("%d\n\0" as ~const C.Char, my_num2); // => 8
 }

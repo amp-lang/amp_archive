@@ -8,7 +8,7 @@ func "exit" as exit(code: int);
 
 /// Panics if the provided condition is false.
 export func Test.Expect(message: ~const [u8], cond: bool) {
-    if cond == false { // TODO; change to !value when implemented
+    if cond == false { // TODO; change to `!cond` when implemented
         Std.Print("Test failed: ");
         Std.Println(message);
         exit(1);
@@ -17,7 +17,7 @@ export func Test.Expect(message: ~const [u8], cond: bool) {
 
 /// Panics if the provided condition is true.
 export func Test.Nexpect(message: ~const [u8], cond: bool) {
-    if cond == true { // TODO; change to value when implemented
+    if cond == true { // TODO; change to `cond` when implemented
         Std.Print("Test failed: ");
         Std.Println(message);
         exit(1);

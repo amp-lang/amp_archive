@@ -159,15 +159,22 @@ pub struct Int {
     pub value: i64,
 }
 
+/// Filters out the `_` from a string.
+fn filter_underscores(value: &str) -> String {
+    value.chars().filter(|c| *c != '_').collect::<String>()
+}
+
 impl Parse for Int {
     fn parse(parser: &mut Parser) -> Option<Result<Self, Error>> {
         match parser.scanner_mut().peek()? {
             Ok(token) => {
                 if token == Token::Decimal {
                     parser.scanner_mut().next();
+
+                    let value = filter_underscores(&parser.scanner().slice());
                     return Some(Ok(Self {
                         span: parser.scanner().span(),
-                        value: match parser.scanner().slice().parse() {
+                        value: match value.parse() {
                             Ok(value) => value,
                             Err(_) => {
                                 return Some(Err(Error::IntegerTooLarge(parser.scanner().span())))
@@ -177,9 +184,10 @@ impl Parse for Int {
                 } else if token == Token::Hex {
                     parser.scanner_mut().next();
 
+                    let value = filter_underscores(&parser.scanner().slice());
                     return Some(Ok(Self {
                         span: parser.scanner().span(),
-                        value: match i64::from_str_radix(&parser.scanner().slice()[2..], 16) {
+                        value: match i64::from_str_radix(&value[2..], 16) {
                             Ok(value) => value,
                             Err(_) => {
                                 return Some(Err(Error::IntegerTooLarge(parser.scanner().span())))
@@ -189,9 +197,10 @@ impl Parse for Int {
                 } else if token == Token::Octal {
                     parser.scanner_mut().next();
 
+                    let value = filter_underscores(&parser.scanner().slice());
                     return Some(Ok(Self {
                         span: parser.scanner().span(),
-                        value: match i64::from_str_radix(&parser.scanner().slice()[2..], 8) {
+                        value: match i64::from_str_radix(&value[2..], 8) {
                             Ok(value) => value,
                             Err(_) => {
                                 return Some(Err(Error::IntegerTooLarge(parser.scanner().span())))
@@ -201,12 +210,14 @@ impl Parse for Int {
                 } else if token == Token::Binary {
                     parser.scanner_mut().next();
 
+                    let value = filter_underscores(&parser.scanner().slice());
                     return Some(Ok(Self {
                         span: parser.scanner().span(),
-                        value: match i64::from_str_radix(&parser.scanner().slice()[2..], 2) {
+                        value: match i64::from_str_radix(&value[2..], 2) {
                             Ok(value) => value,
-                            Err(_) => {
-                                return Some(Err(Error::IntegerTooLarge(parser.scanner().span())))
+                            Err(err) => {
+                                dbg!(err);
+                                return Some(Err(Error::IntegerTooLarge(parser.scanner().span())));
                             }
                         },
                     }));

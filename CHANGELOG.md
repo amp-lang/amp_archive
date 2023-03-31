@@ -14,6 +14,7 @@
 - [feat: (#41) type aliases](https://github.com/amp-lang/amp/issues/41)
 - [feat!: (#52) unsized types](https://github.com/amp-lang/amp/issues/52)
 - [feat!: (#34) export struct fields](https://github.com/amp-lang/amp/issues/34)
+- [feat: (#43) `<<` and `>>` operators](https://github.com/amp-lang/amp/issues/43)
 
 ### Library
 - feat: implement standard library, I guess

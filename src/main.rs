@@ -202,11 +202,21 @@ fn main() -> ExitCode {
 
             let output_path = output_path.path().to_str().unwrap().to_owned();
             match Command::new(output_path).args(args.args).status() {
-                Ok(_) => {}
+                Ok(status) => {
+                    if !status.success() {
+                        dbg!("TEST");
+                        diagnostic::display_diagnostic(
+                            &files,
+                            &Diagnostic::error()
+                                .with_message("program exited with non-zero status"),
+                        );
+                        return ExitCode::FAILURE;
+                    }
+                }
                 Err(_) => {
                     diagnostic::display_diagnostic(
                         &files,
-                        &Diagnostic::error().with_message("program failed"),
+                        &Diagnostic::error().with_message("could not run program"),
                     );
                     return ExitCode::FAILURE;
                 }

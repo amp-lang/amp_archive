@@ -109,11 +109,17 @@ pub enum Token {
     /// `<=`
     LtEq,
 
+    /// `<<`
+    LtLt,
+
     /// `<`
     Lt,
 
     /// `>=`
     GtEq,
+
+    /// `>>`
+    GtGt,
 
     /// `>`
     Gt,
@@ -330,8 +336,10 @@ impl Token {
             Token::Eq => true,
             Token::BangEq => true,
             Token::LtEq => true,
+            Token::LtLt => true,
             Token::Lt => true,
             Token::GtEq => true,
+            Token::GtGt => true,
             Token::Gt => true,
             Token::Constructor => true,
             Token::Dot => true,
@@ -368,6 +376,8 @@ impl Token {
             Token::Lt => (1, 2),
             Token::GtEq => (1, 2),
             Token::Gt => (1, 2),
+            Token::LtLt => (3, 4),
+            Token::GtGt => (3, 4),
             Token::Plus => (4, 5),
             Token::Minus => (4, 5),
             Token::Star => (5, 6),
@@ -758,6 +768,9 @@ impl<'a> Iterator for Scanner<'a> {
                 if self.peek_char() == Some('=') {
                     self.next_char();
                     Token::LtEq
+                } else if self.peek_char() == Some('<') {
+                    self.next_char();
+                    Token::LtLt
                 } else {
                     Token::Lt
                 }
@@ -766,6 +779,9 @@ impl<'a> Iterator for Scanner<'a> {
                 if self.peek_char() == Some('=') {
                     self.next_char();
                     Token::GtEq
+                } else if self.peek_char() == Some('>') {
+                    self.next_char();
+                    Token::GtGt
                 } else {
                     Token::Gt
                 }

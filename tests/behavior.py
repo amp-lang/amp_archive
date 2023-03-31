@@ -15,8 +15,6 @@ def run():
     successful = 0
     failed = 0
 
-    # TODO: use `check` subcommand when implemented
-
     for file in tests:
         # build positive files
         path = os.path.join(os.path.dirname(__file__), file)
@@ -24,7 +22,9 @@ def run():
         if os.path.isdir(path) or not file.endswith(".amp"):
             continue
 
-        res = subprocess.run(["amp", "run", path], stdout=subprocess.PIPE)
+        print("Running test: " + file)
+
+        res = subprocess.run(["amp", "run", path])
 
         if res.returncode != 0:
             print("Test failed: " + file)

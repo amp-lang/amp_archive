@@ -318,6 +318,14 @@ pub fn compile_value(
                             .icmp(cranelift::prelude::IntCC::UnsignedGreaterThan, lhs, rhs)
                     }
                 }
+                Op::Shl => builder.ins().ishl(lhs, rhs),
+                Op::Shr => {
+                    if signed {
+                        builder.ins().sshr(lhs, rhs)
+                    } else {
+                        builder.ins().ushr(lhs, rhs)
+                    }
+                }
             }
         }
         Value::LogEq(left, right) => {

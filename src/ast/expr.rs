@@ -187,6 +187,12 @@ pub enum BinaryOp {
 
     /// `>=`
     GtEq,
+
+    /// `<<`
+    Shl,
+
+    /// `>>`
+    Shr,
 }
 
 impl BinaryOp {
@@ -206,6 +212,8 @@ impl BinaryOp {
             Token::Lt => Self::Lt,
             Token::GtEq => Self::GtEq,
             Token::Gt => Self::Gt,
+            Token::LtLt => Self::Shl,
+            Token::GtGt => Self::Shr,
             _ => unreachable!("invalid token for binary operator"),
         }
     }
