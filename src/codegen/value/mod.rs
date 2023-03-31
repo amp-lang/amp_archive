@@ -327,6 +327,7 @@ pub fn compile_value(
                     }
                 }
                 Op::BitAnd => builder.ins().band(lhs, rhs),
+                Op::BitXor => builder.ins().bxor(lhs, rhs),
             }
         }
         Value::LogEq(left, right) => {

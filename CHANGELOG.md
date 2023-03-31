@@ -17,6 +17,7 @@
 - [feat: (#43) `<<` and `>>` operators](https://github.com/amp-lang/amp/issues/43)
 - [feat: (#43) bitwise NOT operator (`~`)](https://github.com/amp-lang/amp/issues/43)
 - [feat: (#43) bitwise AND operator (`&`)](https://github.com/amp-lang/amp/issues/43)
+- [feat: (#43) bitwise XOR operator (`^`)](https://github.com/amp-lang/amp/issues/43)
 
 ### Library
 - feat: implement standard library, I guess

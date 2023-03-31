@@ -572,6 +572,7 @@ impl GenericValue {
                     ast::BinaryOp::Shl => Op::Shl,
                     ast::BinaryOp::Shr => Op::Shr,
                     ast::BinaryOp::BitAnd => Op::BitAnd,
+                    ast::BinaryOp::BitXor => Op::BitXor,
                     _ => unreachable!("purposefully put last"),
                 };
 
@@ -1142,6 +1143,7 @@ pub enum Op {
     Shl,
     Shr,
     BitAnd,
+    BitXor,
 }
 
 /// A value expression in an Amp module.

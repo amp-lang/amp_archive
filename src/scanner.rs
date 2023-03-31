@@ -148,6 +148,9 @@ pub enum Token {
     /// `&`
     And,
 
+    /// `^`
+    Caret,
+
     /// `(`
     LParen,
 
@@ -347,6 +350,7 @@ impl Token {
             Token::Constructor => true,
             Token::Dot => true,
             Token::And => true,
+            Token::Caret => true,
             Token::Star => true,
             Token::Plus => true,
             Token::Slash => true,
@@ -380,19 +384,20 @@ impl Token {
             Token::Lt => (1, 2),
             Token::GtEq => (1, 2),
             Token::Gt => (1, 2),
-            Token::And => (2, 3),
-            Token::LtLt => (3, 4),
-            Token::GtGt => (3, 4),
-            Token::Plus => (4, 5),
-            Token::Minus => (4, 5),
-            Token::Star => (5, 6),
-            Token::Slash => (5, 6),
-            Token::Percent => (5, 6),
-            Token::KAs => (6, 7),
-            Token::LParen => (8, 9),
-            Token::Constructor => (8, 9),
-            Token::Dot => (8, 9),
-            Token::LBrack => (8, 9),
+            Token::Caret => (3, 4),
+            Token::And => (4, 5),
+            Token::LtLt => (5, 6),
+            Token::GtGt => (5, 6),
+            Token::Plus => (6, 7),
+            Token::Minus => (6, 7),
+            Token::Star => (7, 8),
+            Token::Slash => (7, 8),
+            Token::Percent => (7, 8),
+            Token::KAs => (8, 9),
+            Token::LParen => (9, 10),
+            Token::Constructor => (9, 10),
+            Token::Dot => (9, 10),
+            Token::LBrack => (9, 10),
             _ => unreachable!("Invalid operator."),
         }
     }
@@ -822,6 +827,7 @@ impl<'a> Iterator for Scanner<'a> {
                 }
             }
             '&' => Token::And,
+            '^' => Token::Caret,
             '(' => Token::LParen,
             ')' => Token::RParen,
             '{' => Token::LBrace,
