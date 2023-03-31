@@ -20,6 +20,7 @@
 - [feat: (#43) bitwise XOR operator (`^`)](https://github.com/amp-lang/amp/issues/43)
 - [feat: (#43) bitwise OR operator (`|`)](https://github.com/amp-lang/amp/issues/43)
 - [feat: (#43) `!` logical NOT operator](https://github.com/amp-lang/amp/issues/44)
+- [feat: (#43) `&&` logical AND operator](https://github.com/amp-lang/amp/issues/44)
 
 ### Library
 - feat: implement standard library, I guess

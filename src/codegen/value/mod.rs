@@ -477,6 +477,15 @@ pub fn compile_value(
 
             builder.ins().icmp_imm(IntCC::Equal, value, 0)
         }
+        Value::LogAnd(left, right) => {
+            let left = compile_value(checker, codegen, builder, left, vars, data, None)
+                .expect("No `to` provided");
+
+            let right = compile_value(checker, codegen, builder, right, vars, data, None)
+                .expect("No `to` provided");
+
+            builder.ins().band(left, right)
+        }
     };
 
     if let Some(to) = to {

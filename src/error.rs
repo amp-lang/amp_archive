@@ -464,6 +464,9 @@ pub enum Error {
 
     /// Can only negate boolean types.
     InvalidLogNot(Span) = 92,
+
+    /// Can only compare two boolean types.
+    InvalidLogAnd(Span) = 93,
 }
 
 impl Error {
@@ -1092,6 +1095,10 @@ impl Error {
             }
             Self::InvalidLogNot(span) => {
                 diagnostic.message = "Can only negate boolean types".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::InvalidLogAnd(span) => {
+                diagnostic.message = "Can only perform logical AND on boolean types".to_owned();
                 diagnostic.labels.push(span.primary());
             }
         }

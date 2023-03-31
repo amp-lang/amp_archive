@@ -145,6 +145,9 @@ pub enum Token {
     /// `%`
     Percent,
 
+    /// `&&`
+    AndAnd,
+
     /// `&`
     And,
 
@@ -352,6 +355,7 @@ impl Token {
             Token::Gt => true,
             Token::Constructor => true,
             Token::Dot => true,
+            Token::AndAnd => true,
             Token::And => true,
             Token::Caret => true,
             Token::Star => true,
@@ -383,27 +387,28 @@ impl Token {
     pub fn binding_power(&self) -> (u8, u8) {
         match self {
             Token::Eq => (0, 1),
-            Token::EqEq => (1, 2),
-            Token::BangEq => (1, 2),
-            Token::LtEq => (1, 2),
-            Token::Lt => (1, 2),
-            Token::GtEq => (1, 2),
-            Token::Gt => (1, 2),
-            Token::Pipe => (2, 3),
-            Token::Caret => (3, 4),
-            Token::And => (4, 5),
-            Token::LtLt => (5, 6),
-            Token::GtGt => (5, 6),
-            Token::Plus => (6, 7),
-            Token::Minus => (6, 7),
-            Token::Star => (7, 8),
-            Token::Slash => (7, 8),
-            Token::Percent => (7, 8),
-            Token::KAs => (8, 9),
-            Token::LParen => (9, 10),
-            Token::Constructor => (9, 10),
-            Token::Dot => (9, 10),
-            Token::LBrack => (9, 10),
+            Token::AndAnd => (2, 3),
+            Token::EqEq => (3, 4),
+            Token::BangEq => (3, 4),
+            Token::LtEq => (3, 4),
+            Token::Lt => (3, 4),
+            Token::GtEq => (3, 4),
+            Token::Gt => (3, 4),
+            Token::Pipe => (4, 5),
+            Token::Caret => (5, 6),
+            Token::And => (6, 7),
+            Token::LtLt => (7, 8),
+            Token::GtGt => (7, 8),
+            Token::Plus => (8, 9),
+            Token::Minus => (8, 9),
+            Token::Star => (9, 10),
+            Token::Slash => (9, 10),
+            Token::Percent => (9, 10),
+            Token::KAs => (10, 11),
+            Token::LParen => (11, 12),
+            Token::Constructor => (11, 12),
+            Token::Dot => (11, 12),
+            Token::LBrack => (11, 12),
             _ => unreachable!("Invalid operator."),
         }
     }
@@ -833,7 +838,14 @@ impl<'a> Iterator for Scanner<'a> {
                     Token::Dot
                 }
             }
-            '&' => Token::And,
+            '&' => {
+                if self.peek_char() == Some('&') {
+                    self.next_char();
+                    Token::AndAnd
+                } else {
+                    Token::And
+                }
+            }
             '^' => Token::Caret,
             '|' => Token::Pipe,
             '(' => Token::LParen,
