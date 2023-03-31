@@ -1,8 +1,13 @@
-import "C";
-import "C/Stdio";
+import "Std/Io";
 
-export func UseFunc(my_func: func()) {}
+export func UseCallback(callback: func()) {
+    callback();
+}
+
+func HelloWorld() {
+    Std.Println("Hello, world!");
+}
 
 export func Main() {
-    var my_func: func(i32) -> i32;
+    UseCallback(HelloWorld);
 }

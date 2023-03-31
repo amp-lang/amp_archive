@@ -4,6 +4,7 @@ use crate::{
 };
 
 use super::{
+    func::Signature,
     path::Path,
     scope::{Scope, TypeDecl},
     struct_::{check_struct_size, StructId},
@@ -77,6 +78,7 @@ pub struct Func {
 }
 
 impl Func {
+    /// Renders the `func` type as a string.
     pub fn name(&self, checker: &Typechecker) -> String {
         let args = self
             .args
@@ -88,6 +90,33 @@ impl Func {
         match &self.ret {
             Some(ret) => format!("fn({}) -> {}", args, ret.name(checker)),
             None => format!("fn({})", args),
+        }
+    }
+
+    /// Creates a function type from a function signature.
+    pub fn from_signature(sig: &Signature) -> Self {
+        Self {
+            args: sig.args.iter().map(|arg| arg.value.ty.clone()).collect(),
+            ret: sig.returns.as_ref().map(|ret| Box::new(ret.clone())),
+        }
+    }
+
+    /// Returns `true` if this type is a wide pointer.
+    pub fn is_equivalent(&self, checker: &Typechecker, other: &Self) -> bool {
+        if self.args.len() != other.args.len() {
+            return false;
+        }
+
+        for (arg, other_arg) in self.args.iter().zip(other.args.iter()) {
+            if !arg.is_equivalent(checker, other_arg) {
+                return false;
+            }
+        }
+
+        match (&self.ret, &other.ret) {
+            (Some(ret), Some(other_ret)) => ret.is_equivalent(checker, &other_ret),
+            (None, None) => true,
+            _ => false,
         }
     }
 }
@@ -349,6 +378,7 @@ impl Type {
                 .as_ref()
                 .unwrap()
                 .is_equivalent(checker, other),
+            (Type::Func(func), Type::Func(other_func)) => func.is_equivalent(checker, other_func),
             _ => false,
         }
     }

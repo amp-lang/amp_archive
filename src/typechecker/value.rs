@@ -9,18 +9,37 @@ use crate::{
 use super::{
     decl::Modifier,
     func::FuncId,
-    path::Path,
-    scope::Scope,
+    scope::{Scope, ScopeValue, Subscope},
     struct_::StructId,
-    types::{self, Mutability, Ptr, Slice, Type},
+    types::{self, Func, Mutability, Ptr, Slice, Type},
     var::{VarId, Vars},
     Typechecker,
 };
 
+/// The callee of a function call.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Callee {
+    Func(FuncId),
+    Indirect(Box<Value>),
+}
+
+impl Callee {
+    /// Returns the return type of the callee.
+    pub fn return_type(&self, checker: &Typechecker, vars: &Vars) -> Option<Type> {
+        match self {
+            Callee::Func(func) => checker.funcs[func.0 as usize].signature.returns.clone(),
+            Callee::Indirect(value) => match &value.ty(checker, vars) {
+                Type::Func(func) => func.ret.as_ref().map(|v| v.as_ref().clone()),
+                _ => unreachable!(),
+            },
+        }
+    }
+}
+
 /// A function call value.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FuncCall {
-    pub callee: FuncId,
+    pub callee: Callee,
     pub args: Vec<Value>,
 }
 
@@ -32,50 +51,213 @@ impl FuncCall {
         vars: &Vars,
         call: &ast::Call,
     ) -> Result<Self, Error> {
-        let callee = {
-            let path = Path::check_path_expr(&call.callee)?;
-            let res = scope.resolve_func(&path);
-            res.ok_or(Error::UndeclaredFunction(Spanned::new(
-                call.callee.span(),
-                path.to_string(),
-            )))?
+        let callee = GenericValue::check(checker, scope, vars, &call.callee, false)?;
+
+        match callee {
+            GenericValue::FuncAddr(callee) => {
+                let func = &checker.funcs[callee.0 as usize];
+
+                if func.signature.args.len() != call.args.args.len() {
+                    if func.signature.variadic && call.args.args.len() < func.signature.args.len()
+                        || !func.signature.variadic
+                    {
+                        return Err(Error::InvalidArgumentCount {
+                            decl: func.span,
+                            decl_type: func.signature.name(checker),
+                            offending: call.span,
+                        });
+                    }
+                }
+
+                let mut args = Vec::new();
+
+                for (idx, arg) in call.args.args.iter().enumerate() {
+                    if idx < func.signature.args.len() {
+                        let generic_value = GenericValue::check(checker, scope, vars, arg, false)?;
+                        let value = generic_value
+                            .coerce(checker, vars, &func.signature.args[idx].value.ty)
+                            .ok_or(Error::ExpectedArgumentOfType {
+                                decl: func.span,
+                                name: func.signature.args[idx].value.ty.name(checker),
+                                offending: arg.span(),
+                            })?;
+                        args.push(value);
+                    } else {
+                        let generic_value = GenericValue::check(checker, scope, vars, arg, false)?;
+                        let value = generic_value.coerce_default(checker, vars);
+                        args.push(value);
+                    }
+                }
+
+                Ok(Self {
+                    callee: Callee::Func(callee),
+                    args,
+                })
+            }
+            value => {
+                let ty = value.default_type(checker, vars).resolve_aliases(checker);
+
+                let Type::Func(func_ty) = ty else {
+                    return Err(Error::CannotCallNonFunction(call.callee.span()));
+                };
+
+                if func_ty.args.len() != call.args.args.len() {
+                    // TODO: do better diagnostics for this
+                    return Err(Error::InvalidArgumentCount {
+                        decl: call.span,
+                        decl_type: func_ty.name(checker),
+                        offending: call.span,
+                    });
+                }
+
+                let mut args = Vec::new();
+
+                for (idx, arg) in call.args.args.iter().enumerate() {
+                    let generic_value = GenericValue::check(checker, scope, vars, arg, false)?;
+                    // TODO: do better diagnostics for this
+                    let value = generic_value
+                        .coerce(checker, vars, &func_ty.args[idx])
+                        .ok_or(Error::ExpectedArgumentOfType {
+                            decl: call.span,
+                            name: func_ty.args[idx].name(checker),
+                            offending: arg.span(),
+                        })?;
+                    args.push(value);
+                }
+
+                Ok(Self {
+                    callee: Callee::Indirect(Box::new(value.coerce_default(checker, vars))),
+                    args,
+                })
+            }
+        }
+    }
+}
+
+/// A value in a scope or a scope value.  Responsible for resolving access operations.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ValueOrNamespace<'a> {
+    /// A namespace
+    Namespace(&'a Subscope),
+
+    /// A generic value.
+    Value(GenericValue),
+}
+
+impl<'a> ValueOrNamespace<'a> {
+    /// Checks an access operation, assumes the operator is a [ast::BinaryOp::Dot].
+    pub fn check_access(
+        checker: &Typechecker,
+        scope: &'a mut Scope,
+        vars: &Vars,
+        left: &ast::Expr,
+        right: &ast::Expr,
+    ) -> Result<Self, Error> {
+        let lhs = Self::check_value(checker, scope, vars, left)?;
+        let rhs = match right {
+            ast::Expr::Iden(iden) => iden,
+            _ => return Err(Error::ExpectedFieldName(right.span())),
         };
 
-        let func = &checker.funcs[callee.0 as usize];
+        match lhs {
+            ValueOrNamespace::Namespace(namespace) => {
+                let value = namespace
+                    .get_value(&rhs.value)
+                    .ok_or(Error::UndeclaredNamespaceMember(right.span()))?;
+                match value {
+                    ScopeValue::Func(func) => {
+                        Ok(ValueOrNamespace::Value(GenericValue::FuncAddr(*func)))
+                    }
+                    ScopeValue::Var(var) => Ok(ValueOrNamespace::Value(GenericValue::Var(*var))),
+                    ScopeValue::Namespace(namespace) => Ok(ValueOrNamespace::Namespace(namespace)),
+                }
+            }
+            ValueOrNamespace::Value(lhs) => {
+                let lhs_ty = lhs.default_type(checker, vars);
 
-        if func.signature.args.len() != call.args.args.len() {
-            if func.signature.variadic && call.args.args.len() < func.signature.args.len()
-                || !func.signature.variadic
-            {
-                return Err(Error::InvalidArgumentCount {
-                    decl: func.span,
-                    decl_type: func.signature.name(checker),
-                    offending: call.span,
-                });
+                let id = lhs
+                    .resolve_struct(checker, vars)
+                    .ok_or(Error::AccessNonStruct(left.span()))?;
+
+                let struct_decl = &checker.structs[id.0 as usize];
+
+                if let Some((field_id, _)) = struct_decl.get_field(&rhs.value) {
+                    let field = &struct_decl.fields[field_id];
+
+                    if !field.modifiers.contains(&Modifier::Export)
+                        && struct_decl.declared_in != checker.current_module
+                    {
+                        return Err(Error::CannotAccessPrivateField(rhs.span));
+                    }
+
+                    Ok(ValueOrNamespace::Value(GenericValue::StructAccess(
+                        Box::new(match lhs_ty {
+                            Type::Ptr(Ptr { mutability, ty }) => {
+                                if ty.is_sized(checker) {
+                                    lhs
+                                } else {
+                                    if field_id == struct_decl.fields.len() - 1 {
+                                        return Ok(ValueOrNamespace::Value(
+                                            GenericValue::UnsizedStructAccess(
+                                                Box::new(lhs),
+                                                id,
+                                                field_id,
+                                            ),
+                                        ));
+                                    }
+
+                                    GenericValue::WidePtrToPtr(
+                                        Box::new(lhs),
+                                        Type::Ptr(Ptr::new(mutability, ty.as_ref().clone())),
+                                    )
+                                }
+                            }
+                            _ => lhs.as_ref(checker, vars, Mutability::Mut).unwrap(),
+                        }),
+                        id,
+                        field_id,
+                    )))
+                } else {
+                    return Err(Error::UnknownStructField(rhs.span));
+                }
             }
         }
+    }
 
-        let mut args = Vec::new();
-
-        for (idx, arg) in call.args.args.iter().enumerate() {
-            if idx < func.signature.args.len() {
-                let generic_value = GenericValue::check(checker, scope, vars, arg, false)?;
-                let value = generic_value
-                    .coerce(checker, vars, &func.signature.args[idx].value.ty)
-                    .ok_or(Error::ExpectedArgumentOfType {
-                        decl: func.span,
-                        name: func.signature.args[idx].value.ty.name(checker),
-                        offending: arg.span(),
-                    })?;
-                args.push(value);
-            } else {
-                let generic_value = GenericValue::check(checker, scope, vars, arg, false)?;
-                let value = generic_value.coerce_default(checker, vars);
-                args.push(value);
+    /// Checks an access expression.
+    pub fn check_value(
+        checker: &Typechecker,
+        scope: &'a mut Scope,
+        vars: &Vars,
+        value: &ast::Expr,
+    ) -> Result<Self, Error> {
+        match value {
+            ast::Expr::Iden(iden) => {
+                let value = scope
+                    .get_value(&iden.value)
+                    .ok_or(Error::UndeclaredVariable(Spanned::new(
+                        iden.span,
+                        iden.value.clone(),
+                    )))?;
+                match value {
+                    ScopeValue::Func(func) => {
+                        Ok(ValueOrNamespace::Value(GenericValue::FuncAddr(*func)))
+                    }
+                    ScopeValue::Var(var) => Ok(ValueOrNamespace::Value(GenericValue::Var(*var))),
+                    ScopeValue::Namespace(namespace) => Ok(ValueOrNamespace::Namespace(namespace)),
+                }
+            }
+            ast::Expr::Binary(ast::Binary {
+                op: ast::BinaryOp::Dot,
+                left,
+                right,
+                ..
+            }) => Self::check_access(checker, scope, vars, &left, &right),
+            value => {
+                let value = GenericValue::check(checker, scope, vars, value, false)?;
+                Ok(ValueOrNamespace::Value(value))
             }
         }
-
-        Ok(Self { callee, args })
     }
 }
 
@@ -181,6 +363,9 @@ pub enum GenericValue {
 
     /// Negates an integer.
     IntNeg(Box<GenericValue>),
+
+    /// Outputs the address of a function.
+    FuncAddr(FuncId),
 }
 
 impl GenericValue {
@@ -341,11 +526,7 @@ impl GenericValue {
             Self::Int(_) => Type::Int,
             Self::Str(_) => Type::slice_ptr(Mutability::Mut, Type::U8),
             Self::Var(var) => vars.vars[var.0 as usize].ty.clone(),
-            Self::FuncCall(func_call) => checker.funcs[func_call.callee.0 as usize]
-                .signature
-                .returns
-                .clone()
-                .unwrap(),
+            Self::FuncCall(func_call) => func_call.callee.return_type(checker, vars).unwrap(),
             Self::Deref(value) => {
                 let ty = value.default_type(checker, vars);
                 match ty {
@@ -401,6 +582,10 @@ impl GenericValue {
             Self::LogAnd(_, _) => Type::Bool,
             Self::LogOr(_, _) => Type::Bool,
             Self::IntNeg(value) => value.default_type(checker, vars),
+            Self::FuncAddr(f) => {
+                let func = &checker.funcs[f.0 as usize];
+                Type::Func(Func::from_signature(&func.signature))
+            }
         }.resolve_aliases(checker)
     }
 
@@ -417,20 +602,25 @@ impl GenericValue {
             ast::Expr::Int(int) => Ok(GenericValue::Int(int.value)),
             ast::Expr::Str(str) => Ok(GenericValue::Str(str.value.clone())),
             ast::Expr::Iden(iden) => {
-                let var = scope
-                    .resolve_var(&iden.value)
-                    .ok_or(Error::UndeclaredVariable(Spanned::new(
-                        iden.span,
-                        iden.value.clone(),
-                    )))?;
-                Ok(GenericValue::Var(var))
+                let value = ValueOrNamespace::check_value(
+                    checker,
+                    scope,
+                    vars,
+                    &ast::Expr::Iden(iden.clone()),
+                )?;
+
+                match value {
+                    ValueOrNamespace::Value(value) => Ok(value),
+                    ValueOrNamespace::Namespace(_) => {
+                        Err(Error::ExpectedValueGotNamespace(iden.span))
+                    }
+                }
             }
             ast::Expr::Call(call) => {
                 let func_call = FuncCall::check(checker, scope, vars, call)?;
 
-                let func = &checker.funcs[func_call.callee.0 as usize];
-                if func.signature.returns == None {
-                    return Err(Error::VoidAsValue(expr.span()));
+                if func_call.callee.return_type(checker, vars) == None {
+                    return Err(Error::VoidAsValue(call.span));
                 }
 
                 Ok(GenericValue::FuncCall(func_call))
@@ -516,56 +706,13 @@ impl GenericValue {
                 right,
                 ..
             }) => {
-                // NOTE: the left hand side of field accesses are always references
-                let lhs = Self::check(checker, scope, vars, left, true)?;
-                let lhs_ty = lhs.default_type(checker, vars);
+                let res = ValueOrNamespace::check_access(checker, scope, vars, left, right)?;
 
-                let id = lhs
-                    .resolve_struct(checker, vars)
-                    .ok_or(Error::AccessNonStruct(left.span()))?;
-
-                let ast::Expr::Iden(iden) = right.as_ref() else {
-                    return Err(Error::ExpectedFieldName(right.span()));
-                };
-
-                let struct_decl = &checker.structs[id.0 as usize];
-
-                if let Some((field_id, _)) = struct_decl.get_field(&iden.value) {
-                    let field = &struct_decl.fields[field_id];
-
-                    if !field.modifiers.contains(&Modifier::Export)
-                        && struct_decl.declared_in != checker.current_module
-                    {
-                        return Err(Error::CannotAccessPrivateField(iden.span));
+                match res {
+                    ValueOrNamespace::Value(value) => Ok(value),
+                    ValueOrNamespace::Namespace(_) => {
+                        Err(Error::ExpectedValueGotNamespace(expr.span()))
                     }
-
-                    Ok(Self::StructAccess(
-                        Box::new(match lhs_ty {
-                            Type::Ptr(Ptr { mutability, ty }) => {
-                                if ty.is_sized(checker) {
-                                    lhs
-                                } else {
-                                    if field_id == struct_decl.fields.len() - 1 {
-                                        return Ok(Self::UnsizedStructAccess(
-                                            Box::new(lhs),
-                                            id,
-                                            field_id,
-                                        ));
-                                    }
-
-                                    Self::WidePtrToPtr(
-                                        Box::new(lhs),
-                                        Type::Ptr(Ptr::new(mutability, ty.as_ref().clone())),
-                                    )
-                                }
-                            }
-                            _ => lhs.as_ref(checker, vars, Mutability::Mut).unwrap(),
-                        }),
-                        id,
-                        field_id,
-                    ))
-                } else {
-                    return Err(Error::UnknownStructField(iden.span));
                 }
             }
             // Comparison operators
@@ -969,6 +1116,7 @@ impl GenericValue {
             GenericValue::IntNeg(value) => {
                 Value::IntNeg(Box::new(value.coerce_default(checker, vars)))
             }
+            GenericValue::FuncAddr(func_id) => Value::FuncAddr(func_id),
         }
     }
 
@@ -1006,11 +1154,9 @@ impl GenericValue {
                 }
             }
             (GenericValue::FuncCall(call), ty) => {
-                let func = &checker.funcs[call.callee.0 as usize];
-                if func
-                    .signature
-                    .returns
-                    .as_ref()
+                if call
+                    .callee
+                    .return_type(checker, vars)
                     .unwrap()
                     .is_equivalent(checker, ty)
                 {
@@ -1222,6 +1368,15 @@ impl GenericValue {
             (GenericValue::LogNot(value), Type::Bool) => {
                 Some(Value::LogNot(Box::new(value.coerce_default(checker, vars))))
             }
+            (GenericValue::FuncAddr(func_id), Type::Func(to)) => {
+                let left_func = Func::from_signature(&checker.funcs[func_id.0].signature);
+
+                if left_func.is_equivalent(checker, to) {
+                    Some(Value::FuncAddr(func_id))
+                } else {
+                    None
+                }
+            }
             _ => None,
         }
     }
@@ -1361,6 +1516,9 @@ pub enum Value {
 
     /// Negates an integer.
     IntNeg(Box<Value>),
+
+    /// Returns the address of a function.
+    FuncAddr(FuncId),
 }
 
 impl Value {
@@ -1380,11 +1538,7 @@ impl Value {
             Value::I64(_) => Type::I64,
             Value::Int(_) => Type::Int,
             Value::Var(var) => vars.vars[var.0].ty.clone(),
-            Value::FuncCall(call) => checker.funcs[call.callee.0 as usize]
-                .signature
-                .returns
-                .clone()
-                .expect("verified as a GenericValue"),
+            Value::FuncCall(call) => call.callee.return_type(checker, vars).unwrap(),
             Value::Deref(ptr) => match ptr.ty(checker, vars) {
                 Type::Ptr(ptr) => *ptr.ty,
                 _ => unreachable!(),
@@ -1436,6 +1590,10 @@ impl Value {
             Value::LogAnd(..) => Type::Bool,
             Value::LogOr(..) => Type::Bool,
             Value::IntNeg(value) => value.ty(checker, vars),
+            Value::FuncAddr(id) => {
+                let func = &checker.funcs[id.0];
+                Type::Func(Func::from_signature(&func.signature))
+            },
         }.resolve_aliases(checker)
     }
 }

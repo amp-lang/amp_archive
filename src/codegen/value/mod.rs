@@ -11,7 +11,7 @@ use cranelift_module::Module;
 use crate::typechecker::{
     func::FuncImpl,
     types::Type,
-    value::{FuncCall, Op, Value},
+    value::{Callee, FuncCall, Op, Value},
     var::VarId,
     Typechecker,
 };
@@ -501,6 +501,14 @@ pub fn compile_value(
 
             builder.ins().ineg(value)
         }
+        Value::FuncAddr(func_id) => {
+            let func = &codegen.funcs[&func_id];
+
+            let func_ref = codegen
+                .module
+                .declare_func_in_func(func.cranelift_id, &mut builder.func);
+            builder.ins().func_addr(codegen.pointer_type, func_ref)
+        }
     };
 
     if let Some(to) = to {
@@ -612,101 +620,197 @@ pub fn compile_func_call(
     // the address to write the value to, if any.
     to: Option<cranelift::prelude::Value>,
 ) -> Option<cranelift::prelude::Value> {
-    let func = &checker.funcs[call.callee.0];
+    match &call.callee {
+        Callee::Func(callee) => {
+            let func = &checker.funcs[callee.0];
 
-    let mut args = Vec::new();
+            let mut args = Vec::new();
 
-    let dest = if let Some(ty) = &func.signature.returns {
-        if ty
-            .is_big(checker, codegen.pointer_type.bytes() as usize)
-            .expect("must be sized")
-        {
-            if let Some(value) = to {
-                args.push(value);
-                Some(value)
+            let dest = if let Some(ty) = &func.signature.returns {
+                if ty
+                    .is_big(checker, codegen.pointer_type.bytes() as usize)
+                    .expect("must be sized")
+                {
+                    if let Some(value) = to {
+                        args.push(value);
+                        Some(value)
+                    } else {
+                        let stack_slot = StackSlotData::new(
+                            StackSlotKind::ExplicitSlot,
+                            ty.size(checker, codegen.pointer_type.bytes() as usize)
+                                .expect("must be sized") as u32,
+                        );
+                        let slot = builder.create_sized_stack_slot(stack_slot);
+                        args.push(builder.ins().stack_addr(codegen.pointer_type, slot, 0));
+
+                        Some(builder.ins().stack_addr(codegen.pointer_type, slot, 0))
+                    }
+                } else {
+                    to
+                }
             } else {
-                let stack_slot = StackSlotData::new(
-                    StackSlotKind::ExplicitSlot,
-                    ty.size(checker, codegen.pointer_type.bytes() as usize)
-                        .expect("must be sized") as u32,
-                );
-                let slot = builder.create_sized_stack_slot(stack_slot);
-                args.push(builder.ins().stack_addr(codegen.pointer_type, slot, 0));
+                None
+            };
 
-                Some(builder.ins().stack_addr(codegen.pointer_type, slot, 0))
+            for arg in &call.args {
+                args.push(compile_value(checker, codegen, builder, arg, vars, data, None).unwrap());
             }
-        } else {
-            to
-        }
-    } else {
-        None
-    };
 
-    for arg in &call.args {
-        args.push(compile_value(checker, codegen, builder, arg, vars, data, None).unwrap());
-    }
+            let cranelift_func = codegen
+                .module
+                .declare_func_in_func(codegen.funcs[&callee].cranelift_id, &mut builder.func);
 
-    let cranelift_func = codegen
-        .module
-        .declare_func_in_func(codegen.funcs[&call.callee].cranelift_id, &mut builder.func);
+            let inst = if func.signature.variadic && call.args.len() > func.signature.args.len() {
+                // Make signature for indirect call
+                let mut signature = codegen.module.make_signature();
 
-    let inst = if func.signature.variadic && call.args.len() > func.signature.args.len() {
-        // Make signature for indirect call
-        let mut signature = codegen.module.make_signature();
+                if let Some(ty) = &func.signature.returns {
+                    if ty
+                        .is_big(checker, codegen.pointer_type.bytes() as usize)
+                        .expect("must be sized")
+                    {
+                        signature.params.push(AbiParam::special(
+                            codegen.pointer_type,
+                            ArgumentPurpose::StructReturn,
+                        ));
+                    } else {
+                        signature
+                            .returns
+                            .push(AbiParam::new(compile_type(codegen, checker, ty)));
+                    }
+                }
 
-        if let Some(ty) = &func.signature.returns {
-            if ty
-                .is_big(checker, codegen.pointer_type.bytes() as usize)
-                .expect("must be sized")
-            {
-                signature.params.push(AbiParam::special(
-                    codegen.pointer_type,
-                    ArgumentPurpose::StructReturn,
-                ));
+                for ty in &func.signature.args {
+                    signature
+                        .params
+                        .push(compile_abi_param(checker, codegen, &ty.value.ty));
+                }
+
+                for arg in &call.args[func.signature.args.len()..] {
+                    let ty = arg.ty(checker, &data.vars);
+                    signature
+                        .params
+                        .push(compile_abi_param(checker, codegen, &ty));
+                }
+
+                let sig_ref = builder.import_signature(signature);
+                let addr = builder
+                    .ins()
+                    .func_addr(codegen.pointer_type, cranelift_func);
+                builder.ins().call_indirect(sig_ref, addr, &args)
             } else {
-                signature
-                    .returns
-                    .push(AbiParam::new(compile_type(codegen, checker, ty)));
-            }
-        }
+                builder.ins().call(cranelift_func, &args)
+            };
 
-        for ty in &func.signature.args {
-            signature
-                .params
-                .push(compile_abi_param(checker, codegen, &ty.value.ty));
-        }
-
-        for arg in &call.args[func.signature.args.len()..] {
-            let ty = arg.ty(checker, &data.vars);
-            signature
-                .params
-                .push(compile_abi_param(checker, codegen, &ty));
-        }
-
-        let sig_ref = builder.import_signature(signature);
-        let addr = builder
-            .ins()
-            .func_addr(codegen.pointer_type, cranelift_func);
-        builder.ins().call_indirect(sig_ref, addr, &args)
-    } else {
-        builder.ins().call(cranelift_func, &args)
-    };
-
-    if let Some(ty) = &func.signature.returns {
-        if ty
-            .is_big(checker, codegen.pointer_type.bytes() as usize)
-            .expect("must be sized")
-        {
-            if to == None {
-                Some(dest.unwrap())
+            if let Some(ty) = &func.signature.returns {
+                if ty
+                    .is_big(checker, codegen.pointer_type.bytes() as usize)
+                    .expect("must be sized")
+                {
+                    if to == None {
+                        Some(dest.unwrap())
+                    } else {
+                        None
+                    }
+                } else {
+                    Some(builder.inst_results(inst)[0])
+                }
             } else {
                 None
             }
-        } else {
-            Some(builder.inst_results(inst)[0])
         }
-    } else {
-        None
+        Callee::Indirect(callee) => {
+            let Type::Func(func_type) = callee.ty(checker, &data.vars) else { unreachable!() };
+
+            let mut args = Vec::new();
+
+            let dest = if let Some(ty) = &func_type.ret {
+                if ty
+                    .is_big(checker, codegen.pointer_type.bytes() as usize)
+                    .expect("must be sized")
+                {
+                    if let Some(value) = to {
+                        args.push(value);
+                        Some(value)
+                    } else {
+                        let stack_slot = StackSlotData::new(
+                            StackSlotKind::ExplicitSlot,
+                            ty.size(checker, codegen.pointer_type.bytes() as usize)
+                                .expect("must be sized") as u32,
+                        );
+                        let slot = builder.create_sized_stack_slot(stack_slot);
+                        args.push(builder.ins().stack_addr(codegen.pointer_type, slot, 0));
+
+                        Some(builder.ins().stack_addr(codegen.pointer_type, slot, 0))
+                    }
+                } else {
+                    to
+                }
+            } else {
+                None
+            };
+
+            for arg in &call.args {
+                args.push(compile_value(checker, codegen, builder, arg, vars, data, None).unwrap());
+            }
+
+            let cranelift_func =
+                compile_value(checker, codegen, builder, &callee, vars, data, None).unwrap();
+
+            let inst = {
+                // Make signature for indirect call
+                let mut signature = codegen.module.make_signature();
+
+                if let Some(ty) = &func_type.ret {
+                    if ty
+                        .is_big(checker, codegen.pointer_type.bytes() as usize)
+                        .expect("must be sized")
+                    {
+                        signature.params.push(AbiParam::special(
+                            codegen.pointer_type,
+                            ArgumentPurpose::StructReturn,
+                        ));
+                    } else {
+                        signature
+                            .returns
+                            .push(AbiParam::new(compile_type(codegen, checker, ty)));
+                    }
+                }
+
+                for ty in &func_type.args {
+                    signature
+                        .params
+                        .push(compile_abi_param(checker, codegen, &ty));
+                }
+
+                for arg in &call.args[func_type.args.len()..] {
+                    let ty = arg.ty(checker, &data.vars);
+                    signature
+                        .params
+                        .push(compile_abi_param(checker, codegen, &ty));
+                }
+
+                let sig_ref = builder.import_signature(signature);
+                builder.ins().call_indirect(sig_ref, cranelift_func, &args)
+            };
+
+            if let Some(ty) = &func_type.ret {
+                if ty
+                    .is_big(checker, codegen.pointer_type.bytes() as usize)
+                    .expect("must be sized")
+                {
+                    if to == None {
+                        Some(dest.unwrap())
+                    } else {
+                        None
+                    }
+                } else {
+                    Some(builder.inst_results(inst)[0])
+                }
+            } else {
+                None
+            }
+        }
     }
 }
 

@@ -479,6 +479,15 @@ pub enum Error {
 
     /// Expected the return type after the arrow `->`.
     ExpectedFunctionTypeRet(Span) = 97,
+
+    /// Attempted to access an undeclared member of a namespace.
+    UndeclaredNamespaceMember(Span) = 98,
+
+    /// Expected a value, instead got the name of a namespace.
+    ExpectedValueGotNamespace(Span) = 99,
+
+    /// Attempted to call a non-function type
+    CannotCallNonFunction(Span) = 100,
 }
 
 impl Error {
@@ -1127,6 +1136,18 @@ impl Error {
             }
             Self::ExpectedFunctionTypeRet(span) => {
                 diagnostic.message = "Expected a return type".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::UndeclaredNamespaceMember(span) => {
+                diagnostic.message = "Undeclared namespace member".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::ExpectedValueGotNamespace(span) => {
+                diagnostic.message = "Expected a value, got a namespace".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::CannotCallNonFunction(span) => {
+                diagnostic.message = "Cannot call a non-function type".to_owned();
                 diagnostic.labels.push(span.primary());
             }
         }

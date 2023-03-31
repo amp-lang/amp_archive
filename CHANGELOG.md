@@ -24,6 +24,7 @@
 - [feat: (#44) `||` logical OR operator](https://github.com/amp-lang/amp/issues/44)
 - [feat: (#57) `-` negate operator](https://github.com/amp-lang/amp/issues/57)
 - [feat: (#58) `func` types](https://github.com/amp-lang/amp/issues/58)
+- [feat: (#48) first class functions](https://github.com/amp-lang/amp/issues/48)
 
 ### Library
 - feat: implement standard library, I guess
