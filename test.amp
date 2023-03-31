@@ -1,13 +1,19 @@
 import "Std/Io";
 
-export func UseCallback(callback: func()) {
-    callback();
+func GetStringFrom(callback: func() -> ~const [u8]) -> ~const [u8] {
+    return callback();
 }
 
-func HelloWorld() {
-    Std.Println("Hello, world!");
+func HelloWorld() -> ~const [u8] {
+    return "Hello, World!";
+}
+
+func GetGetString() -> func() -> ~const [u8] {
+    return HelloWorld;
 }
 
 export func Main() {
-    UseCallback(HelloWorld);
+    var callback = GetGetString();
+    var str = GetStringFrom(callback);
+    Std.Println(str);
 }
