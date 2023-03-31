@@ -2,9 +2,9 @@ import "C";
 import "C/Stdio";
 
 export func Main() {
-    var my_var1 = 0b000 | 0b111; // 7
-    var my_var2 = 0b001 | 0b100; // 5
+    var my_bool1 = !true;
+    var my_bool2 = !false;
 
-    C.Printf("%d\n\0" as ~const C.Char, my_var1); // 7
-    C.Printf("%d\n\0" as ~const C.Char, my_var2); // 5
+    C.Printf("my_bool1 = %d\n\0" as ~const C.Char, my_bool1); // => my_bool1 = 0
+    C.Printf("my_bool2 = %d\n\0" as ~const C.Char, my_bool2); // => my_bool2 = 1
 }

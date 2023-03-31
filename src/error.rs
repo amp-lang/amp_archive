@@ -461,6 +461,9 @@ pub enum Error {
 
     /// An invalid bit was found in a bitfield.
     InvalidBitNot(Span) = 91,
+
+    /// Can only negate boolean types.
+    InvalidLogNot(Span) = 92,
 }
 
 impl Error {
@@ -1085,6 +1088,10 @@ impl Error {
             }
             Self::InvalidBitNot(span) => {
                 diagnostic.message = "Can only perform bitwise NOT on integers".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::InvalidLogNot(span) => {
+                diagnostic.message = "Can only negate boolean types".to_owned();
                 diagnostic.labels.push(span.primary());
             }
         }

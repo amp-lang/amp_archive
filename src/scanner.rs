@@ -371,6 +371,7 @@ impl Token {
         match self {
             Token::Star => true,
             Token::Tilde => true,
+            Token::Bang => true,
             _ => false,
         }
     }
@@ -415,6 +416,7 @@ impl Token {
         match self {
             Token::Star => 7,
             Token::Tilde => 7,
+            Token::Bang => 7,
             _ => unreachable!("Invalid operator."),
         }
     }

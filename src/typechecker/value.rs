@@ -169,6 +169,9 @@ pub enum GenericValue {
 
     /// Performs a bitwise NOT operation on an integer.
     BitNot(Box<GenericValue>),
+
+    /// Negates a boolean value. (`true` => `false`, `false` => `true`)
+    LogNot(Box<GenericValue>),
 }
 
 impl GenericValue {
@@ -385,6 +388,7 @@ impl GenericValue {
                 Type::Ptr(Ptr::new(*mut_, ty.clone()))
             }
             Self::BitNot(item) => item.default_type(checker, vars),
+            Self::LogNot(_) => Type::Bool,
         }.resolve_aliases(checker)
     }
 
@@ -423,6 +427,15 @@ impl GenericValue {
                 ast::UnaryOp::Deref => Self::check_deref(checker, scope, vars, &unary.expr),
                 ast::UnaryOp::ConstRef => {
                     Self::check_ref(checker, scope, vars, Mutability::Const, &unary.expr)
+                }
+                ast::UnaryOp::LogNot => {
+                    let value = Self::check(checker, scope, vars, &unary.expr, false)?;
+
+                    if value.clone().coerce(checker, vars, &Type::Bool).is_none() {
+                        return Err(Error::InvalidLogNot(expr.span()));
+                    }
+
+                    Ok(GenericValue::LogNot(Box::new(value)))
                 }
                 ast::UnaryOp::MutRef => {
                     Self::check_ref(checker, scope, vars, Mutability::Mut, &unary.expr)
@@ -882,6 +895,9 @@ impl GenericValue {
             GenericValue::BitNot(value) => {
                 Value::BitNot(Box::new(value.coerce_default(checker, vars)))
             }
+            GenericValue::LogNot(value) => {
+                Value::LogNot(Box::new(value.coerce_default(checker, vars)))
+            }
         }
     }
 
@@ -1251,6 +1267,9 @@ pub enum Value {
 
     /// Performs a bitwise NOT on an integer.
     BitNot(Box<Value>),
+
+    /// Performs a logical NOT on a boolean.
+    LogNot(Box<Value>),
 }
 
 impl Value {
@@ -1322,6 +1341,7 @@ impl Value {
                 ))
             }
             Value::BitNot(value) => value.ty(checker, vars),
+            Value::LogNot(value) => value.ty(checker, vars),
         }.resolve_aliases(checker)
     }
 }

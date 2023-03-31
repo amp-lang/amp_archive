@@ -249,6 +249,9 @@ pub enum UnaryOp {
     /// `~`
     Tilde,
 
+    /// `!`
+    LogNot,
+
     /// `~const`
     ConstRef,
 
@@ -262,7 +265,8 @@ impl UnaryOp {
         match token {
             Token::Star => Self::Deref,
             Token::Tilde => Self::Tilde,
-            _ => unreachable!("invalid token for binary operator"),
+            Token::Bang => Self::LogNot,
+            _ => unreachable!("invalid token for unary operator"),
         }
     }
 }

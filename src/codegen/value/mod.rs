@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use cranelift::{
     codegen::ir::{ArgumentPurpose, StackSlot},
-    prelude::{AbiParam, FunctionBuilder, InstBuilder, MemFlags, StackSlotData, StackSlotKind},
+    prelude::{
+        AbiParam, FunctionBuilder, InstBuilder, IntCC, MemFlags, StackSlotData, StackSlotKind,
+    },
 };
 use cranelift_module::Module;
 
@@ -468,6 +470,12 @@ pub fn compile_value(
                 .expect("No `to` provided");
 
             builder.ins().bnot(value)
+        }
+        Value::LogNot(value) => {
+            let value = compile_value(checker, codegen, builder, value, vars, data, None)
+                .expect("No `to` provided");
+
+            builder.ins().icmp_imm(IntCC::Equal, value, 0)
         }
     };
 
