@@ -199,6 +199,9 @@ pub enum BinaryOp {
 
     /// `^`
     BitXor,
+
+    /// `|`
+    BitOr,
 }
 
 impl BinaryOp {
@@ -222,6 +225,7 @@ impl BinaryOp {
             Token::GtGt => Self::Shr,
             Token::And => Self::BitAnd,
             Token::Caret => Self::BitXor,
+            Token::Pipe => Self::BitOr,
             _ => unreachable!("invalid token for binary operator"),
         }
     }

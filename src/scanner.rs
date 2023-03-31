@@ -151,6 +151,9 @@ pub enum Token {
     /// `^`
     Caret,
 
+    /// `|`
+    Pipe,
+
     /// `(`
     LParen,
 
@@ -352,6 +355,7 @@ impl Token {
             Token::And => true,
             Token::Caret => true,
             Token::Star => true,
+            Token::Pipe => true,
             Token::Plus => true,
             Token::Slash => true,
             Token::Minus => true,
@@ -384,6 +388,7 @@ impl Token {
             Token::Lt => (1, 2),
             Token::GtEq => (1, 2),
             Token::Gt => (1, 2),
+            Token::Pipe => (2, 3),
             Token::Caret => (3, 4),
             Token::And => (4, 5),
             Token::LtLt => (5, 6),
@@ -828,6 +833,7 @@ impl<'a> Iterator for Scanner<'a> {
             }
             '&' => Token::And,
             '^' => Token::Caret,
+            '|' => Token::Pipe,
             '(' => Token::LParen,
             ')' => Token::RParen,
             '{' => Token::LBrace,
