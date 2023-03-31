@@ -265,6 +265,9 @@ pub enum UnaryOp {
 
     /// `~mut`
     MutRef,
+
+    /// `-`
+    Neg,
 }
 
 impl UnaryOp {
@@ -274,6 +277,7 @@ impl UnaryOp {
             Token::Star => Self::Deref,
             Token::Tilde => Self::Tilde,
             Token::Bang => Self::LogNot,
+            Token::Minus => Self::Neg,
             _ => unreachable!("invalid token for unary operator"),
         }
     }

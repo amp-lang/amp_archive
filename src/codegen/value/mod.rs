@@ -495,6 +495,12 @@ pub fn compile_value(
 
             builder.ins().bor(left, right)
         }
+        Value::IntNeg(value) => {
+            let value = compile_value(checker, codegen, builder, value, vars, data, None)
+                .expect("No `to` provided");
+
+            builder.ins().ineg(value)
+        }
     };
 
     if let Some(to) = to {

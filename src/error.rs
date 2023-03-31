@@ -470,6 +470,9 @@ pub enum Error {
 
     /// Can only compare two boolean types.
     InvalidLogOr(Span) = 94,
+
+    /// Can only negate number types.
+    InvalidNeg(Span) = 95,
 }
 
 impl Error {
@@ -1106,6 +1109,10 @@ impl Error {
             }
             Self::InvalidLogOr(span) => {
                 diagnostic.message = "Can only perform logical OR on boolean types".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::InvalidNeg(span) => {
+                diagnostic.message = "Can only negate signed number types".to_owned();
                 diagnostic.labels.push(span.primary());
             }
         }

@@ -380,6 +380,7 @@ impl Token {
             Token::Star => true,
             Token::Tilde => true,
             Token::Bang => true,
+            Token::Minus => true,
             _ => false,
         }
     }
@@ -427,6 +428,7 @@ impl Token {
             Token::Star => 7,
             Token::Tilde => 7,
             Token::Bang => 7,
+            Token::Minus => 7,
             _ => unreachable!("Invalid operator."),
         }
     }

@@ -178,6 +178,9 @@ pub enum GenericValue {
 
     /// Performs a logical OR operation on two booleans.
     LogOr(Box<GenericValue>, Box<GenericValue>),
+
+    /// Negates an integer.
+    IntNeg(Box<GenericValue>),
 }
 
 impl GenericValue {
@@ -397,6 +400,7 @@ impl GenericValue {
             Self::LogNot(_) => Type::Bool,
             Self::LogAnd(_, _) => Type::Bool,
             Self::LogOr(_, _) => Type::Bool,
+            Self::IntNeg(value) => value.default_type(checker, vars),
         }.resolve_aliases(checker)
     }
 
@@ -456,6 +460,18 @@ impl GenericValue {
                     }
 
                     Ok(GenericValue::BitNot(Box::new(value)))
+                }
+                ast::UnaryOp::Neg => {
+                    let value = Self::check(checker, scope, vars, &unary.expr, false)?;
+
+                    let ty = value.default_type(checker, vars);
+
+                    match ty {
+                        Type::I8 | Type::I16 | Type::I32 | Type::I64 | Type::Int => {}
+                        _ => return Err(Error::InvalidNeg(expr.span())),
+                    }
+
+                    Ok(GenericValue::IntNeg(Box::new(value)))
                 }
             },
             ast::Expr::Constructor(constructor) => {
@@ -950,6 +966,9 @@ impl GenericValue {
                 Box::new(left.coerce_default(checker, vars)),
                 Box::new(right.coerce_default(checker, vars)),
             ),
+            GenericValue::IntNeg(value) => {
+                Value::IntNeg(Box::new(value.coerce_default(checker, vars)))
+            }
         }
     }
 
@@ -1200,6 +1219,9 @@ impl GenericValue {
                 Box::new(left.coerce_default(checker, vars)),
                 Box::new(right.coerce_default(checker, vars)),
             )),
+            (GenericValue::LogNot(value), Type::Bool) => {
+                Some(Value::LogNot(Box::new(value.coerce_default(checker, vars))))
+            }
             _ => None,
         }
     }
@@ -1336,6 +1358,9 @@ pub enum Value {
 
     /// Performs a logical OR on two booleans.
     LogOr(Box<Value>, Box<Value>),
+
+    /// Negates an integer.
+    IntNeg(Box<Value>),
 }
 
 impl Value {
@@ -1410,6 +1435,7 @@ impl Value {
             Value::LogNot(value) => value.ty(checker, vars),
             Value::LogAnd(..) => Type::Bool,
             Value::LogOr(..) => Type::Bool,
+            Value::IntNeg(value) => value.ty(checker, vars),
         }.resolve_aliases(checker)
     }
 }
