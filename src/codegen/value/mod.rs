@@ -460,6 +460,12 @@ pub fn compile_value(
 
             return create_wide_pointer(codegen, builder, new_ptr, new_len, to);
         }
+        Value::BitNot(value) => {
+            let value = compile_value(checker, codegen, builder, value, vars, data, None)
+                .expect("No `to` provided");
+
+            builder.ins().bnot(value)
+        }
     };
 
     if let Some(to) = to {

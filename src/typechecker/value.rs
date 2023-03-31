@@ -166,6 +166,9 @@ pub enum GenericValue {
 
     /// Outputs a wide pointer to the address of an unsized field on an unsized struct.
     AddrOfUnsizedField(Mutability, Box<GenericValue>, StructId, usize),
+
+    /// Performs a bitwise NOT operation on an integer.
+    BitNot(Box<GenericValue>),
 }
 
 impl GenericValue {
@@ -381,6 +384,7 @@ impl GenericValue {
 
                 Type::Ptr(Ptr::new(*mut_, ty.clone()))
             }
+            Self::BitNot(item) => item.default_type(checker, vars),
         }.resolve_aliases(checker)
     }
 
@@ -423,7 +427,15 @@ impl GenericValue {
                 ast::UnaryOp::MutRef => {
                     Self::check_ref(checker, scope, vars, Mutability::Mut, &unary.expr)
                 }
-                _ => todo!("implement bitwise not operator"),
+                ast::UnaryOp::Tilde => {
+                    let value = Self::check(checker, scope, vars, &unary.expr, false)?;
+
+                    if !value.is_int(checker, vars) {
+                        return Err(Error::InvalidBitNot(expr.span()));
+                    }
+
+                    Ok(GenericValue::BitNot(Box::new(value)))
+                }
             },
             ast::Expr::Constructor(constructor) => {
                 let ty = types::check_type_decl_path(scope, &*constructor.ty)?;
@@ -865,6 +877,9 @@ impl GenericValue {
                     field,
                 )
             }
+            GenericValue::BitNot(value) => {
+                Value::BitNot(Box::new(value.coerce_default(checker, vars)))
+            }
         }
     }
 
@@ -1100,6 +1115,13 @@ impl GenericValue {
                     None
                 }
             }
+            (GenericValue::BitNot(value), ty) if ty.is_int(checker) => {
+                if let Some(value) = value.coerce(checker, vars, ty) {
+                    Some(Value::BitNot(Box::new(value)))
+                } else {
+                    None
+                }
+            }
             _ => None,
         }
     }
@@ -1221,6 +1243,9 @@ pub enum Value {
 
     /// Outputs the address of an unsized field in an unsized struct.
     AddrOfUnsizedField(Mutability, Box<Value>, StructId, usize),
+
+    /// Performs a bitwise NOT on an integer.
+    BitNot(Box<Value>),
 }
 
 impl Value {
@@ -1291,6 +1316,7 @@ impl Value {
                     checker.structs[id.0].fields[*field].ty.value.clone(),
                 ))
             }
+            Value::BitNot(value) => value.ty(checker, vars),
         }.resolve_aliases(checker)
     }
 }

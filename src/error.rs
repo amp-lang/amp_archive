@@ -458,6 +458,9 @@ pub enum Error {
 
     /// An attempt was made to access a private field of a struct.
     CannotAccessPrivateField(Span) = 90,
+
+    /// An invalid bit was found in a bitfield.
+    InvalidBitNot(Span) = 91,
 }
 
 impl Error {
@@ -1078,6 +1081,10 @@ impl Error {
             }
             Self::CannotAccessPrivateField(span) => {
                 diagnostic.message = "Cannot access a private field".to_owned();
+                diagnostic.labels.push(span.primary());
+            }
+            Self::InvalidBitNot(span) => {
+                diagnostic.message = "Can only perform bitwise NOT on integers".to_owned();
                 diagnostic.labels.push(span.primary());
             }
         }

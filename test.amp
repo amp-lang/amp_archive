@@ -2,9 +2,7 @@ import "C";
 import "C/Stdio";
 
 export func Main() {
-    var my_num1 = 0b1 << 2; // 4
-    var my_num2 = 0b1000_0000 >> 4; // 8
+    var my_var = ~0b1111_1110 as i8; // 1
 
-    C.Printf("%d\n\0" as ~const C.Char, my_num1); // => 4
-    C.Printf("%d\n\0" as ~const C.Char, my_num2); // => 8
+    C.Printf("%hhd\0" as ~const C.Char, my_var); // 1
 }
