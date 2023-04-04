@@ -238,7 +238,10 @@ impl Type {
             Type::Slice(_) => return None,
             Type::Struct(struct_id) => {
                 let struct_ = &checker.structs[struct_id.0];
-                if check_struct_size(checker, struct_).expect("TODO: don't expect this") {
+
+                if check_struct_size(checker, struct_, &mut Vec::new())
+                    .expect("TODO: don't expect this")
+                {
                     checker.structs[struct_id.0].size(checker, ptr_size)
                 } else {
                     return None;

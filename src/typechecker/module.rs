@@ -372,7 +372,7 @@ impl Module {
     pub fn check_type_sizes(&self, checker: &mut Typechecker) -> Result<(), Error> {
         for struct_id in &self.structs {
             let mut struct_ = checker.structs[struct_id.0].clone();
-            let sized = check_struct_size(checker, &struct_)?;
+            let sized = check_struct_size(checker, &struct_, &mut Vec::new())?;
             struct_.sized = sized;
             checker.structs[struct_id.0] = struct_;
         }

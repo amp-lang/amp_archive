@@ -197,7 +197,11 @@ pub fn check_struct_def(
 }
 
 /// Checks the size of a struct.  Returns `true` if the struct is sized.
-pub fn check_struct_size(checker: &Typechecker, struct_: &Struct) -> Result<bool, Error> {
+pub fn check_struct_size(
+    checker: &Typechecker,
+    struct_: &Struct,
+    checked: &mut Vec<StructId>,
+) -> Result<bool, Error> {
     if !struct_.sized {
         // the struct for sure already checked
         return Ok(false);
@@ -209,11 +213,21 @@ pub fn check_struct_size(checker: &Typechecker, struct_: &Struct) -> Result<bool
     while let Some(field) = fields.next() {
         match field.ty.value.clone().resolve_aliases(checker) {
             Type::Struct(struct_ty) => {
+                if checked.contains(&struct_ty) {
+                    // infinite sized struct
+                    return Err(Error::InfinitelySizedStruct {
+                        span: struct_.name.span,
+                        offending_field: field.span,
+                    });
+                }
+
+                checked.push(struct_ty);
+
                 // check if type is sized
                 let ty = &checker.structs[struct_ty.0];
 
                 // TODO: check if struct is infinite sized
-                if !check_struct_size(checker, ty)? {
+                if !check_struct_size(checker, ty, checked)? {
                     sized = false;
 
                     if fields.peek().is_some() {

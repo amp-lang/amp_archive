@@ -1,19 +1,7 @@
-import "Std/Io";
-
-func GetStringFrom(callback: func() -> ~const [u8]) -> ~const [u8] {
-    return callback();
+struct MyOtherStruct {
+    member: MyStruct,
 }
 
-func HelloWorld() -> ~const [u8] {
-    return "Hello, World!";
-}
-
-func GetGetString() -> func() -> ~const [u8] {
-    return HelloWorld;
-}
-
-export func Main() {
-    var callback = GetGetString();
-    var str = GetStringFrom(callback);
-    Std.Println(str);
+struct MyStruct {
+    member: MyOtherStruct,
 }

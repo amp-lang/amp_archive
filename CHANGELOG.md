@@ -2,6 +2,9 @@
 
 ## v0.4.1-alpha
 
+### Compiler
+- [Ensure structs are not infinitely sized](https://github.com/amp-lang/amp/issues/53)
+
 ## v0.4.0-alpha
 
 ### Language

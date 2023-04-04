@@ -488,6 +488,15 @@ pub enum Error {
 
     /// Attempted to call a non-function type
     CannotCallNonFunction(Span) = 100,
+
+    /// Attempt to make a struct with infinite size.
+    InfinitelySizedStruct {
+        /// The span of the struct declaration.
+        span: Span,
+
+        /// The span of the field which makes the struct infinitely sized.
+        offending_field: Span,
+    } = 101,
 }
 
 impl Error {
@@ -1149,6 +1158,18 @@ impl Error {
             Self::CannotCallNonFunction(span) => {
                 diagnostic.message = "Cannot call a non-function type".to_owned();
                 diagnostic.labels.push(span.primary());
+            }
+            Self::InfinitelySizedStruct {
+                span,
+                offending_field,
+            } => {
+                diagnostic.message = "Struct is infinitely sized".to_owned();
+                diagnostic.labels.push(span.primary());
+                diagnostic.labels.push(
+                    offending_field
+                        .secondary()
+                        .with_message("This field makes the struct infinitely sized"),
+                );
             }
         }
 
