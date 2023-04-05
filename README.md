@@ -1,5 +1,6 @@
 <p align="center"><img src="assets/logo.svg" width="60%"></p>
 <p align="center">A language designed for building high performance systems.</p>
+<p align="center"><b>Pausing development for another project!</b></p>
 
 | Platform                | Support                |
 | ----------------------- | ---------------------- |
